@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "6332861b-91de-4b76-a30d-f67b696b26d8",
+    "imageKey": "f90d601a03324a3a8fbccbda0e70e987_3b1022a9.png",
+    "prompt": "增加照片书营销文案",
+    "width": 1024,
+    "height": 1792,
+    "views": 0,
+    "downloads": 0,
+    "type": "generated",
+    "taskId": "1-d890b5b7-cadb-4b43-a395-b4f8de11033d",
+    "createdAt": "2026-05-01T16:10:51.397Z"
+  },
+  {
+    "id": "0c4aae1c-a1d9-49f5-a607-dd724ab1dc17",
+    "imageKey": "35fd7138eaa14051a3be9e84f530567c_355c938a.png",
+    "prompt": "办公室久坐放松指南",
+    "width": 1024,
+    "height": 1792,
+    "views": 0,
+    "downloads": 0,
+    "type": "generated",
+    "taskId": "9-cfaae800-5295-420f-b225-8abd253eacc3",
+    "createdAt": "2026-05-01T16:07:27.907Z"
+  }
+]
