@@ -1,184 +1,374 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ImageGenerationClient, Config, HeaderUtils } from "coze-coding-dev-sdk";
-import { S3Storage } from "coze-coding-dev-sdk";
-import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { storage } from "@/utils/storage";
+import fs from "fs/promises";
+import path from "path";
 
-// Size mapping from ratio to pixel dimensions
-function ratioToSize(ratio: string): string {
-  const base = 2048;
-  const ratioMap: Record<string, [number, number]> = {
-    "1:1": [base, base],
-    "3:4": [Math.round(base * 0.75), base],
-    "4:3": [base, Math.round(base * 0.75)],
-    "9:16": [Math.round(base * 9 / 16), base],
-    "16:9": [base, Math.round(base * 9 / 16)],
-    "2:3": [Math.round(base * 2 / 3), base],
-    "21:9": [base, Math.round(base * 9 / 21)],
-    "A4": [Math.round(base * 210 / 297), base],
+const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
+const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
+
+interface GalleryImage {
+  id: string;
+  imageKey: string;
+  prompt: string;
+  width: number;
+  height: number;
+  views: number;
+  downloads: number;
+  type: string;
+  taskId: string;
+  createdAt: string;
+}
+
+// Generate UUID
+function generateId(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// Load gallery data
+async function loadGallery(): Promise<GalleryImage[]> {
+  try {
+    const content = await fs.readFile(DATA_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return [];
+  }
+}
+
+// Save gallery data
+async function saveGallery(images: GalleryImage[]): Promise<void> {
+  const dir = path.dirname(DATA_FILE);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(DATA_FILE, JSON.stringify(images, null, 2), "utf-8");
+}
+
+// Upload base64 image to storage and return URL
+async function uploadBase64ToStorage(base64Data: string): Promise<string> {
+  try {
+    // Parse base64
+    const base64Parts = base64Data.split(",");
+    const mimeMatch = base64Data.match(/data:([^;]+);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
+    const base64Content = base64Parts[base64Parts.length - 1];
+    const buffer = Buffer.from(base64Content, "base64");
+
+    // Upload to S3
+    const fileName = `image.${mimeType.split("/")[1]}`;
+
+    const result = await storage.uploadFile({
+      fileContent: buffer,
+      fileName: fileName,
+      contentType: mimeType,
+    });
+
+    console.log("Uploaded to storage, key:", result);
+
+    return result;
+  } catch (error) {
+    console.error("Failed to upload base64 to storage:", error);
+    throw error;
+  }
+}
+
+// Read file from S3 and generate permanent signed URL
+async function readS3FileAndGetUrl(key: string, contentType: string): Promise<string> {
+  try {
+    // First ensure file exists by reading it
+    await storage.readFile({ fileKey: key });
+
+    // Generate permanent signed URL (expire_time: 0)
+    const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+    const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+    const bucketName = process.env.COZE_BUCKET_NAME || "";
+
+    const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
+
+    const response = await fetch(signUrlEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-storage-token": token,
+      },
+      body: JSON.stringify({
+        bucket_name: bucketName,
+        path: key,
+        expire_time: 0, // Permanent URL
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate signed URL: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.code !== 0 || !result.data?.url) {
+      throw new Error(`Sign URL error: ${result.msg || "unknown error"}`);
+    }
+
+    return result.data.url;
+  } catch (error) {
+    console.error("Failed to get signed URL:", error);
+    throw error;
+  }
+}
+
+// Model config
+const MODEL_CONFIG: Record<string, { apiModel: string }> = {
+  "image2-vip": { apiModel: "gpt-image-2-vip" },
+  "image2": { apiModel: "gpt-image-2" },
+  "nano-banana-fast": { apiModel: "nano-banana-fast" },
+};
+
+// Estimate pixel dimensions from ratio
+function estimateDimensions(ratio: string): { width: number; height: number } {
+  const dimMap: Record<string, { width: number; height: number }> = {
+    "9:16": { width: 1024, height: 1792 },
+    "3:4": { width: 1024, height: 1365 },
+    "1:1": { width: 1024, height: 1024 },
+    "16:9": { width: 1792, height: 1024 },
+    "4:3": { width: 1365, height: 1024 },
+    "2:3": { width: 1024, height: 1536 },
+    "3:2": { width: 1536, height: 1024 },
   };
-
-  const [w, h] = ratioMap[ratio] || ratioMap["9:16"];
-  return `${w}x${h}`;
+  return dimMap[ratio] || { width: 1024, height: 1365 };
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { prompt, ratio = "9:16", model: selectedModel, refImageUrl, refImageKey, refImageContentType } = body;
+  try {
+    const body = await request.json();
+    const { prompt, ratio = "9:16", model = "image2", refImgs, refImageUrl, refImageKey, refImageContentType } = body;
 
-  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
-    return NextResponse.json({ error: "请输入海报描述" }, { status: 400 });
-  }
+    console.log("Generate API received:", {
+      hasPrompt: !!prompt,
+      ratio,
+      model,
+      hasRefImgs: !!(refImgs && Array.isArray(refImgs) && refImgs.length > 0),
+      hasRefImageUrl: !!refImageUrl,
+      hasRefImageKey: !!refImageKey,
+      hasRefImageContentType: !!refImageContentType,
+    });
 
-  const encoder = new TextEncoder();
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "Prompt is required" }), { status: 400 });
+    }
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const sendEvent = (data: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-      };
+    const modelConfig = MODEL_CONFIG[model];
+    if (!modelConfig) {
+      return new Response(JSON.stringify({ error: `Unknown model: ${model}` }), { status: 400 });
+    }
 
+    // Build request body according to GrsAI API docs
+    const requestBody: Record<string, unknown> = {
+      model: modelConfig.apiModel,
+      prompt: prompt,
+      aspectRatio: ratio,
+      shutProgress: false,
+    };
+
+    // Handle reference images (urls)
+    let urls: string[] | undefined;
+
+    if (refImgs && Array.isArray(refImgs) && refImgs.length > 0) {
+      urls = refImgs.filter((url: string) => url && url.length > 0);
+    } else if (refImageKey) {
+      // S3 key - get permanent signed URL
+      console.log("Getting public URL for refImageKey:", refImageKey);
       try {
-        // Step 1: Submit generation task
-        sendEvent({ type: "progress", progress: 10, status: "submitted" });
+        const publicUrl = await readS3FileAndGetUrl(refImageKey, refImageContentType);
+        urls = [publicUrl];
+        console.log("Got public URL:", publicUrl.substring(0, 100) + "...");
+      } catch (err) {
+        console.error("Failed to get public URL:", err);
+        throw err;
+      }
+    } else if (refImageUrl) {
+      // Single reference image - check if it's base64 or URL
+      if (refImageUrl.startsWith("data:")) {
+        // Base64 - need to upload first
+        const uploadedKey = await uploadBase64ToStorage(refImageUrl);
+        const publicUrl = await readS3FileAndGetUrl(uploadedKey, "image/jpeg");
+        urls = [publicUrl];
+      } else {
+        // HTTP URL - use directly
+        urls = [refImageUrl];
+      }
+    }
 
-        const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-        const config = new Config();
-        const client = new ImageGenerationClient(config, customHeaders);
+    if (urls && urls.length > 0) {
+      requestBody.urls = urls;
+    }
 
-        // Build generation request
-        const generateRequest: Record<string, unknown> = {
-          prompt: prompt.trim(),
-          size: ratioToSize(ratio),
-          watermark: false,
-          responseFormat: "url",
-        };
+    console.log(
+      "GrsAI request:",
+      JSON.stringify(
+        {
+          ...requestBody,
+          urls: urls?.map((u) => u.substring(0, 100) + "..."),
+        },
+        null,
+        2
+      )
+    );
 
-        // Set model
-        if (selectedModel === "image2-vip") {
-          generateRequest.model = "doubao-seedream-5-0-260128";
-        } else if (selectedModel === "nano-banana-fast") {
-          generateRequest.model = "doubao-seedream-4-5-251128";
+    const url = `${GRSAI_BASE_URL}/v1/draw/completions`;
+
+    // Use SSE streaming
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        function sendSSE(data: Record<string, unknown>) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         }
 
-        // Handle reference image for img2img
-        if (refImageKey) {
-          // It's an S3 key, need to generate a presigned URL first
-          const storage = new S3Storage({
-            endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-            accessKey: "",
-            secretKey: "",
-            bucketName: process.env.COZE_BUCKET_NAME,
-            region: "cn-beijing",
+        try {
+          sendSSE({ type: "progress", progress: 0, status: "submitted" });
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${GRSAI_API_KEY}`,
+            },
+            body: JSON.stringify(requestBody),
           });
-          const presignedUrl = await storage.generatePresignedUrl({
-            key: refImageKey,
-            expireTime: 3600,
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `GrsAI API error: ${response.status}`;
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+            } catch {
+              // ignore parse error
+            }
+            console.error("GrsAI error:", errorText);
+            sendSSE({ type: "error", error: errorMessage });
+            controller.close();
+            return;
+          }
+
+          // Parse SSE stream
+          const reader = response.body?.getReader();
+          if (!reader) {
+            sendSSE({ type: "error", error: "No response body" });
+            controller.close();
+            return;
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let imageUrl = "";
+          let taskId = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+              const jsonStr = trimmed.slice(6);
+              if (jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr);
+                console.log("GrsAI SSE data:", JSON.stringify(data).substring(0, 200));
+
+                // Capture task ID
+                if (data.id && !taskId) {
+                  taskId = data.id;
+                }
+
+                // Forward progress
+                if (data.progress !== undefined) {
+                  sendSSE({ type: "progress", progress: data.progress, status: data.status || "running" });
+                }
+
+                // Capture final result
+                if (data.status === "succeeded" && data.results) {
+                  imageUrl = data.results[0]?.url || data.url || "";
+                }
+
+                if (data.status === "failed") {
+                  const reason = data.failure_reason || data.error || "Generation failed";
+                  sendSSE({ type: "error", error: reason });
+                  controller.close();
+                  return;
+                }
+              } catch {
+                // Skip malformed JSON lines
+              }
+            }
+          }
+
+          if (!imageUrl) {
+            sendSSE({ type: "error", error: "No image URL in response" });
+            controller.close();
+            return;
+          }
+
+          sendSSE({ type: "progress", progress: 95, status: "uploading" });
+
+          // Upload to S3
+          const key = await storage.uploadFromUrl({
+            url: imageUrl,
+            timeout: 120000,
           });
-          generateRequest.image = presignedUrl;
-        } else if (refImageUrl) {
-          generateRequest.image = refImageUrl;
-        }
 
-        sendEvent({ type: "progress", progress: 30, status: "running" });
+          const { width, height } = estimateDimensions(ratio);
 
-        // Generate image
-        const response = await client.generate(generateRequest as unknown as Parameters<typeof client.generate>[0]);
-        const helper = client.getResponseHelper(response);
-
-        if (!helper.success) {
-          throw new Error(helper.errorMessages.join(", ") || "Image generation failed");
-        }
-
-        const imageUrl = helper.imageUrls[0];
-        if (!imageUrl) {
-          throw new Error("No image URL returned");
-        }
-
-        sendEvent({ type: "progress", progress: 70, status: "uploading" });
-
-        // Upload to S3 for persistent storage
-        const storage = new S3Storage({
-          endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-          accessKey: "",
-          secretKey: "",
-          bucketName: process.env.COZE_BUCKET_NAME,
-          region: "cn-beijing",
-        });
-
-        const imageKey = await storage.uploadFromUrl({
-          url: imageUrl,
-          timeout: 60000,
-        });
-
-        // Generate presigned URL for access
-        const presignedUrl = await storage.generatePresignedUrl({
-          key: imageKey,
-          expireTime: 86400 * 30, // 30 days
-        });
-
-        sendEvent({ type: "progress", progress: 85, status: "saving" });
-
-        // Parse ratio for width/height
-        let width = 9;
-        let height = 16;
-        if (ratio === "1:1") { width = 1; height = 1; }
-        else if (ratio === "3:4") { width = 3; height = 4; }
-        else if (ratio === "4:3") { width = 4; height = 3; }
-        else if (ratio === "9:16") { width = 9; height = 16; }
-        else if (ratio === "16:9") { width = 16; height = 9; }
-        else if (ratio === "2:3") { width = 2; height = 3; }
-        else if (ratio === "21:9") { width = 21; height = 9; }
-        else if (ratio === "A4") { width = 210; height = 297; }
-
-        // Save to database
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase
-          .from("gallery_images")
-          .insert({
-            prompt: prompt.trim(),
-            url: presignedUrl,
-            image_key: imageKey,
-            width,
-            height,
+          // Create new image entry
+          const newImage: GalleryImage = {
+            id: generateId(),
+            imageKey: key,
+            prompt: prompt,
+            width: width,
+            height: height,
             views: 0,
             downloads: 0,
-            model: selectedModel || "image2",
-            ratio,
-          })
-          .select()
-          .single();
+            type: "generated",
+            taskId: taskId,
+            createdAt: new Date().toISOString(),
+          };
 
-        if (error) {
-          console.error("Database insert error:", error);
+          // Save to gallery JSON
+          const gallery = await loadGallery();
+          gallery.unshift(newImage);
+          await saveGallery(gallery);
+
+          const signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+
+          // Return complete with URL for preview
+          sendSSE({ type: "complete", data: { ...newImage, url: signedUrl, taskId } });
+          controller.close();
+        } catch (error: unknown) {
+          console.error("Generate error:", error);
+          const message = error instanceof Error ? error.message : "Internal Server Error";
+          sendSSE({ type: "error", error: message });
+          controller.close();
         }
+      },
+    });
 
-        sendEvent({
-          type: "complete",
-          data: {
-            id: data?.id || "unknown",
-            url: presignedUrl,
-            imageKey,
-            prompt: prompt.trim(),
-            width,
-            height,
-          },
-        });
-      } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : "Generation failed";
-        console.error("Generate error:", msg);
-        sendEvent({ type: "error", error: msg });
-      } finally {
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (error: unknown) {
+    console.error(error);
+    const message = error instanceof Error ? error.message : "Internal Server Error";
+    return new Response(JSON.stringify({ error: message }), { status: 500 });
+  }
 }

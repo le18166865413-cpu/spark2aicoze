@@ -1,83 +1,111 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient } from "@/storage/database/supabase-client";
-import { S3Storage } from "coze-coding-dev-sdk";
+import fs from "fs/promises";
+import path from "path";
+
+const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
+
+interface GalleryImage {
+  id: string;
+  imageKey: string;
+  prompt: string;
+  width: number;
+  height: number;
+  views: number;
+  downloads: number;
+  type: string;
+  taskId: string;
+  createdAt: string;
+}
+
+// Load gallery data from JSON file
+async function loadGallery(): Promise<GalleryImage[]> {
+  try {
+    const content = await fs.readFile(DATA_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch {
+    return [];
+  }
+}
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const sortBy = searchParams.get("sortBy") || "created_at";
-    const sortOrder = searchParams.get("sortOrder") || "desc";
-    const period = searchParams.get("period") || "all";
-    const search = searchParams.get("search") || "";
+  const searchParams = request.nextUrl.searchParams;
+  const sortBy = searchParams.get("sortBy") as "views" | "downloads" | "created_at" | null;
+  const sortOrder = searchParams.get("sortOrder") as "asc" | "desc" | null;
+  const period = searchParams.get("period") as string | null;
+  const search = searchParams.get("search") || undefined;
 
-    const client = getSupabaseClient();
+  // Load images from JSON file
+  let images = await loadGallery();
 
-    let query = client
-      .from("gallery_images")
-      .select("id, prompt, url, image_key, width, height, views, downloads, model, ratio, task_id, created_at")
-      .order(sortBy, { ascending: sortOrder === "asc" });
-
-    // Time period filter
-    if (period && period !== "all") {
-      const now = new Date();
-      let since: Date;
-      switch (period) {
-        case "day":
-          since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "week":
-          since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "month":
-          since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        default:
-          since = new Date(0);
-      }
-      query = query.gte("created_at", since.toISOString());
-    }
-
-    // Search filter
-    if (search) {
-      query = query.ilike("prompt", `%${search}%`);
-    }
-
-    const { data, error } = await query.limit(500);
-
-    if (error) {
-      throw new Error(`Query failed: ${error.message}`);
-    }
-
-    // For images with S3 keys, generate presigned URLs
-    const storage = new S3Storage({
-      endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-      accessKey: "",
-      secretKey: "",
-      bucketName: process.env.COZE_BUCKET_NAME,
-      region: "cn-beijing",
-    });
-
-    const imagesWithUrls = await Promise.all(
-      (data || []).map(async (img: Record<string, unknown>) => {
-        let url = img.url as string;
-        if (img.image_key && !img.url?.toString().includes("x-oss-process")) {
-          try {
-            url = await storage.generatePresignedUrl({
-              key: img.image_key as string,
-              expireTime: 86400,
-            });
-          } catch {
-            // Keep original URL if presign fails
-          }
-        }
-        return { ...img, url };
-      })
-    );
-
-    return NextResponse.json(imagesWithUrls);
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Failed to fetch images";
-    console.error("GET /api/images error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+  // Filter by search
+  if (search) {
+    images = images.filter((img) => img.prompt.toLowerCase().includes(search.toLowerCase()));
   }
+
+  // Filter by period
+  if (period && period !== "all" && ["day", "week", "month"].includes(period)) {
+    const now = new Date();
+    let cutoff: Date;
+    if (period === "day") {
+      cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (period === "week") {
+      cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else {
+      cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+    images = images.filter((img) => new Date(img.createdAt) >= cutoff);
+  }
+
+  // Sort
+  if (sortBy === "views") {
+    images.sort((a, b) => (sortOrder === "asc" ? a.views - b.views : b.views - a.views));
+  } else if (sortBy === "downloads") {
+    images.sort((a, b) => (sortOrder === "asc" ? a.downloads - b.downloads : b.downloads - a.downloads));
+  } else {
+    images.sort((a, b) =>
+      sortOrder === "asc"
+        ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  // Limit
+  images = images.slice(0, 50);
+
+  // Generate permanent public URLs
+  const imagesWithUrls = await Promise.all(
+    images.map(async (img) => {
+      try {
+        const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+        const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+        const bucketName = process.env.COZE_BUCKET_NAME || "";
+
+        const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
+
+        const response = await fetch(signUrlEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-storage-token": token,
+          },
+          body: JSON.stringify({
+            bucket_name: bucketName,
+            path: img.imageKey,
+            expire_time: 0, // Permanent URL
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to generate URL");
+        }
+
+        const data = await response.json();
+        return { ...img, url: data.data?.url || img.imageKey };
+      } catch {
+        return { ...img, url: img.imageKey };
+      }
+    })
+  );
+
+  return NextResponse.json(imagesWithUrls);
 }
