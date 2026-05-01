@@ -1,0 +1,20 @@
+{
+  "elements": [
+    {
+      "type": "html",
+      "options": {
+        "path": ".cozeproj/prototype/web/home.html"
+      },
+      "title": "海报广场",
+      "size": "web"
+    },
+    {
+      "type": "html",
+      "options": {
+        "path": ".cozeproj/prototype/web/create.html"
+      },
+      "title": "创作中心",
+      "size": "web"
+    }
+  ]
+}

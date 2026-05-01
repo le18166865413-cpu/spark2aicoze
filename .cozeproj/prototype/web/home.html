@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #22C55E;
+      --color-primary-container:    #22C55E;
+      --color-on-primary:           #050f09;
+      /* === 背景 / 表面 === */
+      --color-background:                 #09090b;
+      --color-surface-container-lowest:   #111113;
+      --color-surface:                    #09090b;
+      --color-surface-container:          #1c1c1f;
+      --color-surface-container-high:     #27272a;
+      --color-surface-container-highest:  #303033;
+      /* === 文字 === */
+      --color-on-surface:           #fafafa;
+      --color-on-surface-variant:   #a1a1aa;
+      /* === 功能色 === */
+      --color-success:  #22c55e;
+      --color-error:    #ef4444;
+      --color-warning:  #f59e0b;
+      /* === 边框 === */
+      --color-outline:          #27272a;
+      --color-outline-variant:  #3f3f46;
+      /* === 圆角 === */
+      --radius-sm:   0.375rem;
+      --radius-md:   0.5rem;
+      --radius-lg:   0.75rem;
+      --radius-xl:   1rem;
+      --radius-2xl:  1.5rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 2px 8px rgba(0,0,0,0.12);
+      --shadow-float:  0 10px 25px rgba(0,0,0,0.25);
+      --shadow-dialog: 0 25px 50px rgba(0,0,0,0.4);
+      /* === 字体 === */
+      --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    }
+  </style>
+
+  <!-- 图片兜底 -->
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+
+  <style>
+    /* 瀑布流布局 */
+    .masonry-grid {
+      columns: 2;
+      column-gap: 16px;
+    }
+    @media (min-width: 640px) {
+      .masonry-grid { columns: 3; }
+    }
+    @media (min-width: 1024px) {
+      .masonry-grid { columns: 4; }
+    }
+    @media (min-width: 1280px) {
+      .masonry-grid { columns: 5; }
+    }
+    @media (min-width: 1536px) {
+      .masonry-grid { columns: 6; }
+    }
+    .masonry-item {
+      break-inside: avoid;
+      margin-bottom: 16px;
+    }
+    /* 加载旋转动画 */
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-slow {
+      animation: spin-slow 1.5s linear infinite;
+    }
+  </style>
+</head>
+
+<body class="bg-background text-on-surface font-sans">
+
+  <!-- @nav:start 导航组件 -->
+  <header class="bg-background/80 backdrop-blur-md sticky top-0 z-50 w-full border-b border-outline-variant/30">
+    <div class="max-w-[1800px] mx-auto flex h-16 items-center px-4 md:px-6">
+      <a href="home.html" class="mr-8 flex items-center space-x-2">
+        <div class="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
+          <i data-lucide="sparkles" class="h-4 w-4 text-primary"></i>
+        </div>
+        <span class="hidden font-bold sm:inline-block text-lg">SparkAI</span>
+      </a>
+      <nav class="flex items-center space-x-2 text-sm font-medium flex-1">
+        <a href="home.html" class="flex items-center gap-2 px-4 py-2 rounded-full transition-all bg-primary/15 text-primary font-semibold ring-1 ring-primary/30" aria-current="page">
+          <i data-lucide="home" class="h-4 w-4"></i>
+          海报广场
+        </a>
+        <a href="create.html" class="flex items-center gap-2 px-4 py-2 rounded-full transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60">
+          <i data-lucide="plus" class="h-4 w-4"></i>
+          创作中心
+        </a>
+      </nav>
+      <div class="ml-auto flex items-center space-x-4">
+        <button class="hover:text-primary p-2 rounded-full transition-colors text-on-surface-variant">
+          <i data-lucide="compass" class="h-5 w-5"></i>
+        </button>
+        <a href="create.html" class="bg-primary text-on-primary hover:bg-primary/90 font-bold rounded-full px-6 py-2 text-sm shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all">
+          开始创作
+        </a>
+      </div>
+    </div>
+  </header>
+  <!-- @nav:end 导航组件 -->
+
+  <main class="max-w-[1800px] mx-auto px-4 md:px-6 py-8">
+
+    <!-- @main-content:start -->
+
+    <!-- 页面标题区 -->
+    <div class="text-center mb-8">
+      <h1 class="text-2xl font-bold text-on-surface">海报生成记录</h1>
+      <p class="text-sm text-on-surface-variant mt-1">查看通过 SparkAI 生成的所有海报作品</p>
+    </div>
+
+    <!-- 搜索与筛选栏 -->
+    <div class="flex flex-wrap items-center gap-3 mb-8">
+      <!-- 搜索框 -->
+      <div class="relative flex-1 min-w-[200px] max-w-md">
+        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/50 pointer-events-none"></i>
+        <input id="search-input" type="text" placeholder="搜索海报关键词..." class="w-full bg-surface-container border-none rounded-lg pl-10 pr-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"/>
+      </div>
+
+      <!-- 排序方式 -->
+      <div class="relative">
+        <select id="sort-select" class="bg-surface-container border-none rounded-lg pl-3 pr-8 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors cursor-pointer appearance-none min-w-[120px]">
+          <option value="time">生成时间</option>
+          <option value="views">浏览热度</option>
+          <option value="downloads">下载数量</option>
+        </select>
+        <i data-lucide="chevron-down" class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant/50 pointer-events-none"></i>
+      </div>
+
+      <!-- 升序/降序切换 -->
+      <button id="sort-order-btn" class="bg-surface-container border-none rounded-lg px-3 py-2.5 text-sm text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5" title="切换排序方向">
+        <i data-lucide="arrow-down-wide-narrow" class="w-4 h-4"></i>
+        <span id="sort-order-label" class="hidden sm:inline">降序</span>
+      </button>
+
+      <!-- 时间范围 -->
+      <div class="relative">
+        <select id="time-range-select" class="bg-surface-container border-none rounded-lg pl-3 pr-8 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors cursor-pointer appearance-none min-w-[120px]">
+          <option value="all">全部时间</option>
+          <option value="24h">24小时内</option>
+          <option value="week">一周内</option>
+          <option value="month">一个月内</option>
+        </select>
+        <i data-lucide="chevron-down" class="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant/50 pointer-events-none"></i>
+      </div>
+    </div>
+
+    <!-- 海报瀑布流内容区 -->
+    <div id="poster-grid" class="masonry-grid">
+
+      <!-- 列表-海报1：科技主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="1" data-category="科技">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=533&fit=crop" alt="科技芯片电路板海报" data-category="商业科技" class="w-full block object-cover" style="aspect-ratio: 3/4;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-1" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-1" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">未来科技感芯片电路板设计，深蓝色调搭配荧光绿光效</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-1" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-1" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-1" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报2：美食主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="2" data-category="美食">
+        <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=711&fit=crop" alt="精致美食摆盘海报" data-category="食物" class="w-full block object-cover" style="aspect-ratio: 9/16;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-2" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-2" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">高级餐厅精致美食摆盘，暖色调光影营造氛围感</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-2" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-2" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-2" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报3：音乐主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="3" data-category="音乐">
+        <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=500&fit=crop" alt="音乐节舞台灯光海报" data-category="游戏娱乐" class="w-full block object-cover" style="aspect-ratio: 4/5;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-3" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-3" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">音乐节霓虹灯光效果，动感节奏视觉呈现</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-3" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-3" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-3" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报4：时尚主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="4" data-category="时尚">
+        <img src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&h=533&fit=crop" alt="时尚服装穿搭海报" data-category="服饰时尚" class="w-full block object-cover" style="aspect-ratio: 3/4;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-4" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-4" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">春夏时尚穿搭指南，简约风格搭配柔和色调</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-4" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-4" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-4" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报5：电商主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="5" data-category="电商">
+        <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=711&fit=crop" alt="电商促销购物海报" data-category="商业科技" class="w-full block object-cover" style="aspect-ratio: 9/16;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-5" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-5" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">电商年终大促活动海报，红色喜庆主题设计</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-5" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-5" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-5" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报6：建筑主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="6" data-category="建筑">
+        <img src="https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=500&fit=crop" alt="现代建筑城市天际线海报" data-category="建筑城市" class="w-full block object-cover" style="aspect-ratio: 4/5;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-6" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-6" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">未来城市天际线概念设计，赛博朋克风格建筑</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-6" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-6" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-6" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报7：自然风景主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="7" data-category="自然">
+        <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=533&fit=crop" alt="雪山湖泊自然风光海报" data-category="自然风景" class="w-full block object-cover" style="aspect-ratio: 3/4;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-7" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-7" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">壮丽雪山湖泊倒影，宁静大自然风景海报</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-7" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-7" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-7" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报8：艺术抽象主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="8" data-category="艺术">
+        <img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=500&fit=crop" alt="抽象艺术色彩海报" data-category="艺术" class="w-full block object-cover" style="aspect-ratio: 4/5;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-8" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-8" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">抽象流体艺术色彩碰撞，迷幻渐变视觉效果</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-8" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-8" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-8" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报9：运动主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="9" data-category="运动">
+        <img src="https://images.unsplash.com/photo-1461896836934-bd45ba7b5a7a?w=400&h=711&fit=crop" alt="运动健身活力海报" data-category="运动体育" class="w-full block object-cover" style="aspect-ratio: 9/16;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-9" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-9" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">运动健身活力海报，动感姿态配合能量光效</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-9" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-9" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-9" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报10：咖啡饮品主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="10" data-category="咖啡">
+        <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=533&fit=crop" alt="咖啡饮品文艺海报" data-category="食物" class="w-full block object-cover" style="aspect-ratio: 3/4;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-10" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-10" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">文艺咖啡时光，手冲咖啡暖色氛围感设计</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-10" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-10" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-10" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报11：星空宇宙主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="11" data-category="宇宙">
+        <img src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=500&fit=crop" alt="星空宇宙星云海报" data-category="自然风景" class="w-full block object-cover" style="aspect-ratio: 4/5;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-11" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-11" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">深空星云宇宙奇观，紫蓝色调神秘星系海报</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-11" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-11" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-11" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 列表-海报12：花卉植物主题 -->
+      <div class="masonry-item group relative rounded-xl overflow-hidden cursor-pointer bg-surface-container" data-id="12" data-category="花卉">
+        <img src="https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=400&h=711&fit=crop" alt="花卉植物清新海报" data-category="自然风景" class="w-full block object-cover" style="aspect-ratio: 9/16;">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
+          <div class="flex justify-end gap-2">
+            <button id="btn-favorite-12" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="收藏">
+              <i data-lucide="heart" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-more-12" class="p-2 rounded-full bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="更多">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div>
+            <p class="text-white text-xs line-clamp-2 mb-3">清新花卉植物特写，柔焦效果梦幻春日氛围</p>
+            <div class="flex items-center gap-2">
+              <button id="btn-same-12" class="flex-1 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors text-center">制作同款</button>
+              <button id="btn-delete-12" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-error/80 transition-colors text-white" title="删除">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <button id="btn-download-12" class="p-1.5 rounded-md bg-white/15 backdrop-blur-sm hover:bg-white/25 transition-colors text-white" title="下载">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 加载状态 -->
+    <div id="loading-state" class="hidden flex flex-col items-center justify-center py-16">
+      <i data-lucide="sparkles" class="w-8 h-8 text-primary animate-spin-slow"></i>
+      <p class="text-sm text-on-surface-variant mt-3">正在加载更多海报...</p>
+    </div>
+
+    <!-- 空状态 -->
+    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20">
+      <div class="bg-surface-container rounded-full p-6 mb-4">
+        <i data-lucide="image-plus" class="w-12 h-12 text-on-surface-variant/50"></i>
+      </div>
+      <p class="text-lg font-semibold text-on-surface mb-1">还没有生成记录</p>
+      <p class="text-sm text-on-surface-variant mb-6">快去创作你的第一张海报吧</p>
+      <a href="create.html" id="btn-start-create" class="bg-primary text-on-primary hover:bg-primary/90 font-bold rounded-full px-8 py-2.5 text-sm shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all inline-flex items-center gap-2">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        开始创作
+      </a>
+    </div>
+
+    <!-- @main-content:end -->
+
+  </main>
+
+  <script>
+    $(function () {
+
+      // === 排序方向切换 ===
+      var sortAsc = false;
+      $('#sort-order-btn').on('click', function () {
+        sortAsc = !sortAsc;
+        $('#sort-order-label').text(sortAsc ? '升序' : '降序');
+        // 切换图标
+        var iconEl = $(this).find('[data-lucide]');
+        if (sortAsc) {
+          iconEl.attr('data-lucide', 'arrow-up-wide-narrow');
+        } else {
+          iconEl.attr('data-lucide', 'arrow-down-wide-narrow');
+        }
+        lucide.createIcons();
+        console.log('排序方向已切换为:', sortAsc ? '升序' : '降序');
+      });
+
+      // === 收藏按钮交互 ===
+      $('#poster-grid').on('click', '[id^="btn-favorite-"]', function (e) {
+        e.stopPropagation();
+        var btn = $(this);
+        var iconEl = btn.find('[data-lucide]');
+        var isFavorited = btn.data('favorited');
+
+        if (isFavorited) {
+          // 取消收藏
+          btn.data('favorited', false);
+          iconEl.attr('data-lucide', 'heart');
+          btn.removeClass('bg-error/80').addClass('bg-white/15');
+        } else {
+          // 添加收藏
+          btn.data('favorited', true);
+          iconEl.attr('data-lucide', 'heart');
+          btn.removeClass('bg-white/15').addClass('bg-error/80');
+        }
+        lucide.createIcons();
+        console.log('收藏状态切换, id:', btn.attr('id'), 'favorited:', !isFavorited);
+      });
+
+      // === 制作同款按钮 ===
+      $('#poster-grid').on('click', '[id^="btn-same-"]', function (e) {
+        e.stopPropagation();
+        var itemId = $(this).closest('.masonry-item').data('id');
+        // 跳转到创作中心并携带海报ID参数
+        window.location.href = 'create.html?from_poster=' + itemId;
+      });
+
+      // === 删除按钮 ===
+      $('#poster-grid').on('click', '[id^="btn-delete-"]', function (e) {
+        e.stopPropagation();
+        var item = $(this).closest('.masonry-item');
+        var itemId = item.data('id');
+        // 删除动画后移除DOM
+        item.css({ opacity: 0, transform: 'scale(0.9)', transition: 'all 0.3s ease' });
+        setTimeout(function () {
+          item.remove();
+          // 检查是否还有卡片
+          if ($('#poster-grid .masonry-item').length === 0) {
+            $('#poster-grid').addClass('hidden');
+            $('#empty-state').removeClass('hidden');
+            lucide.createIcons();
+          }
+        }, 300);
+        console.log('删除海报, id:', itemId);
+      });
+
+      // === 下载按钮 ===
+      $('#poster-grid').on('click', '[id^="btn-download-"]', function (e) {
+        e.stopPropagation();
+        var itemId = $(this).closest('.masonry-item').data('id');
+        console.log('下载海报, id:', itemId, '— 需要调用后端接口实现文件下载');
+      });
+
+      // === 更多按钮 ===
+      $('#poster-grid').on('click', '[id^="btn-more-"]', function (e) {
+        e.stopPropagation();
+        var itemId = $(this).closest('.masonry-item').data('id');
+        // 更多操作 - 点击后应实现弹出菜单：
+        // 1. 在按钮下方显示浮层菜单
+        // 2. 菜单项包含：查看详情、编辑信息、设为封面、分享链接
+        // 3. 点击菜单项执行对应操作，点击其他区域关闭菜单
+        console.log('更多操作, id:', itemId);
+      });
+
+      // === 搜索框交互 ===
+      $('#search-input').on('input', function () {
+        var keyword = $(this).val().trim().toLowerCase();
+        if (keyword === '') {
+          // 显示所有卡片
+          $('#poster-grid .masonry-item').show();
+        } else {
+          // 根据关键词筛选（匹配 prompt 文字或 data-category）
+          $('#poster-grid .masonry-item').each(function () {
+            var category = ($(this).data('category') || '').toLowerCase();
+            var promptText = $(this).find('p').text().toLowerCase();
+            if (promptText.indexOf(keyword) !== -1 || category.indexOf(keyword) !== -1) {
+              $(this).show();
+            } else {
+              $(this).hide();
+            }
+          });
+        }
+      });
+
+      // === 排序和筛选交互（仅切换UI状态，不重排DOM） ===
+      $('#sort-select').on('change', function () {
+        console.log('排序方式切换为:', $(this).val());
+      });
+
+      $('#time-range-select').on('change', function () {
+        console.log('时间范围切换为:', $(this).val());
+      });
+
+      // === 卡片点击跳转详情 ===
+      $('#poster-grid').on('click', '.masonry-item', function (e) {
+        // 如果点击的是按钮区域则不跳转
+        if ($(e.target).closest('button').length) return;
+        var itemId = $(this).data('id');
+        // 跳转到创作中心查看该海报详情
+        window.location.href = 'create.html?view_poster=' + itemId;
+      });
+
+    });
+  </script>
+
+  <script>lucide.createIcons();</script>
+</body>
+
+</html>

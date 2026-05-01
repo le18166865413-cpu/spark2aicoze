@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色 === */
+      --color-primary:              #22C55E;
+      --color-primary-container:    #22C55E;
+      --color-on-primary:           #050f09;
+      /* === 背景 / 表面 === */
+      --color-background:                 #09090b;
+      --color-surface-container-lowest:   #111113;
+      --color-surface:                    #09090b;
+      --color-surface-container:          #1c1c1f;
+      --color-surface-container-high:     #27272a;
+      --color-surface-container-highest:  #303033;
+      /* === 文字 === */
+      --color-on-surface:           #fafafa;
+      --color-on-surface-variant:   #a1a1aa;
+      /* === 功能色 === */
+      --color-success:  #22c55e;
+      --color-error:    #ef4444;
+      --color-warning:  #f59e0b;
+      /* === 边框 === */
+      --color-outline:          #27272a;
+      --color-outline-variant:  #3f3f46;
+      /* === 圆角 === */
+      --radius-sm:   0.375rem;
+      --radius-md:   0.5rem;
+      --radius-lg:   0.75rem;
+      --radius-xl:   1rem;
+      --radius-2xl:  1.5rem;
+      --radius-full: 9999px;
+      /* === 阴影 === */
+      --shadow-card:   0 2px 8px rgba(0,0,0,0.12);
+      --shadow-float:  0 10px 25px rgba(0,0,0,0.25);
+      --shadow-dialog: 0 25px 50px rgba(0,0,0,0.4);
+      /* === 字体 === */
+      --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    }
+  </style>
+
+  <!-- 图片兜底 -->
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans">
+
+  <!-- @main-content:start -->
+  <main class="min-h-screen flex flex-col">
+
+    <!-- 顶部粘性导航栏 -->
+    <header class="bg-background/80 backdrop-blur-md sticky top-0 z-50 w-full border-b border-outline-variant/20">
+      <div class="max-w-[1800px] mx-auto flex h-14 items-center px-4 md:px-6">
+        <!-- 左侧：返回按钮 + 分隔线 + 标题 -->
+        <div class="flex items-center gap-3">
+          <a href="home.html" id="btn-back" class="inline-flex items-center gap-1.5 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
+            <i data-lucide="undo-2" class="w-4 h-4"></i>
+            <span>返回广场</span>
+          </a>
+          <div class="w-px h-5 bg-outline-variant/30"></div>
+          <h1 class="text-base font-semibold text-on-surface">创作中心</h1>
+        </div>
+        <!-- 右侧：当前日期 -->
+        <div class="ml-auto text-xs text-on-surface-variant" id="current-date"></div>
+      </div>
+    </header>
+
+    <!-- 主内容区：左右两栏 -->
+    <div class="flex-1 max-w-[1800px] mx-auto w-full p-4 md:p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+
+        <!-- ========== 左侧 - 输入面板 ========== -->
+        <div class="space-y-5">
+
+          <!-- a) 模式切换器 -->
+          <div class="bg-surface-container rounded-xl p-1.5 inline-flex gap-1">
+            <button id="tab-text2img" class="mode-tab inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all bg-primary/15 text-primary ring-1 ring-primary/30" data-mode="text2img">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              文字生图
+            </button>
+            <button id="tab-ref2img" class="mode-tab inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high" data-mode="ref2img">
+              <i data-lucide="image-plus" class="w-4 h-4"></i>
+              参考图生图
+            </button>
+          </div>
+
+          <!-- b) 参考图上传区域（默认隐藏） -->
+          <div id="ref-upload-section" class="hidden">
+            <label class="text-sm font-medium text-on-surface mb-2 block">参考图片</label>
+            <!-- 无图片时的上传区域 -->
+            <div id="ref-upload-area" class="border-2 border-dashed border-outline-variant/40 rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all min-h-[160px]">
+              <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center">
+                <i data-lucide="upload" class="w-5 h-5 text-on-surface-variant"></i>
+              </div>
+              <div class="text-center">
+                <p class="text-sm text-on-surface-variant">拖拽图片到此处，或<span class="text-primary font-medium">点击上传</span></p>
+                <p class="text-xs text-on-surface-variant/60 mt-1">支持 JPG、PNG、WebP，最大 10MB</p>
+              </div>
+            </div>
+            <!-- 已上传图片预览 -->
+            <div id="ref-preview-area" class="hidden">
+              <div class="relative inline-block">
+                <img id="ref-preview-img" src="" alt="参考图预览" data-category="其他" class="w-full max-h-[200px] object-contain rounded-xl bg-surface-container">
+                <button id="btn-remove-ref" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/15 transition-all">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- c) 海报描述输入框 -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-sm font-medium text-on-surface">海报描述</label>
+              <button id="btn-clear-prompt" class="text-xs text-on-surface-variant hover:text-error transition-colors">清空</button>
+            </div>
+            <textarea id="prompt-input" class="w-full bg-surface-container border-none rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none min-h-[120px]" placeholder="请描述你想要生成的海报内容，例如：一张科技风格的AI峰会海报，深蓝色背景，霓虹光效，未来感十足..."></textarea>
+            <!-- 快捷模板按钮 -->
+            <div class="flex flex-wrap gap-2 mt-3">
+              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="2025全球科技峰会，深蓝色渐变背景，霓虹光效线条，未来感城市剪影，AI芯片元素，专业大气">科技峰会</button>
+              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="双十一电商促销，红色喜庆背景，金色装饰元素，折扣标签，购物车图标，热闹喜庆氛围">电商促销</button>
+              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="夏日音乐节，紫色渐变背景，音符和声波元素，舞台灯光效果，活力四射的派对氛围">音乐节</button>
+              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="美食推广海报，暖色调背景，精致美食特写，蒸汽和香气效果，诱人的视觉呈现">美食推广</button>
+            </div>
+          </div>
+
+          <!-- d) 生成选项区域 -->
+          <div class="space-y-5">
+
+            <!-- 图片比例选择 -->
+            <div>
+              <label class="text-sm font-medium text-on-surface mb-3 block">图片比例</label>
+              <div class="grid grid-cols-4 gap-2">
+                <!-- 比例按钮-1:1方形 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="1:1">
+                  <div class="w-6 h-6 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  1:1 方形
+                </button>
+                <!-- 比例按钮-3:4竖版 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="3:4">
+                  <div class="w-5 h-6.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  3:4 竖版
+                </button>
+                <!-- 比例按钮-4:3横版 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="4:3">
+                  <div class="w-6.5 h-5 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  4:3 横版
+                </button>
+                <!-- 比例按钮-9:16手机（默认选中） -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-primary/15 text-primary ring-1 ring-primary/30" data-ratio="9:16">
+                  <div class="w-4 h-7 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  9:16 手机
+                </button>
+                <!-- 比例按钮-16:9宽屏 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="16:9">
+                  <div class="w-7 h-4 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  16:9 宽屏
+                </button>
+                <!-- 比例按钮-2:3人像 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="2:3">
+                  <div class="w-4 h-6 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  2:3 人像
+                </button>
+                <!-- 比例按钮-21:9全景 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="21:9">
+                  <div class="w-8 h-3.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  21:9 全景
+                </button>
+                <!-- 比例按钮-A4海报 -->
+                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="A4">
+                  <div class="w-4.5 h-6.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
+                  A4 海报
+                </button>
+              </div>
+            </div>
+
+            <!-- 生成模型选择 -->
+            <div>
+              <label class="text-sm font-medium text-on-surface mb-3 block">生成模型</label>
+              <div class="space-y-2">
+                <!-- 模型选项-Image2 VIP -->
+                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-primary/10 ring-1 ring-primary/30" data-model="image2-vip">
+                  <div class="mt-0.5">
+                    <div class="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+                      <i data-lucide="check" class="w-3 h-3 text-primary model-check"></i>
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-semibold text-on-surface">Image2 VIP</span>
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary">推荐</span>
+                    </div>
+                    <p class="text-xs text-on-surface-variant mt-0.5">最高画质，适合专业设计需求</p>
+                  </div>
+                </label>
+                <!-- 模型选项-Image2 -->
+                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-surface-container hover:bg-surface-container-high" data-model="image2">
+                  <div class="mt-0.5">
+                    <div class="w-5 h-5 rounded-full border-2 border-outline-variant flex items-center justify-center">
+                      <i data-lucide="check" class="w-3 h-3 text-primary model-check hidden"></i>
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <span class="text-sm font-semibold text-on-surface">Image2</span>
+                    <p class="text-xs text-on-surface-variant mt-0.5">高画质性价比之选，日常创作首选</p>
+                  </div>
+                </label>
+                <!-- 模型选项-Nano Banana Fast -->
+                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-surface-container hover:bg-surface-container-high" data-model="nano-banana">
+                  <div class="mt-0.5">
+                    <div class="w-5 h-5 rounded-full border-2 border-outline-variant flex items-center justify-center">
+                      <i data-lucide="check" class="w-3 h-3 text-primary model-check hidden"></i>
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <span class="text-sm font-semibold text-on-surface">Nano Banana Fast</span>
+                    <p class="text-xs text-on-surface-variant mt-0.5">极速生成，适合快速预览效果</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- e) 生成按钮 -->
+          <button id="btn-generate" class="w-full bg-primary text-on-primary font-bold rounded-2xl py-6 text-lg inline-flex items-center justify-center gap-2.5 hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(34,197,94,0.2)] hover:shadow-[0_0_40px_rgba(34,197,94,0.35)]">
+            <i data-lucide="wand-2" class="w-5 h-5"></i>
+            立即生成
+          </button>
+
+          <!-- f) 进度条（默认隐藏） -->
+          <div id="progress-section" class="hidden space-y-2">
+            <div class="flex items-center justify-between text-sm">
+              <span id="progress-status" class="text-on-surface-variant">正在生成中...</span>
+              <span id="progress-percent" class="text-primary font-semibold">0%</span>
+            </div>
+            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
+              <div id="progress-bar" class="h-full bg-primary rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========== 右侧 - 预览面板 ========== -->
+        <div class="space-y-5">
+
+          <!-- a) 预览卡片 -->
+          <div class="bg-surface-container rounded-2xl p-5 shadow-card">
+            <label class="text-sm font-medium text-on-surface mb-3 block">预览</label>
+            <!-- 占位状态 -->
+            <div id="preview-placeholder" class="aspect-[9/16] w-full bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-3">
+              <div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center">
+                <i data-lucide="image" class="w-7 h-7 text-on-surface-variant/50"></i>
+              </div>
+              <p class="text-sm text-on-surface-variant/60">生成的海报将在这里显示</p>
+            </div>
+            <!-- 生成结果（默认隐藏） -->
+            <div id="preview-result" class="hidden">
+              <div class="aspect-[9/16] w-full rounded-xl overflow-hidden bg-surface-container-high">
+                <img id="result-image" src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485" alt="AI生成的科技峰会海报" data-category="商业科技" class="w-full h-full object-cover">
+              </div>
+              <!-- 操作按钮 -->
+              <div class="flex items-center gap-3 mt-4">
+                <button id="btn-download" class="flex-1 inline-flex items-center justify-center gap-2 bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-surface-container-highest transition-all">
+                  <i data-lucide="download" class="w-4 h-4"></i>
+                  下载
+                </button>
+                <button id="btn-copy-link" class="flex-1 inline-flex items-center justify-center gap-2 bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-surface-container-highest transition-all">
+                  <i data-lucide="link" class="w-4 h-4"></i>
+                  复制链接
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- c) 创作小贴士卡片 -->
+          <div class="bg-surface-container rounded-2xl p-5 shadow-card">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+                <i data-lucide="zap" class="w-4 h-4 text-primary"></i>
+              </div>
+              <span class="text-sm font-semibold text-on-surface">创作小贴士</span>
+            </div>
+            <ul class="space-y-3">
+              <!-- 提示1 -->
+              <li class="flex items-start gap-2.5">
+                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[10px] font-bold text-primary">1</span>
+                </div>
+                <p class="text-sm text-on-surface-variant leading-relaxed">描述越具体越好，包含场景、风格、色调等关键词</p>
+              </li>
+              <!-- 提示2 -->
+              <li class="flex items-start gap-2.5">
+                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[10px] font-bold text-primary">2</span>
+                </div>
+                <p class="text-sm text-on-surface-variant leading-relaxed">可以指定风格、颜色、布局，如"极简风格、黑白配色、居中排版"</p>
+              </li>
+              <!-- 提示3 -->
+              <li class="flex items-start gap-2.5">
+                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <span class="text-[10px] font-bold text-primary">3</span>
+                </div>
+                <p class="text-sm text-on-surface-variant leading-relaxed">使用参考图可以保持风格一致性，适合系列海报创作</p>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+  <!-- @main-content:end -->
+
+  <script>
+    $(function() {
+      // 初始化 Lucide 图标
+      lucide.createIcons();
+
+      // 显示当前日期
+      const now = new Date();
+      const dateStr = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
+      $('#current-date').text(dateStr);
+
+      // URL参数：预填描述文字
+      const urlParams = new URLSearchParams(window.location.search);
+      const promptParam = urlParams.get('prompt');
+      if (promptParam) {
+        $('#prompt-input').val(promptParam);
+      }
+
+      // ========== a) 模式切换器 ==========
+      $('#tab-text2img').on('click', function() {
+        $(this).addClass('bg-primary/15 text-primary ring-1 ring-primary/30').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+        $('#tab-ref2img').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+        $('#ref-upload-section').addClass('hidden');
+      });
+
+      $('#tab-ref2img').on('click', function() {
+        $(this).addClass('bg-primary/15 text-primary ring-1 ring-primary/30').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+        $('#tab-text2img').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
+        $('#ref-upload-section').removeClass('hidden');
+      });
+
+      // ========== b) 参考图上传 ==========
+      // 上传区域点击 - 应实现文件选择对话框
+      // 完整行为：1. 点击触发隐藏的 file input
+      // 2. 用户选择文件后，读取文件为 Data URL
+      // 3. 将 Data URL 设置为预览图片的 src
+      // 4. 隐藏上传区域，显示预览区域
+      // 5. 支持拖拽文件到上传区域，同样触发上述流程
+      $('#ref-upload-area').on('click', function() {
+        console.log('需要实现文件选择功能：创建隐藏 input[type=file]，accept="image/*"，监听 change 事件读取文件');
+        // 模拟上传成功：显示预览
+        $('#ref-upload-area').addClass('hidden');
+        $('#ref-preview-area').removeClass('hidden');
+        $('#ref-preview-img').attr('src', 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe');
+        lucide.createIcons();
+      });
+
+      // 移除参考图
+      $('#btn-remove-ref').on('click', function() {
+        $('#ref-preview-area').addClass('hidden');
+        $('#ref-upload-area').removeClass('hidden');
+        $('#ref-preview-img').attr('src', '');
+      });
+
+      // ========== c) 清空描述 ==========
+      $('#btn-clear-prompt').on('click', function() {
+        $('#prompt-input').val('').focus();
+      });
+
+      // 快捷模板
+      $('.template-btn').on('click', function() {
+        const prompt = $(this).data('prompt');
+        $('#prompt-input').val(prompt);
+      });
+
+      // ========== d) 图片比例选择 ==========
+      $('.ratio-btn').on('click', function() {
+        $('.ratio-btn').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('bg-surface-container text-on-surface-variant hover:bg-surface-container-high');
+        $(this).removeClass('bg-surface-container text-on-surface-variant hover:bg-surface-container-high').addClass('bg-primary/15 text-primary ring-1 ring-primary/30');
+      });
+
+      // ========== d) 生成模型选择 ==========
+      $('.model-option').on('click', function() {
+        // 重置所有模型选项样式
+        $('.model-option').removeClass('bg-primary/10 ring-1 ring-primary/30').addClass('bg-surface-container hover:bg-surface-container-high');
+        // 隐藏所有 check 图标
+        $('.model-check').addClass('hidden');
+        // 所有 radio 边框恢复
+        $('.model-option .w-5.h-5').removeClass('border-primary').addClass('border-outline-variant');
+        // 设置当前选中样式
+        $(this).removeClass('bg-surface-container hover:bg-surface-container-high').addClass('bg-primary/10 ring-1 ring-primary/30');
+        $(this).find('.model-check').removeClass('hidden');
+        $(this).find('.w-5.h-5').removeClass('border-outline-variant').addClass('border-primary');
+      });
+
+      // ========== e) 生成按钮 & f) 进度条 ==========
+      let isGenerating = false;
+
+      $('#btn-generate').on('click', function() {
+        if (isGenerating) return;
+        isGenerating = true;
+
+        const promptVal = $('#prompt-input').val().trim();
+        if (!promptVal) {
+          $('#prompt-input').focus().attr('placeholder', '请先输入海报描述再生成');
+          isGenerating = false;
+          return;
+        }
+
+        // 显示进度条，隐藏预览结果
+        $('#progress-section').removeClass('hidden');
+        $('#preview-placeholder').addClass('hidden');
+        $('#preview-result').addClass('hidden');
+
+        // 按钮进入加载状态
+        $('#btn-generate').html('<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>正在生成中...');
+        $('#btn-generate').addClass('opacity-80 pointer-events-none');
+        lucide.createIcons();
+
+        // 模拟进度动画
+        const statusTexts = [
+          { percent: 15, text: '正在分析描述...' },
+          { percent: 35, text: '正在构建画面...' },
+          { percent: 60, text: '正在渲染细节...' },
+          { percent: 85, text: '正在优化画质...' },
+          { percent: 100, text: '生成完成！' }
+        ];
+
+        let step = 0;
+        const progressInterval = setInterval(function() {
+          if (step < statusTexts.length) {
+            $('#progress-bar').css('width', statusTexts[step].percent + '%');
+            $('#progress-percent').text(statusTexts[step].percent + '%');
+            $('#progress-status').text(statusTexts[step].text);
+            step++;
+          } else {
+            clearInterval(progressInterval);
+            // 显示生成结果
+            $('#preview-result').removeClass('hidden');
+            $('#progress-section').addClass('hidden');
+
+            // 恢复按钮状态
+            $('#btn-generate').html('<i data-lucide="wand-2" class="w-5 h-5"></i>立即生成');
+            $('#btn-generate').removeClass('opacity-80 pointer-events-none');
+            lucide.createIcons();
+
+            isGenerating = false;
+          }
+        }, 800);
+      });
+
+      // ========== 预览操作按钮 ==========
+      // 下载按钮 - 应实现图片下载
+      // 完整行为：1. 获取当前预览图片的 src
+      // 2. 创建 <a> 标签，href 为图片 URL，download 属性设置文件名
+      // 3. 触发 click 事件下载
+      $('#btn-download').on('click', function() {
+        console.log('需要实现图片下载功能：获取 result-image 的 src，创建 a[download] 触发下载');
+      });
+
+      // 复制链接按钮 - 应实现复制到剪贴板
+      // 完整行为：1. 构造分享链接（包含生成参数）
+      // 2. 使用 navigator.clipboard.writeText() 写入剪贴板
+      // 3. 按钮文字临时变为"已复制"反馈
+      $('#btn-copy-link').on('click', function() {
+        console.log('需要实现复制链接功能：构造分享链接并写入剪贴板');
+        // 简单反馈
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        $btn.html('<i data-lucide="check" class="w-4 h-4"></i>已复制');
+        lucide.createIcons();
+        setTimeout(function() {
+          $btn.html(originalHtml);
+          lucide.createIcons();
+        }, 1500);
+      });
+
+    });
+  </script>
+
+  <script>lucide.createIcons();</script>
+</body>
+
+</html>
