@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Eye, MoreHorizontal, Share2, ImageOff, Heart, Copy, Trash2 } from "lucide-react";
+import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -96,13 +96,13 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
           {/* Hover Overlay Controls */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-between pointer-events-none">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 md:p-4 flex flex-col justify-between pointer-events-none">
             {/* Top Section */}
-            <div className="flex justify-end gap-2 pointer-events-auto">
+            <div className="flex justify-end gap-1 md:gap-2 pointer-events-auto">
               <Button
                 size="icon"
                 className={cn(
-                  "rounded-full w-10 h-10 transition-all",
+                  "rounded-full w-7 h-7 md:w-10 md:h-10 transition-all",
                   liked
                     ? "bg-red-500 text-white hover:bg-red-600"
                     : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
@@ -113,47 +113,40 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
                   toast.success(liked ? "已取消收藏" : "已收藏到灵感库");
                 }}
               >
-                <Heart className={cn("w-5 h-5", liked && "fill-current")} />
+                <Heart className={cn("w-3.5 h-3.5 md:w-5 md:h-5", liked && "fill-current")} />
               </Button>
             </div>
 
             {/* Bottom Section */}
-            <div className="flex flex-col gap-3 pointer-events-auto">
-              <p className="text-white text-sm line-clamp-2 font-medium drop-shadow-lg">
+            <div className="flex flex-col gap-1 md:gap-3 pointer-events-auto">
+              <p className="text-white text-xs md:text-sm line-clamp-1 md:line-clamp-2 font-medium drop-shadow-lg">
                 {image.prompt}
               </p>
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-1 md:gap-2">
                 {/* 制作同款 */}
                 <Button
                   size="sm"
-                  className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8"
+                  className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] md:text-xs font-medium px-2 md:px-3 h-6 md:h-8"
                   onClick={handleMakeSame}
                 >
-                  <Copy className="w-3 h-3 mr-1" />
+                  <Copy className="w-2.5 h-2.5 md:w-3 md:h-3 mr-0.5 md:mr-1" />
                   制作同款
                 </Button>
                 {/* 删除 */}
                 <Button
                   size="icon"
-                  className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-9 h-9"
+                  className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 md:w-9 md:h-9"
                   onClick={handleDelete}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                 </Button>
                 {/* 下载 */}
                 <Button
                   size="icon"
-                  className="rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20 w-9 h-9"
+                  className="rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20 w-6 h-6 md:w-9 md:h-9"
                   onClick={handleDownload}
                 >
-                  <Download className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  className="rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20 w-9 h-9"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
+                  <Download className="w-3 h-3 md:w-4 md:h-4" />
                 </Button>
               </div>
             </div>
