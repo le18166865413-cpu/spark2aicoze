@@ -16,6 +16,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      console.log('Attempting login with username:', username);
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,8 +25,9 @@ export default function AdminLoginPage() {
       });
 
       const data = await res.json();
+      console.log('Login response:', res.status, data);
 
-      if (!res.ok) {
+      if (!res.ok || !data.success) {
         setError(data.error || '登录失败');
         setLoading(false);
         return;
@@ -34,6 +36,7 @@ export default function AdminLoginPage() {
       // 使用硬跳转确保 cookie 被浏览器正确保存和发送
       window.location.href = '/admin';
     } catch (err) {
+      console.error('Login error:', err);
       setError('网络错误，请重试');
       setLoading(false);
     }
