@@ -44,6 +44,7 @@ export default function AdminImportPage() {
   };
 
   const handleImport = async (id: string) => {
+    console.log('[Import] Starting import for:', id);
     const entry: ImportEntry = {
       taskId: id,
       status: 'loading',
@@ -52,13 +53,15 @@ export default function AdminImportPage() {
     setImports((prev) => [entry, ...prev]);
 
     try {
-      const token = localStorage.getItem('admin_token') || '';
-      const res = await fetch(`/api/admin/import?token=${token}`, {
+      console.log('[Import] Sending request to API');
+      const res = await fetch('/api/admin/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: id }),
+        body: JSON.stringify({ import: { taskId: id } }),
       });
+      console.log('[Import] Response status:', res.status);
       const data: ImportResult = await res.json();
+      console.log('[Import] Response data:', data);
 
       setImports((prev) =>
         prev.map((item) =>
@@ -66,6 +69,7 @@ export default function AdminImportPage() {
         )
       );
     } catch (err) {
+      console.error('[Import] Error:', err);
       setImports((prev) =>
         prev.map((item) =>
           item.taskId === id

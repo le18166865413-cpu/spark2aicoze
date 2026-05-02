@@ -12,7 +12,6 @@ interface GrsAIResultResponse {
   };
 }
 
-// Get permanent signed URL via sign-url endpoint (same as images route)
 async function getSignedUrl(key: string): Promise<string> {
   try {
     const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
@@ -30,29 +29,38 @@ async function getSignedUrl(key: string): Promise<string> {
       body: JSON.stringify({
         bucket_name: bucketName,
         path: key,
-        expire_time: 0, // Permanent URL
+        expire_time: 0,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate signed URL: ${response.status}`);
+      throw new Error('Failed to generate signed URL');
     }
 
     const data = await response.json();
     if (data.code !== 0 || !data.data?.url) {
-      throw new Error(`Sign URL error: ${data.msg || "unknown error"}`);
+      throw new Error('Sign URL error');
     }
 
     return data.data.url;
   } catch (error) {
-    console.error("Failed to get signed URL for key:", key, error);
-    return key; // Fallback to raw key
+    console.error('Failed to get signed URL for key:', key, error);
+    return key;
   }
 }
 
 export async function POST(request: Request) {
+  console.log('Import request received');
   try {
-    const { taskId } = await request.json();
+    const body = await request.json();
+    console.log('Request body:', body);
+    
+    let taskId: string;
+    if (body.import) {
+      taskId = body.import.taskId;
+    } else {
+      taskId = body.taskId;
+    }
 
     if (!taskId) {
       return NextResponse.json(
@@ -60,10 +68,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    console.log('Processing taskId:', taskId);
 
     const supabase = getSupabaseClient();
 
-    // 从 Supabase 获取 GrsAI API 配置
     const { data: settings, error: settingsError } = await supabase
       .from('admin_settings')
       .select('*')
@@ -87,7 +95,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 查询 GrsAI 任务结果
+    console.log('Querying GrsAI task result');
     const resultRes = await fetch(`${baseUrl}/v1/draw/result`, {
       method: 'POST',
       headers: {
@@ -98,6 +106,7 @@ export async function POST(request: Request) {
     });
 
     const resultData = await resultRes.json() as GrsAIResultResponse;
+    console.log('GrsAI response:', resultData);
 
     if (resultData.code !== 0 || !resultData.data) {
       return NextResponse.json(
@@ -122,20 +131,19 @@ export async function POST(request: Request) {
 
     const imageUrls = resultData.data.images.map(img => img.url);
     const prompt = resultData.data.prompt;
+    console.log('Found', imageUrls.length, 'images to import');
 
-    // 下载图片并上传到 S3，然后保存到 Supabase
     for (const imageUrl of imageUrls) {
       try {
-        // 上传到 S3
+        console.log('Processing image:', imageUrl);
         const key = await storage.uploadFromUrl({
           url: imageUrl,
           timeout: 120000,
         });
 
-        // 生成签名 URL
         const signedUrl = await getSignedUrl(key);
+        console.log('Uploaded to S3:', signedUrl);
 
-        // 保存到 Supabase
         const { error } = await supabase.from('gallery_images').insert({
           prompt: prompt || '从 GrsAI 导入',
           url: signedUrl,
@@ -151,12 +159,15 @@ export async function POST(request: Request) {
 
         if (error) {
           console.error('Save to database error:', error);
+        } else {
+          console.log('Saved to database');
         }
       } catch (e) {
         console.error('Process image error:', e);
       }
     }
 
+    console.log('Success, imported', imageUrls.length, 'images');
     return NextResponse.json({ success: true, count: imageUrls.length });
   } catch (error) {
     console.error('Import task error:', error);
