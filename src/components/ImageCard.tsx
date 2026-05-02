@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2 } from "lucide-react";
+import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ interface GalleryImage {
   downloads: number;
   imageKey?: string;
   taskId?: string;
+  createdAt?: string;
 }
 
 export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?: (id: string) => void }) {
@@ -217,18 +218,27 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-muted/50">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <div className="grid grid-cols-3 gap-2 md:gap-3 py-2">
+            <div className="flex flex-col gap-1 p-2 md:p-3 rounded-xl bg-muted/50">
+              <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                时间
+              </span>
+              <span className="text-xs md:text-sm font-bold">
+                {image.createdAt ? new Date(image.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 p-2 md:p-3 rounded-xl bg-muted/50">
+              <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1">
                 <Eye className="w-3 h-3" />
-                浏览
+                浏览量
               </span>
               <span className="text-lg font-bold">{image.views}</span>
             </div>
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-muted/50">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <div className="flex flex-col gap-1 p-2 md:p-3 rounded-xl bg-muted/50">
+              <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1">
                 <Download className="w-3 h-3" />
-                下载
+                下载量
               </span>
               <span className="text-lg font-bold">{image.downloads}</span>
             </div>
