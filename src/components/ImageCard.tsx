@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Download, Eye, X, ZoomIn, Share2, ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Eye, X, ZoomIn, Share2, Trash2, ImageIcon } from 'lucide-react';
 
 interface GalleryImage {
   id: string;
@@ -20,13 +20,15 @@ interface GalleryImage {
 
 interface ImageCardProps {
   image: GalleryImage;
+  onDelete?: (id: string) => void;
 }
 
-export default function ImageCard({ image }: ImageCardProps) {
+export default function ImageCard({ image, onDelete }: ImageCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const handleDownload = async () => {
+  const handleDownload = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     try {
       const response = await fetch(image.url);
       const blob = await response.blob();
@@ -41,9 +43,38 @@ export default function ImageCard({ image }: ImageCardProps) {
     }
   };
 
+  const handleDelete = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm('确定要删除这张海报吗？')) return;
+    try {
+      const res = await fetch(`/api/images/${image.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        onDelete?.(image.id);
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
+
+  const handleShare = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: image.prompt,
+          url: image.url,
+        });
+      } else {
+        await navigator.clipboard.writeText(image.url);
+        alert('链接已复制到剪贴板');
+      }
+    } catch (err) {
+      // User cancelled share, ignore
+    }
+  };
+
   const aspectRatio = image.width && image.height ? image.width / image.height : 1;
 
-  // Model display name
   const modelNames: Record<string, string> = {
     'gpt-image-2-vip': 'GPT Image 2 VIP',
     'gpt-image-2': 'GPT Image 2',
@@ -76,6 +107,33 @@ export default function ImageCard({ image }: ImageCardProps) {
           />
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+          {/* Hover action buttons */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+            <button
+              onClick={handleDownload}
+              className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
+              title="下载"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleShare}
+              className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
+              title="分享"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+            {onDelete && (
+              <button
+                onClick={handleDelete}
+                className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-red-500/80 transition-colors"
+                title="删除"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {/* Hover prompt */}
           <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
             <p className="text-white text-xs sm:text-sm line-clamp-2 leading-snug">{image.prompt}</p>
           </div>
@@ -155,16 +213,33 @@ export default function ImageCard({ image }: ImageCardProps) {
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
-                  onClick={handleDownload}
+                  onClick={(e) => { e.stopPropagation(); handleDownload(); }}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                   <Download className="w-4 h-4" />
                   下载
                 </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleShare(); }}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">分享</span>
+                </button>
+                {onDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">删除</span>
+                  </button>
+                )}
                 <a
                   href={image.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <ZoomIn className="w-4 h-4" />

@@ -186,7 +186,7 @@ export default function HomePage() {
         ) : (
           <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4 space-y-3 sm:space-y-4">
             {images.map((image) => (
-              <ImageCard key={image.id} image={image} />
+              <ImageCard key={image.id} image={image} onDelete={(id) => setImages((prev) => prev.filter((img) => img.id !== id))} />
             ))}
           </div>
         )}
