@@ -218,20 +218,20 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-muted/50">
+          <div className="grid grid-cols-2 gap-2 py-1">
+            <div className="flex flex-col gap-0.5 p-2 rounded-xl bg-muted/50">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Eye className="w-3 h-3" />
                 浏览量
               </span>
-              <span className="text-lg font-bold">{image.views}</span>
+              <span className="text-base font-bold">{image.views}</span>
             </div>
-            <div className="flex flex-col gap-1 p-3 rounded-xl bg-muted/50">
+            <div className="flex flex-col gap-0.5 p-2 rounded-xl bg-muted/50">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Download className="w-3 h-3" />
                 下载量
               </span>
-              <span className="text-lg font-bold">{image.downloads}</span>
+              <span className="text-base font-bold">{image.downloads}</span>
             </div>
           </div>
 
