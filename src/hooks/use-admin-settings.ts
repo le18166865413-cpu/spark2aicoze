@@ -26,6 +26,14 @@ export function useAdminSettings() {
   const [authFailed, setAuthFailed] = useState(false);
 
   const fetchSettings = useCallback(async () => {
+    // 没有 token 时不要发起请求
+    const token = getAdminToken();
+    if (!token) {
+      setLoading(false);
+      setAuthFailed(true);
+      return;
+    }
+
     try {
       const res = await fetch(getApiUrl('/api/admin/settings'));
       if (res.status === 401) {
@@ -55,6 +63,9 @@ export function useAdminSettings() {
   }, [settings]);
 
   const saveSettings = async (updates: Array<{ key: string; value: string }>) => {
+    const token = getAdminToken();
+    if (!token) return false;
+
     const res = await fetch(getApiUrl('/api/admin/settings'), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
