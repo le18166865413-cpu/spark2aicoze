@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
-import fs from "fs/promises";
-import path from "path";
+import { getSupabaseClient } from "@/storage/database/supabase-client";
 
 const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
-const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
 
 interface GalleryImage {
   id: string;
-  imageKey: string;
   prompt: string;
+  url: string;
+  imageKey: string;
   width: number;
   height: number;
   views: number;
   downloads: number;
+  model: string;
+  ratio: string;
   type: string;
   taskId: string;
   createdAt: string;
@@ -29,36 +30,16 @@ function generateId(): string {
   });
 }
 
-// Load gallery data
-async function loadGallery(): Promise<GalleryImage[]> {
-  try {
-    const content = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return [];
-  }
-}
-
-// Save gallery data
-async function saveGallery(images: GalleryImage[]): Promise<void> {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(images, null, 2), "utf-8");
-}
-
-// Upload base64 image to storage and return URL
+// Upload base64 image to storage and return key
 async function uploadBase64ToStorage(base64Data: string): Promise<string> {
   try {
-    // Parse base64
     const base64Parts = base64Data.split(",");
     const mimeMatch = base64Data.match(/data:([^;]+);/);
     const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
     const base64Content = base64Parts[base64Parts.length - 1];
     const buffer = Buffer.from(base64Content, "base64");
 
-    // Upload to S3
     const fileName = `image.${mimeType.split("/")[1]}`;
-
     const result = await storage.uploadFile({
       fileContent: buffer,
       fileName: fileName,
@@ -66,7 +47,6 @@ async function uploadBase64ToStorage(base64Data: string): Promise<string> {
     });
 
     console.log("Uploaded to storage, key:", result);
-
     return result;
   } catch (error) {
     console.error("Failed to upload base64 to storage:", error);
@@ -74,13 +54,9 @@ async function uploadBase64ToStorage(base64Data: string): Promise<string> {
   }
 }
 
-// Read file from S3 and generate permanent signed URL
-async function readS3FileAndGetUrl(key: string, contentType: string): Promise<string> {
+// Get permanent signed URL via sign-url endpoint
+async function getSignedUrl(key: string): Promise<string> {
   try {
-    // First ensure file exists by reading it
-    await storage.readFile({ fileKey: key });
-
-    // Generate permanent signed URL (expire_time: 0)
     const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
     const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
     const bucketName = process.env.COZE_BUCKET_NAME || "";
@@ -178,7 +154,7 @@ export async function POST(request: NextRequest) {
       // S3 key - get permanent signed URL
       console.log("Getting public URL for refImageKey:", refImageKey);
       try {
-        const publicUrl = await readS3FileAndGetUrl(refImageKey, refImageContentType);
+        const publicUrl = await getSignedUrl(refImageKey);
         urls = [publicUrl];
         console.log("Got public URL:", publicUrl.substring(0, 100) + "...");
       } catch (err) {
@@ -190,7 +166,7 @@ export async function POST(request: NextRequest) {
       if (refImageUrl.startsWith("data:")) {
         // Base64 - need to upload first
         const uploadedKey = await uploadBase64ToStorage(refImageUrl);
-        const publicUrl = await readS3FileAndGetUrl(uploadedKey, "image/jpeg");
+        const publicUrl = await getSignedUrl(uploadedKey);
         urls = [publicUrl];
       } else {
         // HTTP URL - use directly
@@ -325,27 +301,66 @@ export async function POST(request: NextRequest) {
           });
 
           const { width, height } = estimateDimensions(ratio);
+          const imageId = generateId();
+          const now = new Date().toISOString();
 
           // Create new image entry
           const newImage: GalleryImage = {
-            id: generateId(),
+            id: imageId,
             imageKey: key,
             prompt: prompt,
+            url: "",
             width: width,
             height: height,
             views: 0,
             downloads: 0,
+            model: model,
+            ratio: ratio,
             type: "generated",
             taskId: taskId,
-            createdAt: new Date().toISOString(),
+            createdAt: now,
           };
 
-          // Save to gallery JSON
-          const gallery = await loadGallery();
-          gallery.unshift(newImage);
-          await saveGallery(gallery);
+          // Save to Supabase
+          try {
+            const supabase = getSupabaseClient();
+            const { error: dbError } = await supabase.from("gallery_images").insert({
+              id: imageId,
+              prompt: prompt,
+              url: "",
+              image_key: key,
+              width: width,
+              height: height,
+              views: 0,
+              downloads: 0,
+              model: model,
+              ratio: ratio,
+              task_id: taskId,
+              created_at: now,
+            });
 
-          const signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+            if (dbError) {
+              console.error("Failed to save to Supabase:", dbError);
+            } else {
+              console.log("Saved to Supabase, id:", imageId);
+            }
+          } catch (dbErr) {
+            console.error("Supabase save error:", dbErr);
+          }
+
+          // Get permanent signed URL for the uploaded image
+          let signedUrl = "";
+          try {
+            signedUrl = await getSignedUrl(key);
+          } catch (err) {
+            console.error("Failed to get signed URL:", err);
+            // Fallback to presigned URL
+            try {
+              signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+            } catch {
+              signedUrl = key;
+            }
+          }
 
           // Return complete with URL for preview
           sendSSE({ type: "complete", data: { ...newImage, url: signedUrl, taskId } });

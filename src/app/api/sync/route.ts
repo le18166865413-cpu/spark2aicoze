@@ -1,46 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
-import fs from "fs/promises";
-import path from "path";
+import { getSupabaseClient } from "@/storage/database/supabase-client";
 
 const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
-const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
 
-interface GalleryImage {
-  id: string;
-  imageKey: string;
-  prompt: string;
-  width: number;
-  height: number;
-  views: number;
-  downloads: number;
-  type: string;
-  taskId: string;
-  createdAt: string;
-  url?: string;
-}
+// Get permanent signed URL via sign-url endpoint
+async function getSignedUrl(key: string): Promise<string> {
+  const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+  const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+  const bucketName = process.env.COZE_BUCKET_NAME || "";
 
-// Ensure data directory exists
-async function ensureDataDir() {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-}
+  const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
 
-// Load gallery data from JSON file
-async function loadGallery(): Promise<GalleryImage[]> {
-  try {
-    const content = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return [];
+  const response = await fetch(signUrlEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-storage-token": token,
+    },
+    body: JSON.stringify({
+      bucket_name: bucketName,
+      path: key,
+      expire_time: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate signed URL: ${response.status}`);
   }
-}
 
-// Save gallery data to JSON file
-async function saveGallery(images: GalleryImage[]): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(DATA_FILE, JSON.stringify(images, null, 2), "utf-8");
+  const result = await response.json();
+  if (result.code !== 0 || !result.data?.url) {
+    throw new Error(`Sign URL error: ${result.msg || "unknown error"}`);
+  }
+
+  return result.data.url;
 }
 
 // Generate UUID
@@ -52,46 +47,17 @@ function generateId(): string {
   });
 }
 
-/**
- * POST /api/sync
- * 通过 GrsAI 任务 ID 同步图片到海报广场
- *
- * Body: { taskId: string, prompt?: string, width?: number, height?: number }
- */
+// POST: Sync a GrsAI task result to gallery
 export async function POST(request: NextRequest) {
   try {
-    let body: Record<string, unknown>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "taskId is required" }, { status: 400 });
-    }
-    const taskId = body.taskId as string;
-    const prompt = body.prompt as string | undefined;
-    const width = (body.width as number) || 1024;
-    const height = (body.height as number) || 1365;
+    const body = await request.json();
+    const { taskId } = body;
 
     if (!taskId) {
       return NextResponse.json({ error: "taskId is required" }, { status: 400 });
     }
 
-    // Load existing gallery
-    const gallery = await loadGallery();
-
-    // Check if already synced
-    const existing = gallery.find((img) => img.taskId === taskId && taskId !== "");
-    if (existing) {
-      // Generate signed URL for existing image
-      const signedUrl = await storage
-        .generatePresignedUrl({ key: existing.imageKey, expireTime: 2592000 })
-        .catch(() => existing.imageKey);
-      return NextResponse.json({
-        message: "Already synced",
-        image: { ...existing, url: signedUrl },
-      });
-    }
-
-    console.log(`Syncing task ${taskId} from GrsAI...`);
+    console.log("Syncing task", taskId, "from GrsAI...");
 
     // Query GrsAI for task result
     const response = await fetch(`${GRSAI_BASE_URL}/v1/draw/result`, {
@@ -100,115 +66,146 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${GRSAI_API_KEY}`,
       },
-      body: JSON.stringify({ id: taskId }),
+      body: JSON.stringify({ task_id: taskId }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return NextResponse.json(
-        {
-          error: `GrsAI API error: ${response.status}`,
-          details: errorText,
-        },
-        { status: response.status }
-      );
+      console.error("GrsAI result error:", errorText);
+      return NextResponse.json({ error: "Failed to query GrsAI" }, { status: 500 });
     }
 
     const result = await response.json();
 
     if (result.code !== 0) {
       return NextResponse.json(
-        {
-          error: result.msg || "Failed to get task result",
-          code: result.code,
-        },
+        { error: result.msg || "Task not found", code: result.code },
         { status: 400 }
       );
     }
 
-    const data = result.data;
-
-    if (data.status !== "succeeded") {
-      return NextResponse.json(
-        {
-          error: `Task not succeeded: ${data.status}`,
-          failureReason: data.failure_reason || data.error,
-        },
-        { status: 400 }
-      );
+    // Check task status
+    if (result.data?.status !== "succeeded") {
+      return NextResponse.json({
+        status: result.data?.status || "unknown",
+        message: result.data?.failure_reason || "Task not completed",
+      });
     }
 
-    const imageUrl = data.results?.[0]?.url;
+    // Get image URL from result
+    const imageUrl = result.data?.results?.[0]?.url || result.data?.url;
     if (!imageUrl) {
-      return NextResponse.json({ error: "No image URL in result" }, { status: 400 });
+      return NextResponse.json({ error: "No image in result" }, { status: 400 });
     }
 
-    // Get actual dimensions from GrsAI response
-    const actualWidth = data.results?.[0]?.width || width;
-    const actualHeight = data.results?.[0]?.height || height;
-
-    // Upload to S3 storage
-    console.log(`Uploading image to S3: ${imageUrl}`);
+    // Upload to S3
     const key = await storage.uploadFromUrl({
       url: imageUrl,
       timeout: 120000,
     });
 
-    // Create new image entry
-    const newImage: GalleryImage = {
-      id: generateId(),
-      imageKey: key,
-      prompt: prompt || "GrsAI synced image",
-      width: actualWidth,
-      height: actualHeight,
+    const prompt = (result.data?.prompt as string) || "GrsAI synced image";
+    const imageId = generateId();
+    const now = new Date().toISOString();
+
+    // Save to Supabase
+    const supabase = getSupabaseClient();
+    const { error: dbError } = await supabase.from("gallery_images").insert({
+      id: imageId,
+      prompt: prompt,
+      url: "",
+      image_key: key,
+      width: 1024,
+      height: 1365,
       views: 0,
       downloads: 0,
-      type: "generated",
-      taskId: taskId,
-      createdAt: new Date().toISOString(),
-    };
+      model: "synced",
+      ratio: "3:4",
+      task_id: taskId,
+      created_at: now,
+    });
 
-    // Save to gallery
-    gallery.unshift(newImage); // Add to beginning (newest first)
-    await saveGallery(gallery);
+    if (dbError) {
+      console.error("Supabase insert error:", dbError);
+      return NextResponse.json({ error: "Failed to save image" }, { status: 500 });
+    }
 
-    const signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+    // Get signed URL
+    let signedUrl = "";
+    try {
+      signedUrl = await getSignedUrl(key);
+    } catch {
+      signedUrl = key;
+    }
 
     return NextResponse.json({
-      message: "Synced successfully",
-      image: { ...newImage, url: signedUrl },
+      id: imageId,
+      imageKey: key,
+      prompt: prompt,
+      url: signedUrl,
+      taskId: taskId,
+      createdAt: now,
     });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Sync error:", error);
-    const message = error instanceof Error ? error.message : "Internal Server Error";
+    const message = error instanceof Error ? error.message : "Sync failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-/**
- * GET /api/sync
- * 获取已同步的图片列表
- */
+// GET: List synced images from Supabase
 export async function GET() {
   try {
-    const gallery = await loadGallery();
+    const supabase = getSupabaseClient();
+    const { data: images, error } = await supabase
+      .from("gallery_images")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    // Generate signed URLs for all images
+    if (error) {
+      console.error("Supabase query error:", error);
+      return NextResponse.json([]);
+    }
+
+    if (!images || images.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // Generate signed URLs
     const imagesWithUrls = await Promise.all(
-      gallery.map(async (img) => {
-        try {
-          const signedUrl = await storage.generatePresignedUrl({ key: img.imageKey, expireTime: 3600 });
-          return { ...img, url: signedUrl };
-        } catch {
-          return { ...img, url: img.imageKey };
+      images.map(async (img: Record<string, unknown>) => {
+        const imageKey = img.image_key as string;
+        let url = img.url as string;
+
+        if (imageKey) {
+          try {
+            url = await getSignedUrl(imageKey);
+          } catch {
+            url = imageKey;
+          }
         }
+
+        return {
+          id: img.id,
+          imageKey: imageKey,
+          prompt: img.prompt,
+          url: url,
+          width: img.width,
+          height: img.height,
+          views: img.views || 0,
+          downloads: img.downloads || 0,
+          model: img.model,
+          ratio: img.ratio,
+          taskId: img.task_id,
+          createdAt: img.created_at,
+        };
       })
     );
 
     return NextResponse.json(imagesWithUrls);
-  } catch (error: unknown) {
-    console.error("Get gallery error:", error);
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("Sync GET error:", error);
+    return NextResponse.json([]);
   }
 }

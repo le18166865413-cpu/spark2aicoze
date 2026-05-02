@@ -1,69 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { storage } from "@/utils/storage";
 
-const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
-
-// Load gallery data
-async function loadGallery(): Promise<GalleryImage[]> {
-  try {
-    const content = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return [];
-  }
-}
-
-interface GalleryImage {
-  id: string;
-  imageKey: string;
-  prompt: string;
-  width: number;
-  height: number;
-  views: number;
-  downloads: number;
-  type: string;
-  taskId: string;
-  createdAt: string;
-}
-
-// Save gallery data
-async function saveGallery(images: GalleryImage[]): Promise<void> {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(images, null, 2), "utf-8");
-}
-
-/**
- * DELETE /api/images/[id]
- * Delete an image by ID
- */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
 
-    if (!id) {
-      return NextResponse.json({ error: "Image ID is required" }, { status: 400 });
-    }
+    const supabase = getSupabaseClient();
 
-    const gallery = await loadGallery();
-    const imageIndex = gallery.findIndex((img) => img.id === id);
+    // First get the image to find its S3 key
+    const { data: image, error: fetchError } = await supabase
+      .from("gallery_images")
+      .select("image_key")
+      .eq("id", id)
+      .single();
 
-    if (imageIndex === -1) {
+    if (fetchError || !image) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    // Remove the image
-    gallery.splice(imageIndex, 1);
-    await saveGallery(gallery);
+    // Delete from Supabase
+    const { error: deleteError } = await supabase
+      .from("gallery_images")
+      .delete()
+      .eq("id", id);
 
-    return NextResponse.json({ message: "Image deleted successfully" });
-  } catch (error: unknown) {
+    if (deleteError) {
+      console.error("Supabase delete error:", deleteError);
+      return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
+    }
+
+    // Try to delete from S3 (non-blocking)
+    const imageKey = image.image_key as string;
+    if (imageKey) {
+      try {
+        await storage.deleteFile({ fileKey: imageKey });
+      } catch (s3Error) {
+        console.error("Failed to delete from S3 (non-critical):", s3Error);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
     console.error("Delete error:", error);
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
   }
 }

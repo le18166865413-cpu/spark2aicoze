@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
-import fs from "fs/promises";
-import path from "path";
-
-const DATA_FILE = path.join(process.cwd(), "data", "gallery.json");
-
-interface GalleryImage {
-  id: string;
-  imageKey: string;
-  prompt: string;
-  width: number;
-  height: number;
-  views: number;
-  downloads: number;
-  type: string;
-  taskId: string;
-  createdAt: string;
-}
+import { getSupabaseClient } from "@/storage/database/supabase-client";
 
 // Generate UUID
 function generateId(): string {
@@ -27,21 +11,37 @@ function generateId(): string {
   });
 }
 
-// Load gallery data
-async function loadGallery(): Promise<GalleryImage[]> {
-  try {
-    const content = await fs.readFile(DATA_FILE, "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return [];
-  }
-}
+// Get permanent signed URL via sign-url endpoint
+async function getSignedUrl(key: string): Promise<string> {
+  const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+  const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+  const bucketName = process.env.COZE_BUCKET_NAME || "";
 
-// Save gallery data
-async function saveGallery(images: GalleryImage[]): Promise<void> {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(images, null, 2), "utf-8");
+  const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
+
+  const response = await fetch(signUrlEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-storage-token": token,
+    },
+    body: JSON.stringify({
+      bucket_name: bucketName,
+      path: key,
+      expire_time: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate signed URL: ${response.status}`);
+  }
+
+  const result = await response.json();
+  if (result.code !== 0 || !result.data?.url) {
+    throw new Error(`Sign URL error: ${result.msg || "unknown error"}`);
+  }
+
+  return result.data.url;
 }
 
 export async function POST(request: NextRequest) {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const prompt = (formData.get("prompt") as string) || "Uploaded Image";
     const widthStr = formData.get("width") as string | null;
     const heightStr = formData.get("height") as string | null;
-    const forGrsai = formData.get("forGrsai") === "true"; // Flag for GrsAI reference image
+    const forGrsai = formData.get("forGrsai") === "true";
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -65,8 +65,7 @@ export async function POST(request: NextRequest) {
       contentType: file.type,
     });
 
-    // If this is for GrsAI, return the key directly (not signed URL)
-    // The generate API will handle fetching the image content
+    // If this is for GrsAI, return the key directly
     if (forGrsai) {
       return NextResponse.json({
         key: key,
@@ -74,27 +73,56 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Regular upload - save to gallery
-    const newImage: GalleryImage = {
-      id: generateId(),
-      imageKey: key,
+    // Regular upload - save to Supabase
+    const imageId = generateId();
+    const now = new Date().toISOString();
+
+    const supabase = getSupabaseClient();
+    const { error: dbError } = await supabase.from("gallery_images").insert({
+      id: imageId,
       prompt: prompt,
+      url: "",
+      image_key: key,
       width: parseInt(widthStr || "0"),
       height: parseInt(heightStr || "0"),
       views: 0,
       downloads: 0,
-      type: "uploaded",
+      model: "uploaded",
+      ratio: "",
+      task_id: "",
+      created_at: now,
+    });
+
+    if (dbError) {
+      console.error("Supabase insert error:", dbError);
+    }
+
+    // Get signed URL
+    let signedUrl = "";
+    try {
+      signedUrl = await getSignedUrl(key);
+    } catch {
+      try {
+        signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+      } catch {
+        signedUrl = key;
+      }
+    }
+
+    return NextResponse.json({
+      id: imageId,
+      imageKey: key,
+      prompt: prompt,
+      url: signedUrl,
+      width: parseInt(widthStr || "0"),
+      height: parseInt(heightStr || "0"),
+      views: 0,
+      downloads: 0,
+      model: "uploaded",
+      ratio: "",
       taskId: "",
-      createdAt: new Date().toISOString(),
-    };
-
-    const gallery = await loadGallery();
-    gallery.unshift(newImage);
-    await saveGallery(gallery);
-
-    const signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
-
-    return NextResponse.json({ ...newImage, url: signedUrl });
+      createdAt: now,
+    });
   } catch (error: unknown) {
     console.error(error);
     const message = error instanceof Error ? error.message : "Internal Server Error";
