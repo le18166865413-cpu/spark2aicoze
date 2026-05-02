@@ -2,16 +2,22 @@ import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { storage } from '@/utils/storage';
 
+interface GrsAIResultData {
+  id: string;
+  status: string;
+  progress: number;
+  error: string;
+  failure_reason: string;
+  results: Array<{ url: string }>;
+  prompt?: string;
+  aspectRatio?: string;
+  model?: string;
+}
+
 interface GrsAIResultResponse {
   code: number;
   msg: string;
-  data: {
-    status: string;
-    results: Array<{ url: string; width: number; height: number }>;
-    progress: number;
-    error: string;
-    id: string;
-  } | null;
+  data: GrsAIResultData | null;
 }
 
 async function getSignedUrl(key: string): Promise<string> {
@@ -254,16 +260,16 @@ export async function POST(request: Request) {
     const resultData = await resultRes.json() as GrsAIResultResponse;
     console.log('GrsAI response code:', resultData.code, 'msg:', resultData.msg);
 
-    if (resultData.code !== 0 || !resultData.data) {
-      const errMsg = resultData.msg || '获取任务结果失败';
-      if (errMsg === 'result not exist') {
-        return NextResponse.json(
-          { error: '任务结果不存在或已过期（GrsAI 仅保留2小时），请粘贴包含图片URL的完整任务信息进行导入' },
-          { status: 400 }
-        );
-      }
+    if (resultData.code === -22) {
       return NextResponse.json(
-        { error: errMsg },
+        { error: '任务不存在或已过期（GrsAI 仅保留2小时），请粘贴包含图片URL的完整任务信息进行导入' },
+        { status: 400 }
+      );
+    }
+
+    if (resultData.code !== 0 || !resultData.data) {
+      return NextResponse.json(
+        { error: resultData.msg || '获取任务结果失败' },
         { status: 400 }
       );
     }
@@ -282,9 +288,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Extract metadata from GrsAI response
+    const grsaiPrompt = resultData.data.prompt || '';
+    const grsaiRatio = resultData.data.aspectRatio || '1:1';
+    const grsaiModel = resultData.data.model || 'grsai';
+
     // GrsAI returns results array with url field
     const imageUrls = (resultData.data.results || []).map(img => img.url).filter(Boolean);
-    console.log('Found', imageUrls.length, 'images from GrsAI API');
+    console.log('Found', imageUrls.length, 'images from GrsAI API, prompt:', grsaiPrompt, 'ratio:', grsaiRatio);
 
     if (imageUrls.length === 0) {
       return NextResponse.json(
@@ -295,7 +306,7 @@ export async function POST(request: Request) {
 
     let imported = 0;
     for (const imageUrl of imageUrls) {
-      const result = await importImage(imageUrl, '从 GrsAI 导入', '1:1', 'grsai', taskId, supabase);
+      const result = await importImage(imageUrl, grsaiPrompt || '从 GrsAI 导入', grsaiRatio, grsaiModel, taskId, supabase);
       if (result.success) imported++;
     }
 
