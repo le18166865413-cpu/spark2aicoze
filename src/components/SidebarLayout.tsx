@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -15,11 +15,6 @@ const menuItems = [
   { href: '/admin/storage', icon: HardDrive, label: '图片存储' },
   { href: '/admin/import', icon: Upload, label: '任务导入' },
 ];
-
-function getAdminToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('admin_token');
-}
 
 export default function SidebarLayout({
   children,
@@ -33,21 +28,6 @@ export default function SidebarLayout({
   onMobileMenuChange?: (open: boolean) => void;
 }) {
   const pathname = usePathname();
-
-  const handleLogout = async () => {
-    try {
-      const token = getAdminToken();
-      if (token) {
-        await fetch(`/api/admin/auth?token=${encodeURIComponent(token)}`, {
-          method: 'DELETE',
-        });
-      }
-    } catch {
-      // ignore
-    }
-    localStorage.removeItem('admin_token');
-    window.location.href = '/admin/login';
-  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -82,10 +62,9 @@ export default function SidebarLayout({
           })}
         </nav>
         <div className="border-t border-border p-4">
-          <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-            退出登录
-          </Button>
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+            ← 返回首页
+          </Link>
         </div>
       </aside>
 
@@ -149,10 +128,9 @@ export default function SidebarLayout({
               })}
             </nav>
             <div className="border-t border-border p-4">
-              <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={handleLogout}>
-                <LogOut className="h-4 w-4" />
-                退出登录
-              </Button>
+              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+                ← 返回首页
+              </Link>
             </div>
           </div>
         )}

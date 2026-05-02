@@ -1,68 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getTokenFromRequest } from '@/lib/admin-token-auth';
+import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// GET - 获取所有设置
-export async function GET(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  const authenticated = await verifyToken(token);
-  if (!authenticated) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
-  }
-
+export async function GET(request: Request) {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('admin_settings')
       .select('*')
-      .order('category');
+      .order('key');
 
     if (error) {
-      console.error('Fetch settings error:', error);
+      console.error('Get settings error:', error);
       return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data || []);
   } catch (error) {
     console.error('Get settings error:', error);
     return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
   }
 }
 
-// PUT - 保存设置
-export async function PUT(request: NextRequest) {
-  const token = getTokenFromRequest(request);
-  const authenticated = await verifyToken(token);
-  if (!authenticated) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
-  }
-
+export async function PUT(request: Request) {
   try {
-    const body = await request.json();
-    const settings = body.settings || body;
-
-    if (!Array.isArray(settings)) {
-      return NextResponse.json({ error: '无效的设置数据' }, { status: 400 });
-    }
-
+    const settings = await request.json();
     const supabase = getSupabaseClient();
 
-    for (const setting of settings) {
+    for (const { key, value } of settings) {
       const { error } = await supabase
         .from('admin_settings')
-        .upsert(
-          { key: setting.key, value: setting.value, category: setting.category || 'general', updated_at: new Date().toISOString() },
-          { onConflict: 'key' }
-        );
+        .upsert({ key, value }, { onConflict: 'key' });
 
       if (error) {
-        console.error('Save setting error:', error, setting);
+        console.error('Update setting error:', error);
+        return NextResponse.json({ error: '保存设置失败' }, { status: 500 });
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Save settings error:', error);
+    console.error('Update settings error:', error);
     return NextResponse.json({ error: '保存设置失败' }, { status: 500 });
   }
 }
