@@ -16,42 +16,57 @@ export async function POST(request: NextRequest) {
 
     const sessionId = await createSession();
 
+    if (!sessionId) {
+      return NextResponse.json({ error: '会话创建失败' }, { status: 500 });
+    }
+
     const response = NextResponse.json({ success: true });
     response.cookies.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
       maxAge: SESSION_DURATION_HOURS * 60 * 60,
       path: '/',
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json({ error: '登录失败' }, { status: 500 });
   }
 }
 
 export async function DELETE() {
-  const { destroySession, getAdminSession } = await import('@/lib/admin-auth');
-  const sessionId = await getAdminSession();
-  if (sessionId) {
-    await destroySession(sessionId);
-  }
+  try {
+    const { destroySession, getAdminSession } = await import('@/lib/admin-auth');
+    const sessionId = await getAdminSession();
+    if (sessionId) {
+      await destroySession(sessionId);
+    }
 
-  const { SESSION_COOKIE, SESSION_DURATION_HOURS } = await import('@/lib/admin-auth');
-  const response = NextResponse.json({ success: true });
-  response.cookies.set(SESSION_COOKIE, '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/',
-  });
-  return response;
+    const { SESSION_COOKIE } = await import('@/lib/admin-auth');
+    const response = NextResponse.json({ success: true });
+    response.cookies.set(SESSION_COOKIE, '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+    return response;
+  } catch (error) {
+    console.error('Logout error:', error);
+    return NextResponse.json({ error: '登出失败' }, { status: 500 });
+  }
 }
 
 export async function GET() {
-  const { isAdminAuthenticated } = await import('@/lib/admin-auth');
-  const authenticated = await isAdminAuthenticated();
-  return NextResponse.json({ authenticated });
+  try {
+    const { isAdminAuthenticated } = await import('@/lib/admin-auth');
+    const authenticated = await isAdminAuthenticated();
+    return NextResponse.json({ authenticated });
+  } catch (error) {
+    console.error('Auth check error:', error);
+    return NextResponse.json({ authenticated: false });
+  }
 }

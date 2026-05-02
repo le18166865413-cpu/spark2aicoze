@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes (excluding /admin/login)
+  // Protect /admin page routes (excluding /admin/login)
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     const sessionCookie = request.cookies.get('admin_session')?.value;
 
@@ -11,8 +11,17 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    // Validate session via API to avoid duplicating DB logic in edge
-    // For simplicity, we do a lightweight check here; full validation in API routes
+    return NextResponse.next();
+  }
+
+  // Protect /api/admin/* routes (excluding /api/admin/auth)
+  if (pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/admin/auth')) {
+    const sessionCookie = request.cookies.get('admin_session')?.value;
+
+    if (!sessionCookie) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     return NextResponse.next();
   }
 
@@ -20,5 +29,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

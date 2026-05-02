@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Settings,
@@ -26,7 +26,6 @@ const navItems = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -40,26 +39,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return;
       }
       try {
-        const res = await fetch('/api/admin/auth');
+        const res = await fetch('/api/admin/auth', { credentials: 'same-origin' });
         const data = await res.json();
         if (!data.authenticated) {
-          router.replace('/admin/login');
+          window.location.href = '/admin/login';
           return;
         }
         setAuthenticated(true);
       } catch {
-        router.replace('/admin/login');
+        window.location.href = '/admin/login';
       } finally {
         setChecking(false);
       }
     };
     checkAuth();
-  }, [pathname, router]);
+  }, [pathname]);
 
   const handleLogout = useCallback(async () => {
-    await fetch('/api/admin/auth', { method: 'DELETE' });
-    router.replace('/admin/login');
-  }, [router]);
+    await fetch('/api/admin/auth', { method: 'DELETE', credentials: 'same-origin' });
+    window.location.href = '/admin/login';
+  }, []);
 
   if (pathname === '/admin/login') {
     return <>{children}</>;
@@ -130,7 +129,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <button
                         key={item.href}
                         onClick={() => {
-                          router.push(item.href);
+                          window.location.href = item.href;
                           setSidebarOpen(false);
                         }}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-0.5 ${

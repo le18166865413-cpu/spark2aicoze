@@ -36,6 +36,7 @@ export default function AdminImportPage() {
       const res = await fetch('/api/admin/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ taskId: id }),
       });
       const data: ImportResult = await res.json();

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Lock, User, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +19,7 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ username, password }),
       });
 
@@ -28,13 +27,14 @@ export default function AdminLoginPage() {
 
       if (!res.ok) {
         setError(data.error || '登录失败');
+        setLoading(false);
         return;
       }
 
-      router.push('/admin');
-    } catch {
+      // 使用硬跳转确保 cookie 被浏览器正确保存和发送
+      window.location.href = '/admin';
+    } catch (err) {
       setError('网络错误，请重试');
-    } finally {
       setLoading(false);
     }
   };

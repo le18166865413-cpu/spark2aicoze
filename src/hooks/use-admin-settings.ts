@@ -10,7 +10,7 @@ export function useAdminSettings() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch('/api/admin/settings', { credentials: 'same-origin' });
       const data = await res.json();
       if (res.ok) {
         setSettings(data.settings || {});
@@ -33,6 +33,7 @@ export function useAdminSettings() {
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ settings: updates }),
       });
       const data = await res.json();
