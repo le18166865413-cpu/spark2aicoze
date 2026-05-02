@@ -1,222 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
 import { Save, Palette, Check } from 'lucide-react';
 
-const colorOptions = [
-  { label: '翠绿', value: '#22C55E', bg: 'bg-green-500' },
-  { label: '天蓝', value: '#0EA5E9', bg: 'bg-sky-500' },
-  { label: '紫罗兰', value: '#8B5CF6', bg: 'bg-violet-500' },
-  { label: '玫红', value: '#E11D48', bg: 'bg-rose-600' },
-  { label: '琥珀', value: '#F59E0B', bg: 'bg-amber-500' },
-  { label: '青色', value: '#06B6D4', bg: 'bg-cyan-500' },
-  { label: '靛蓝', value: '#6366F1', bg: 'bg-indigo-500' },
-  { label: '橙色', value: '#F97316', bg: 'bg-orange-500' },
+const THEMES = [
+  { id: 'green', name: '翡翠绿', color: 'bg-emerald-500' },
+  { id: 'blue', name: '天际蓝', color: 'bg-blue-500' },
+  { id: 'purple', name: '星空紫', color: 'bg-purple-500' },
+  { id: 'orange', name: '落日橙', color: 'bg-orange-500' },
+  { id: 'red', name: '烈焰红', color: 'bg-red-500' },
+  { id: 'neutral', name: '极简灰', color: 'bg-neutral-500' },
 ];
 
-const themeModes = [
-  { label: '深色模式', value: 'dark', desc: '深色背景，适合夜间使用' },
-  { label: '浅色模式', value: 'light', desc: '浅色背景，适合日间使用' },
+const MODES = [
+  { id: 'dark', name: '暗色模式' },
+  { id: 'light', name: '亮色模式' },
 ];
 
-const radiusOptions = [
-  { label: '无圆角', value: 'none' },
-  { label: '小圆角', value: 'sm' },
-  { label: '中圆角', value: 'md' },
-  { label: '大圆角', value: 'lg' },
-  { label: '超大圆角', value: 'xl' },
-];
-
-export default function AdminThemePage() {
-  const { loading, saving, message, saveSettings, get } = useAdminSettings();
-  const [primaryColor, setPrimaryColor] = useState('');
-  const [customColor, setCustomColor] = useState('');
-  const [themeMode, setThemeMode] = useState('dark');
-  const [borderRadius, setBorderRadius] = useState('lg');
+export default function ThemePage() {
+  const { loading, getSetting, saveSettings } = useAdminSettings();
+  const [theme, setTheme] = useState('green');
+  const [mode, setMode] = useState('dark');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  if (!loading && !initialized) {
-    const savedColor = get('theme', 'primary_color', '#22C55E');
-    setPrimaryColor(savedColor);
-    setCustomColor(colorOptions.find((c) => c.value === savedColor) ? '' : savedColor);
-    setThemeMode(get('theme', 'theme_mode', 'dark'));
-    setBorderRadius(get('theme', 'border_radius', 'lg'));
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (!loading && !initialized) {
+      setTheme(getSetting('theme_color') || 'green');
+      setMode(getSetting('theme_mode') || 'dark');
+      setInitialized(true);
+    }
+  }, [loading, initialized, getSetting]);
 
-  const handleSave = () => {
-    saveSettings({
-      primary_color: primaryColor,
-      theme_mode: themeMode,
-      border_radius: borderRadius,
-    });
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    const ok = await saveSettings([
+      { key: 'theme_color', value: theme },
+      { key: 'theme_mode', value: mode },
+    ]);
+    setSaving(false);
+    setMessage(ok ? { type: 'success', text: '主题设置已保存，刷新页面生效' } : { type: 'error', text: '保存失败' });
+    if (ok) setTimeout(() => setMessage(null), 3000);
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <Palette className="w-5 h-5 animate-spin mr-2" /> 加载中...
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64 text-muted-foreground"><Palette className="w-5 h-5 animate-spin mr-2" /> 加载中...</div>;
   }
 
   return (
     <div className="space-y-6">
-      {message && (
-        <div
-          className={`p-3 rounded-lg text-sm ${
-            message.type === 'success'
-              ? 'bg-primary/10 text-primary'
-              : 'bg-destructive/10 text-destructive'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
+      {message && <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
 
-      {/* Primary Color */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Palette className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">主色调</h3>
         </div>
-
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-          {colorOptions.map((color) => (
-            <button
-              key={color.value}
-              onClick={() => {
-                setPrimaryColor(color.value);
-                setCustomColor('');
-              }}
-              className={`relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
-                primaryColor === color.value
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/30'
-              }`}
-            >
-              <div className={`w-6 h-6 rounded-full ${color.bg} flex items-center justify-center`}>
-                {primaryColor === color.value && <Check className="w-3 h-3 text-white" />}
+        <div className="grid grid-cols-3 gap-3">
+          {THEMES.map((t) => (
+            <button key={t.id} onClick={() => setTheme(t.id)} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${theme === t.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              <div className={`w-6 h-6 rounded-full ${t.color} flex items-center justify-center`}>
+                {theme === t.id && <Check className="w-3 h-3 text-white" />}
               </div>
-              <span className="text-[10px] text-muted-foreground">{color.label}</span>
+              <span className="text-sm text-foreground">{t.name}</span>
             </button>
           ))}
         </div>
-
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">自定义颜色值</label>
-          <div className="flex gap-2">
-            <input
-              type="color"
-              value={primaryColor}
-              onChange={(e) => {
-                setPrimaryColor(e.target.value);
-                setCustomColor(e.target.value);
-              }}
-              className="w-10 h-10 rounded-lg border border-border cursor-pointer bg-transparent"
-            />
-            <input
-              type="text"
-              value={customColor || primaryColor}
-              onChange={(e) => {
-                setCustomColor(e.target.value);
-                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                  setPrimaryColor(e.target.value);
-                }
-              }}
-              className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="#22C55E"
-            />
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">预览</label>
-          <div className="flex gap-2 flex-wrap">
-            <div
-              className="px-4 py-2 rounded-lg text-sm text-white font-medium"
-              style={{ backgroundColor: primaryColor }}
-            >
-              主要按钮
-            </div>
-            <div
-              className="px-4 py-2 rounded-lg text-sm font-medium border-2"
-              style={{ borderColor: primaryColor, color: primaryColor }}
-            >
-              次要按钮
-            </div>
-            <div
-              className="px-4 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
-            >
-              文字按钮
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Theme Mode */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">主题模式</h3>
+        <h3 className="text-sm font-semibold text-foreground">显示模式</h3>
         <div className="grid grid-cols-2 gap-3">
-          {themeModes.map((mode) => (
-            <button
-              key={mode.value}
-              onClick={() => setThemeMode(mode.value)}
-              className={`p-4 rounded-xl border text-left transition-colors ${
-                themeMode === mode.value
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/30'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <div
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    themeMode === mode.value ? 'border-primary' : 'border-border'
-                  }`}
-                >
-                  {themeMode === mode.value && (
-                    <div className="w-3 h-3 rounded-full bg-primary" />
-                  )}
-                </div>
-                <span className="text-sm font-medium text-foreground">{mode.label}</span>
-              </div>
-              <p className="text-xs text-muted-foreground ml-8">{mode.desc}</p>
+          {MODES.map((m) => (
+            <button key={m.id} onClick={() => setMode(m.id)} className={`p-3 rounded-lg border cursor-pointer transition-colors text-center ${mode === m.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              <span className="text-sm font-medium text-foreground">{m.name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Border Radius */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">圆角大小</h3>
-        <div className="flex gap-2">
-          {radiusOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setBorderRadius(option.value)}
-              className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${
-                borderRadius === option.value
-                  ? 'border-primary bg-primary/5 text-primary font-medium'
-                  : 'border-border text-muted-foreground hover:border-primary/30'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Save */}
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-      >
-        <Save className="w-4 h-4" />
-        {saving ? '保存中...' : '保存主题设置'}
+      <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+        <Save className="w-4 h-4" />{saving ? '保存中...' : '保存主题'}
       </button>
     </div>
   );

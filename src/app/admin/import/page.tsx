@@ -33,10 +33,10 @@ export default function AdminImportPage() {
     setImports((prev) => [entry, ...prev]);
 
     try {
-      const res = await fetch('/api/admin/import', {
+      const token = localStorage.getItem('admin_token') || '';
+      const res = await fetch(`/api/admin/import?token=${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
         body: JSON.stringify({ taskId: id }),
       });
       const data: ImportResult = await res.json();

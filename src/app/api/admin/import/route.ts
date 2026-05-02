@@ -1,45 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated, getSessionToken } from '@/lib/admin-auth';
+import { verifyAdminSession } from '@/lib/admin-auth';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { storage } from '@/utils/storage';
 
-async function getGrsaiConfig(): Promise<{ apiKey: string; baseUrl: string }> {
-  const supabase = getSupabaseClient();
-  const { data } = await supabase
-    .from('admin_settings')
-    .select('key, value')
-    .in('key', ['grsai_api_key', 'grsai_base_url']);
-
-  const settings = Object.fromEntries((data || []).map((r: { key: string; value: string }) => [r.key, r.value]));
-  return {
-    apiKey: settings.grsai_api_key || process.env.GRSAI_API_KEY || '',
-    baseUrl: settings.grsai_base_url || 'https://grsai.dakka.com.cn',
-  };
-}
-
+// POST - 手动导入 GrsAI 任务
 export async function POST(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get('token');
+  const isAuth = await verifyAdminSession(token);
+  if (!isAuth) {
+    return NextResponse.json({ error: '未授权' }, { status: 401 });
+  }
+
   try {
-    const token = getSessionToken(request);
-    const authenticated = await isAdminAuthenticated(token);
-    if (!authenticated) {
-      return NextResponse.json({ error: '未授权' }, { status: 401 });
-    }
-
     const body = await request.json();
-    const { taskId } = body as { taskId?: string };
+    const { taskId } = body;
 
-    if (!taskId) {
-      return NextResponse.json({ error: '请输入任务ID' }, { status: 400 });
+    if (!taskId || typeof taskId !== 'string') {
+      return NextResponse.json({ error: '请提供有效的任务 ID' }, { status: 400 });
     }
 
-    const { apiKey, baseUrl } = await getGrsaiConfig();
-    if (!apiKey) {
-      return NextResponse.json({ error: '未配置 GrsAI API Key，请先在 API 令牌设置中配置' }, { status: 400 });
+    // 从 admin_settings 获取 API 配置
+    const supabase = getSupabaseClient();
+    const { data: settings } = await supabase.from('admin_settings').select('*');
+    const settingsMap: Record<string, string> = {};
+    for (const s of (settings || [])) {
+      settingsMap[s.key] = s.value;
     }
 
-    console.log(`[Admin Import] Importing task ${taskId} from GrsAI...`);
+    const apiKey = settingsMap.grsai_api_key || process.env.GRSAI_API_KEY || '';
+    const baseUrl = settingsMap.grsai_base_url || 'https://grsai.dakka.com.cn';
 
-    // Query GrsAI for task result
-    const resultResponse = await fetch(`${baseUrl}/v1/draw/result`, {
+    // 查询 GrsAI 任务结果
+    const resultResp = await fetch(`${baseUrl}/v1/draw/result`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,97 +40,66 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ task_id: taskId }),
     });
 
-    if (!resultResponse.ok) {
-      const errText = await resultResponse.text();
-      return NextResponse.json({ error: `GrsAI 查询失败: ${errText}` }, { status: 400 });
-    }
+    const resultData = await resultResp.json();
 
-    const resultData = await resultResponse.json();
-
-    if (resultData.code !== 0 && resultData.code !== 22) {
-      return NextResponse.json({ error: `GrsAI 返回错误: ${resultData.msg || resultData.message || '未知错误'}` }, { status: 400 });
+    if (resultData.code !== 0 && resultData.code !== -22) {
+      return NextResponse.json({ error: resultData.msg || '查询任务失败' }, { status: 400 });
     }
 
     if (!resultData.data?.results || resultData.data.results.length === 0) {
-      return NextResponse.json({ error: '该任务暂无结果，可能仍在生成中' }, { status: 400 });
+      return NextResponse.json({ error: '任务暂无结果，可能仍在处理中' }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
     const imported: Array<{ id: string; prompt: string }> = [];
 
-    for (const result of resultData.data.results) {
-      const imageUrl = result.url;
-      if (!imageUrl) continue;
+    for (const img of resultData.data.results) {
+      if (!img.url) continue;
 
-      // Check if already imported
-      const { data: existing } = await supabase
-        .from('gallery_images')
-        .select('id')
-        .eq('task_id', taskId)
-        .maybeSingle();
-
-      if (existing) {
-        return NextResponse.json({
-          error: '该任务已导入过',
-          existing: existing.id,
-        }, { status: 400 });
-      }
-
-      // Upload to S3
+      // 上传到 S3
       let imageKey = '';
       try {
-        const { S3Storage } = await import('coze-coding-dev-sdk');
-        const storage = new S3Storage();
-        imageKey = await storage.uploadFromUrl({ url: imageUrl });
-      } catch (uploadErr) {
-        console.error('[Admin Import] S3 upload failed, using original URL:', uploadErr);
+        imageKey = await storage.uploadFromUrl({
+          url: img.url,
+        });
+      } catch {
+        imageKey = img.url;
       }
 
-      // Generate permanent URL
-      let permanentUrl = imageUrl;
-      if (imageKey) {
+      // 生成签名 URL
+      let signedUrl = img.url;
+      if (imageKey && !imageKey.startsWith('http')) {
         try {
-          const domain = process.env.COZE_PROJECT_DOMAIN_DEFAULT || 'http://localhost:5000';
-          const proto = domain.startsWith('http') ? '' : 'https://';
-          const signUrl = `${proto}${domain}/sign-url?key=${encodeURIComponent(imageKey)}&expire_time=0`;
-          const signResponse = await fetch(signUrl);
-          if (signResponse.ok) {
-            const signData = await signResponse.json();
-            permanentUrl = signData.url || imageUrl;
-          }
+          signedUrl = await storage.generatePresignedUrl({ key: imageKey, expireTime: 0 });
         } catch {
-          permanentUrl = imageUrl;
+          signedUrl = img.url;
         }
       }
 
-      // Determine dimensions from ratio or default
-      const width = result.width || 9;
-      const height = result.height || 16;
+      const prompt = img.prompt || resultData.data.prompt || 'GrsAI imported image';
+      const width = img.width || 0;
+      const height = img.height || 0;
+      const model = resultData.data.model || 'unknown';
+      const ratio = width && height ? `${width}:${height}` : '1:1';
 
-      const { data: inserted, error: insertError } = await supabase
+      const { data: inserted, error } = await supabase
         .from('gallery_images')
         .insert({
-          prompt: resultData.data.prompt || `导入任务 ${taskId}`,
-          url: permanentUrl,
-          image_key: imageKey || null,
+          image_key: imageKey,
+          prompt,
+          url: signedUrl,
           width,
           height,
+          model,
+          ratio,
+          task_id: taskId,
           views: 0,
           downloads: 0,
-          model: 'imported',
-          ratio: `${width}:${height}`,
-          task_id: taskId,
         })
         .select('id, prompt')
         .single();
 
-      if (insertError) {
-        console.error('[Admin Import] DB insert error:', insertError);
-        continue;
-      }
-
-      if (inserted) {
-        imported.push({ id: inserted.id, prompt: inserted.prompt });
+      if (!error && inserted) {
+        imported.push(inserted);
       }
     }
 
@@ -147,8 +108,8 @@ export async function POST(request: NextRequest) {
       count: imported.length,
       imported,
     });
-  } catch (err) {
-    console.error('[Admin Import] Error:', err);
-    return NextResponse.json({ error: '导入失败，请检查任务ID是否正确' }, { status: 500 });
+  } catch (error) {
+    console.error('Import error:', error);
+    return NextResponse.json({ error: '导入失败' }, { status: 500 });
   }
 }

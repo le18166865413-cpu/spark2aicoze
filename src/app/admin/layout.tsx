@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,9 +11,11 @@ import {
   HardDrive,
   Import,
   LogOut,
-  Shield,
+  Sparkles,
   Menu,
   X,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 
 const navItems = [
@@ -25,182 +27,182 @@ const navItems = [
   { href: '/admin/import', label: '任务导入', icon: Import },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+function getAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('admin_token');
+}
+
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // 登录页不显示后台布局
   const isLoginPage = pathname === '/admin/login';
-  const [authed, setAuthed] = useState(false);
-  const [checking, setChecking] = useState(!isLoginPage);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 从 localStorage 读取 session token
-  const getSessionToken = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('admin_session');
-  }, []);
-
-  // 认证请求的封装
-  const authFetch = useCallback(async (url: string, options?: RequestInit) => {
-    const token = getSessionToken();
-    const headers: Record<string, string> = {
-      ...(options?.headers as Record<string, string> || {}),
-    };
-    if (token) {
-      headers['X-Admin-Session'] = token;
-    }
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: 'same-origin',
-    });
-  }, [getSessionToken]);
-
+  // 非登录页验证 token
   useEffect(() => {
-    if (isLoginPage) return;
-
-    let cancelled = false;
-
-    const check = async () => {
-      try {
-        const res = await authFetch('/api/admin/auth');
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (data.authenticated) {
-          setAuthed(true);
-          setChecking(false);
-        } else {
-          // 清除无效 token
-          localStorage.removeItem('admin_session');
-          window.location.replace('/admin/login');
-        }
-      } catch {
-        if (!cancelled) {
-          localStorage.removeItem('admin_session');
-          window.location.replace('/admin/login');
-        }
-      }
-    };
-
-    check();
-    return () => { cancelled = true; };
-  }, [isLoginPage, authFetch]);
-
-  const handleLogout = async () => {
-    try {
-      await authFetch('/api/admin/auth', { method: 'DELETE' });
-    } catch {
-      // ignore
+    if (isLoginPage) {
+      setAuthChecked(true);
+      return;
     }
-    localStorage.removeItem('admin_session');
-    window.location.replace('/admin/login');
-  };
+    const token = getAdminToken();
+    if (!token) {
+      window.location.replace('/admin/login');
+      return;
+    }
+    // 验证 token 是否有效
+    fetch(`/api/admin/auth?token=${token}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.authenticated) {
+          localStorage.removeItem('admin_token');
+          window.location.replace('/admin/login');
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch(() => {
+        // 网络错误时仍然允许访问（可能只是暂时的）
+        setAuthChecked(true);
+      });
+  }, [isLoginPage]);
 
-  // 登录页直接渲染
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // 检查认证中
-  if (checking) {
+  if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <Shield className="w-6 h-6 animate-pulse" />
-          <span>验证身份中...</span>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
-  // 未认证（不应到达这里，但作为保护）
-  if (!authed) {
-    return null;
-  }
+  const handleLogout = async () => {
+    const token = getAdminToken();
+    try {
+      await fetch(`/api/admin/auth?token=${token || ''}`, { method: 'DELETE' });
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem('admin_token');
+    window.location.replace('/admin/login');
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* 移动端遮罩 */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* 侧边栏 */}
+      {/* Desktop Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-200 ${
+          collapsed ? 'w-16' : 'w-60'
         }`}
       >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-4 border-b border-border">
-            <Link href="/admin" className="flex items-center gap-2 text-foreground">
-              <Shield className="w-6 h-6 text-primary" />
-              <span className="font-bold text-lg">SparkAI</span>
+        <div className={`flex items-center gap-2 p-4 border-b border-border ${collapsed ? 'justify-center' : ''}`}>
+          <Sparkles className="h-6 w-6 text-primary shrink-0" />
+          {!collapsed && <span className="font-bold text-lg">SparkAI</span>}
+        </div>
+
+        <nav className="flex-1 p-2 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                } ${collapsed ? 'justify-center' : ''}`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-2 border-t border-border">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground text-sm w-full"
+          >
+            <ChevronRight className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+            {!collapsed && <span>收起侧栏</span>}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive text-sm w-full"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>退出登录</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-3">
+          <button
+            className="lg:hidden p-1.5 rounded-md hover:bg-muted"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+          <h1 className="text-sm font-medium">
+            {navItems.find((i) => i.href === pathname)?.label || '管理后台'}
+          </h1>
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href="/"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              返回前台
             </Link>
           </div>
+        </header>
 
-          {/* 导航 */}
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-b border-border bg-card p-2 space-y-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const Icon = item.icon;
+              const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+                    active
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                 >
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
-          </nav>
-
-          {/* 底部 */}
-          <div className="p-3 border-t border-border space-y-1">
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              返回前台
-            </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-destructive text-sm w-full"
             >
-              <LogOut className="w-4 h-4" />
-              退出登录
+              <LogOut className="h-4 w-4" />
+              <span>退出登录</span>
             </button>
           </div>
-        </div>
-      </aside>
+        )}
 
-      {/* 主内容区 */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 顶栏 */}
-        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-3">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden text-muted-foreground hover:text-foreground"
-          >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-          <h2 className="text-sm font-medium text-foreground">
-            {navItems.find((i) => i.href === pathname)?.label || '管理后台'}
-          </h2>
-        </header>
-
-        {/* 页面内容 */}
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        {/* Content */}
+        <main className="flex-1 p-6 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

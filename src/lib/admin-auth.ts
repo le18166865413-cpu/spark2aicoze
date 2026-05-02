@@ -1,35 +1,11 @@
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-const SESSION_EXPIRY_HOURS = 24;
-const supabase = getSupabaseClient();
-
-export async function createSession(username: string): Promise<string | null> {
-  const id = crypto.randomUUID().replace(/-/g, '') + Math.random().toString(36).substring(2, 8);
-  const expiresAt = new Date(Date.now() + SESSION_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
-
-  try {
-    const { data, error } = await supabase
-      .from('admin_sessions')
-      .insert({ id, username, expires_at: expiresAt })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.error('Create session DB error:', error);
-      return null;
-    }
-
-    return data?.id || null;
-  } catch (err) {
-    console.error('Create session error:', err);
-    return null;
-  }
-}
-
-export async function isAdminAuthenticated(token: string | null | undefined): Promise<boolean> {
+// 验证管理员 session token
+export async function verifyAdminSession(token: string | null): Promise<boolean> {
   if (!token) return false;
 
   try {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('admin_sessions')
       .select('id, expires_at')
@@ -37,38 +13,59 @@ export async function isAdminAuthenticated(token: string | null | undefined): Pr
       .single();
 
     if (error || !data) return false;
-
-    const expiresAt = new Date(data.expires_at);
-    if (expiresAt <= new Date()) {
-      // 过期了，删除
+    if (new Date(data.expires_at) < new Date()) {
+      // 过期 session，删除
       await supabase.from('admin_sessions').delete().eq('id', token);
       return false;
     }
-
     return true;
-  } catch {
+  } catch (error) {
+    console.error('Verify session error:', error);
     return false;
   }
 }
 
-export async function deleteSession(token: string): Promise<void> {
+// 创建 session
+export async function createSession(username: string): Promise<string | null> {
   try {
-    await supabase.from('admin_sessions').delete().eq('id', token);
-  } catch {
-    // ignore
+    const sessionId = Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 8);
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('admin_sessions')
+      .insert({ id: sessionId, username, expires_at: expiresAt });
+
+    if (error) {
+      console.error('Create session error:', error);
+      return null;
+    }
+    return sessionId;
+  } catch (error) {
+    console.error('Create session error:', error);
+    return null;
   }
 }
 
-// 从请求中获取 session token（cookie 或 header）
-export function getSessionToken(request: Request): string | null {
-  // 优先从 cookie 读取
-  const cookieHeader = request.headers.get('cookie') || '';
-  const cookieMatch = cookieHeader.match(/admin_session=([^;]+)/);
-  if (cookieMatch) return cookieMatch[1];
+// 删除 session
+export async function deleteSession(token: string): Promise<void> {
+  try {
+    const supabase = getSupabaseClient();
+    await supabase.from('admin_sessions').delete().eq('id', token);
+  } catch (error) {
+    console.error('Delete session error:', error);
+  }
+}
 
-  // 备用：从自定义 header 读取
+// 从请求中提取 token（优先从 header，其次从 cookie）
+export function extractToken(request: Request): string | null {
   const headerToken = request.headers.get('x-admin-session');
   if (headerToken) return headerToken;
 
-  return null;
+  const cookieHeader = request.headers.get('cookie') || '';
+  const match = cookieHeader.match(/admin_session=([^;]+)/);
+  return match ? match[1] : null;
 }

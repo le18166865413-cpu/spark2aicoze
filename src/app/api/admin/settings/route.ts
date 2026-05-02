@@ -1,78 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminSession } from '@/lib/admin-auth';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { isAdminAuthenticated, getSessionToken } from '@/lib/admin-auth';
 
+// GET - 获取所有设置
 export async function GET(request: NextRequest) {
-  try {
-    const token = getSessionToken(request);
-    const authenticated = await isAdminAuthenticated(token);
-    if (!authenticated) {
-      return NextResponse.json({ error: '未授权' }, { status: 401 });
-    }
+  const token = request.nextUrl.searchParams.get('token');
+  const authenticated = await verifyAdminSession(token);
+  if (!authenticated) {
+    return NextResponse.json({ error: '未授权' }, { status: 401 });
+  }
 
+  try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('admin_settings')
-      .select('key, value, category')
+      .select('*')
       .order('category');
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Fetch settings error:', error);
+      return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
     }
 
-    // Group by category
-    const settings: Record<string, Record<string, string>> = {};
-    for (const row of data || []) {
-      if (!settings[row.category]) settings[row.category] = {};
-      settings[row.category][row.key] = row.value;
-    }
-
-    return NextResponse.json({ settings });
-  } catch {
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Get settings error:', error);
     return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
   }
 }
 
+// PUT - 保存设置
 export async function PUT(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get('token');
+  const authenticated = await verifyAdminSession(token);
+  if (!authenticated) {
+    return NextResponse.json({ error: '未授权' }, { status: 401 });
+  }
+
   try {
-    const token = getSessionToken(request);
-    const authenticated = await isAdminAuthenticated(token);
-    if (!authenticated) {
-      return NextResponse.json({ error: '未授权' }, { status: 401 });
-    }
-
     const body = await request.json();
-    const { settings } = body as { settings: Record<string, string> };
+    const settings = body.settings || body;
 
-    if (!settings || typeof settings !== 'object') {
+    if (!Array.isArray(settings)) {
       return NextResponse.json({ error: '无效的设置数据' }, { status: 400 });
     }
 
     const supabase = getSupabaseClient();
 
-    // Upsert each setting
-    for (const [key, value] of Object.entries(settings)) {
-      // Determine category from key prefix
-      let category = 'general';
-      if (key.includes('api') || key.includes('key') || key.includes('model') || key.includes('url')) {
-        category = 'api';
-      } else if (key.includes('color') || key.includes('theme') || key.includes('radius')) {
-        category = 'theme';
-      } else if (key.includes('storage') || key.includes('file') || key.includes('max')) {
-        category = 'storage';
-      }
-
+    for (const setting of settings) {
       const { error } = await supabase
         .from('admin_settings')
-        .upsert({ key, value, category, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        .upsert(
+          { key: setting.key, value: setting.value, category: setting.category || 'general', updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
 
       if (error) {
-        console.error(`Failed to save setting ${key}:`, error);
+        console.error('Save setting error:', error, setting);
       }
     }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error('Save settings error:', error);
     return NextResponse.json({ error: '保存设置失败' }, { status: 500 });
   }
 }

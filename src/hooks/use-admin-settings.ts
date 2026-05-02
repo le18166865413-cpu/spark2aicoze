@@ -2,18 +2,41 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+interface AdminSetting {
+  key: string;
+  value: string;
+  category: string;
+  updated_at: string;
+}
+
+function getAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('admin_token');
+}
+
+function getApiUrl(path: string): string {
+  const token = getAdminToken();
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}token=${encodeURIComponent(token || '')}`;
+}
+
 export function useAdminSettings() {
-  const [settings, setSettings] = useState<Record<string, Record<string, string>>>({});
+  const [settings, setSettings] = useState<AdminSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/settings', { credentials: 'same-origin' });
+      const res = await fetch(getApiUrl('/api/admin/settings'));
+      if (res.status === 401) {
+        setAuthFailed(true);
+        localStorage.removeItem('admin_token');
+        window.location.replace('/admin/login');
+        return;
+      }
       const data = await res.json();
-      if (res.ok) {
-        setSettings(data.settings || {});
+      if (Array.isArray(data)) {
+        setSettings(data);
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err);
@@ -26,37 +49,22 @@ export function useAdminSettings() {
     fetchSettings();
   }, [fetchSettings]);
 
-  const saveSettings = useCallback(async (updates: Record<string, string>) => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ settings: updates }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: 'success', text: '保存成功' });
-        await fetchSettings();
-      } else {
-        setMessage({ type: 'error', text: data.error || '保存失败' });
-      }
-    } catch {
-      setMessage({ type: 'error', text: '网络错误' });
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMessage(null), 3000);
+  const getSetting = useCallback((key: string): string => {
+    const s = settings.find((s) => s.key === key);
+    return s?.value || '';
+  }, [settings]);
+
+  const saveSettings = async (updates: Array<{ key: string; value: string }>) => {
+    const res = await fetch(getApiUrl('/api/admin/settings'), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: updates }),
+    });
+    if (res.ok) {
+      await fetchSettings();
     }
-  }, [fetchSettings]);
+    return res.ok;
+  };
 
-  const get = useCallback(
-    (category: string, key: string, fallback = '') => {
-      return settings[category]?.[key] ?? fallback;
-    },
-    [settings]
-  );
-
-  return { settings, loading, saving, message, saveSettings, get, setMessage };
+  return { settings, loading, getSetting, saveSettings, refetch: fetchSettings, authFailed };
 }
