@@ -1,31 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { Lock, User, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    e.stopPropagation();
+
+    if (!username.trim() || !password.trim()) {
+      setError('请输入用户名和密码');
+      return;
+    }
+
     setLoading(true);
+    setError('');
 
     try {
-      console.log('Attempting login with username:', username);
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
         credentials: 'same-origin',
-        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
-      console.log('Login response:', res.status, data);
 
       if (!res.ok || !data.success) {
         setError(data.error || '登录失败');
@@ -33,10 +38,11 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // 使用硬跳转确保 cookie 被浏览器正确保存和发送
-      window.location.href = '/admin';
-    } catch (err) {
-      console.error('Login error:', err);
+      // 登录成功，延迟跳转确保 cookie 已保存
+      setTimeout(() => {
+        window.location.replace('/admin');
+      }, 300);
+    } catch {
       setError('网络错误，请重试');
       setLoading(false);
     }
@@ -44,75 +50,78 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-            <Sparkles className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+            <Shield className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">SparkAI 管理后台</h1>
-          <p className="text-muted-foreground mt-2">请输入管理员凭证登录</p>
+          <p className="text-muted-foreground mt-2">请输入管理员账号登录</p>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">用户名</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="请输入用户名"
-                  className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-                  required
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4 bg-card p-6 rounded-lg border border-border">
+          {error && (
+            <div className="p-3 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-md">
+              {error}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">密码</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="请输入密码"
-                  className="w-full pl-10 pr-10 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1.5">
+              用户名
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="请输入用户名"
+              autoComplete="username"
               disabled={loading}
-              className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? '登录中...' : '登录'}
-            </button>
-          </form>
-        </div>
+            />
+          </div>
 
-        <p className="text-center text-muted-foreground text-xs mt-6">
-          SparkAI Admin Panel v1.0
-        </p>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
+              密码
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="请输入密码"
+                autoComplete="current-password"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                登录中...
+              </>
+            ) : (
+              '登录'
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );

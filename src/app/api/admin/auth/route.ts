@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateCredentials, createSession, SESSION_COOKIE, SESSION_DURATION_HOURS } from '@/lib/admin-auth';
+import {
+  validateCredentials,
+  createSession,
+  isAdminAuthenticated,
+  destroySession,
+  getAdminSession,
+  SESSION_COOKIE,
+  SESSION_DURATION_HOURS,
+} from '@/lib/admin-auth';
 
+// POST - Login
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+    }
+
     const { username, password } = body;
 
     if (!username || !password) {
@@ -15,58 +30,62 @@ export async function POST(request: NextRequest) {
     }
 
     const sessionId = await createSession();
-
     if (!sessionId) {
-      return NextResponse.json({ error: '会话创建失败' }, { status: 500 });
+      console.error('Session creation returned null');
+      return NextResponse.json({ error: '会话创建失败，请重试' }, { status: 500 });
     }
 
+    console.log('Login success, session created:', sessionId.substring(0, 8) + '...');
+
     const response = NextResponse.json({ success: true });
+
+    // Set cookie - 不使用 Secure 标志，确保在所有环境下都能工作
     response.cookies.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,
-      secure: true,
       sameSite: 'lax',
-      maxAge: SESSION_DURATION_HOURS * 60 * 60,
       path: '/',
+      maxAge: SESSION_DURATION_HOURS * 60 * 60,
+      secure: false,
     });
 
     return response;
   } catch (error) {
     console.error('Login error:', error);
-    return NextResponse.json({ error: '登录失败' }, { status: 500 });
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }
 
-export async function DELETE() {
-  try {
-    const { destroySession, getAdminSession } = await import('@/lib/admin-auth');
-    const sessionId = await getAdminSession();
-    if (sessionId) {
-      await destroySession(sessionId);
-    }
-
-    const { SESSION_COOKIE } = await import('@/lib/admin-auth');
-    const response = NextResponse.json({ success: true });
-    response.cookies.set(SESSION_COOKIE, '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 0,
-      path: '/',
-    });
-    return response;
-  } catch (error) {
-    console.error('Logout error:', error);
-    return NextResponse.json({ error: '登出失败' }, { status: 500 });
-  }
-}
-
+// GET - Check auth status
 export async function GET() {
   try {
-    const { isAdminAuthenticated } = await import('@/lib/admin-auth');
     const authenticated = await isAdminAuthenticated();
     return NextResponse.json({ authenticated });
   } catch (error) {
     console.error('Auth check error:', error);
     return NextResponse.json({ authenticated: false });
+  }
+}
+
+// DELETE - Logout
+export async function DELETE() {
+  try {
+    const sessionId = await getAdminSession();
+    if (sessionId) {
+      await destroySession(sessionId);
+    }
+
+    const response = NextResponse.json({ success: true });
+    response.cookies.set(SESSION_COOKIE, '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+      secure: false,
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Logout error:', error);
+    return NextResponse.json({ error: '退出失败' }, { status: 500 });
   }
 }

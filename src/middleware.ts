@@ -1,33 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Protect /admin page routes (excluding /admin/login)
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const sessionCookie = request.cookies.get('admin_session')?.value;
-
+  // 只保护 /admin 路由（排除 /admin/login 和 /admin/api）
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login' && !pathname.startsWith('/admin/api')) {
+    const sessionCookie = request.cookies.get('admin_session');
     if (!sessionCookie) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
-
-    return NextResponse.next();
-  }
-
-  // Protect /api/admin/* routes (excluding /api/admin/auth)
-  if (pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/admin/auth')) {
-    const sessionCookie = request.cookies.get('admin_session')?.value;
-
-    if (!sessionCookie) {
-      return NextResponse.json({ error: '未授权' }, { status: 401 });
-    }
-
-    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/admin/:path*'],
 };

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -8,80 +9,94 @@ import {
   Key,
   Palette,
   HardDrive,
-  Download,
+  Import,
   LogOut,
-  Sparkles,
+  Shield,
   Menu,
   X,
-  ChevronRight,
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/admin', label: '仪表盘', icon: LayoutDashboard, category: '概览' },
-  { href: '/admin/settings', label: '网站设置', icon: Settings, category: '配置' },
-  { href: '/admin/api-tokens', label: 'API 令牌', icon: Key, category: '配置' },
-  { href: '/admin/theme', label: '主题配色', icon: Palette, category: '外观' },
-  { href: '/admin/storage', label: '图片存储', icon: HardDrive, category: '存储' },
-  { href: '/admin/import', label: '任务导入', icon: Download, category: '工具' },
+  { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
+  { href: '/admin/settings', label: '网站设置', icon: Settings },
+  { href: '/admin/api-tokens', label: 'API 令牌', icon: Key },
+  { href: '/admin/theme', label: '主题配色', icon: Palette },
+  { href: '/admin/storage', label: '图片存储', icon: HardDrive },
+  { href: '/admin/import', label: '任务导入', icon: Import },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isLoginPage = pathname === '/admin/login';
+  const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(!isLoginPage);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      // Login page doesn't need auth check
-      if (pathname === '/admin/login') {
-        setChecking(false);
-        return;
-      }
+    if (isLoginPage) return;
+
+    let cancelled = false;
+
+    const check = async () => {
       try {
         const res = await fetch('/api/admin/auth', { credentials: 'same-origin' });
         const data = await res.json();
-        if (!data.authenticated) {
-          window.location.href = '/admin/login';
-          return;
+        if (cancelled) return;
+
+        if (data.authenticated) {
+          setAuthed(true);
+          setChecking(false);
+        } else {
+          window.location.replace('/admin/login');
         }
-        setAuthenticated(true);
       } catch {
-        window.location.href = '/admin/login';
-      } finally {
-        setChecking(false);
+        if (!cancelled) {
+          window.location.replace('/admin/login');
+        }
       }
     };
-    checkAuth();
-  }, [pathname]);
 
-  const handleLogout = useCallback(async () => {
-    await fetch('/api/admin/auth', { method: 'DELETE', credentials: 'same-origin' });
-    window.location.href = '/admin/login';
-  }, []);
+    check();
+    return () => { cancelled = true; };
+  }, [isLoginPage]);
 
-  if (pathname === '/admin/login') {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/auth', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+    } catch {
+      // ignore
+    }
+    window.location.replace('/admin/login');
+  };
+
+  // 登录页直接渲染
+  if (isLoginPage) {
     return <>{children}</>;
   }
 
+  // 检查认证中
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3 text-muted-foreground">
-          <Sparkles className="w-5 h-5 animate-spin" />
-          <span>验证中...</span>
+          <Shield className="w-6 h-6 animate-pulse" />
+          <span>验证身份中...</span>
         </div>
       </div>
     );
   }
 
-  if (!authenticated) return null;
-
-  const currentNav = navItems.find((item) => item.href === pathname);
+  // 未认证（不应到达这里，但作为保护）
+  if (!authed) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Mobile overlay */}
+      {/* 移动端遮罩 */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -89,101 +104,80 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* Sidebar */}
+      {/* 侧边栏 */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-3 px-6 h-16 border-b border-border shrink-0">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-foreground">SparkAI</h2>
-              <p className="text-xs text-muted-foreground">管理后台</p>
-            </div>
-            <button
-              className="ml-auto lg:hidden text-muted-foreground"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="p-4 border-b border-border">
+            <Link href="/admin" className="flex items-center gap-2 text-foreground">
+              <Shield className="w-6 h-6 text-primary" />
+              <span className="font-bold text-lg">SparkAI</span>
+            </Link>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4 px-3">
-            {['概览', '配置', '外观', '存储', '工具'].map((category) => {
-              const items = navItems.filter((i) => i.category === category);
-              if (items.length === 0) return null;
+          {/* 导航 */}
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
               return (
-                <div key={category} className="mb-4">
-                  <p className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {category}
-                  </p>
-                  {items.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                      <button
-                        key={item.href}
-                        onClick={() => {
-                          window.location.href = item.href;
-                          setSidebarOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-0.5 ${
-                          isActive
-                            ? 'bg-primary/10 text-primary font-medium'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                        }`}
-                      >
-                        <item.icon className="w-4 h-4 shrink-0" />
-                        <span>{item.label}</span>
-                        {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
               );
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="px-3 py-4 border-t border-border shrink-0">
+          {/* 底部 */}
+          <div className="p-3 border-t border-border space-y-1">
+            <Link
+              href="/"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              返回前台
+            </Link>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted w-full"
             >
               <LogOut className="w-4 h-4" />
-              <span>退出登录</span>
+              退出登录
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 min-w-0">
-        {/* Top Bar */}
-        <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center px-6 gap-4">
+      {/* 主内容区 */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 顶栏 */}
+        <header className="h-14 border-b border-border bg-card flex items-center px-4 gap-3">
           <button
-            className="lg:hidden text-muted-foreground"
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="lg:hidden text-muted-foreground hover:text-foreground"
           >
-            <Menu className="w-5 h-5" />
+            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="flex items-center gap-2">
-            {currentNav && (
-              <>
-                <currentNav.icon className="w-4 h-4 text-primary" />
-                <h1 className="text-lg font-semibold text-foreground">{currentNav.label}</h1>
-              </>
-            )}
-          </div>
+          <h2 className="text-sm font-medium text-foreground">
+            {navItems.find((i) => i.href === pathname)?.label || '管理后台'}
+          </h2>
         </header>
 
-        {/* Page Content */}
-        <main className="p-6 max-w-5xl">{children}</main>
+        {/* 页面内容 */}
+        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
