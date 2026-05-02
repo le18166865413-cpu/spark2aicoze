@@ -159,7 +159,7 @@ export default function Home() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto md:flex-nowrap">
           {/* Sort Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
             <SelectTrigger className="w-[130px] h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20 gap-2">
