@@ -63,7 +63,7 @@ export function Navbar() {
             variant={pathname === "/" ? "default" : "outline"}
             size="sm"
             className={cn(
-              "sm:hidden rounded-full text-xs font-semibold h-8",
+              "sm:hidden rounded-md text-xs font-semibold h-8",
               pathname === "/"
                 ? ""
                 : "border-primary/30 text-primary hover:bg-primary/10"
@@ -79,7 +79,7 @@ export function Navbar() {
           <Button
             asChild
             size="sm"
-            className="sm:hidden rounded-full text-xs font-semibold h-8 shadow-[0_0_12px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.35)] transition-all"
+            className="sm:hidden rounded-md text-xs font-semibold h-8 shadow-[0_0_12px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.35)] transition-all"
           >
             <Link href="/create">
               <Plus className="h-3.5 w-3.5 mr-1" />
