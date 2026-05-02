@@ -11,12 +11,29 @@ const extractTaskIds = (text: string): string[] => {
   return matches ? [...new Set(matches)] : [];
 };
 
+// Extract a single "chunk" of text around each task ID for context
+const extractTextChunks = (text: string): Map<string, string> => {
+  const chunks = new Map<string, string>();
+  const ids = extractTaskIds(text);
+  
+  for (const id of ids) {
+    const idx = text.indexOf(id);
+    if (idx === -1) continue;
+    // Extract ±500 chars around the task ID for context
+    const start = Math.max(0, idx - 200);
+    const end = Math.min(text.length, idx + id.length + 500);
+    chunks.set(id, text.substring(start, end));
+  }
+  
+  return chunks;
+};
+
 interface ImportResult {
   success: boolean;
   count?: number;
-  imported?: Array<{ id: string; prompt: string }>;
+  skipped?: boolean;
+  source?: string;
   error?: string;
-  existing?: string;
 }
 
 interface ImportEntry {
@@ -28,6 +45,7 @@ interface ImportEntry {
 
 export default function AdminImportPage() {
   const [taskId, setTaskId] = useState('');
+  const [rawInput, setRawInput] = useState('');
   const [imports, setImports] = useState<ImportEntry[]>([]);
   const [batchMode, setBatchMode] = useState(false);
   const [batchIds, setBatchIds] = useState('');
@@ -38,13 +56,10 @@ export default function AdminImportPage() {
     setBatchIds(text);
     const extracted = extractTaskIds(text);
     setExtractedCount(extracted.length);
-    if (extracted.length > 0) {
-      setBatchIds(extracted.join('\n'));
-    }
   };
 
-  const handleImport = async (id: string) => {
-    console.log('[Import] Starting import for:', id);
+  const handleImport = async (id: string, rawText?: string) => {
+    console.log('[Import] Starting import for:', id, rawText ? 'with raw text context' : 'without raw text');
     const entry: ImportEntry = {
       taskId: id,
       status: 'loading',
@@ -57,7 +72,7 @@ export default function AdminImportPage() {
       const res = await fetch('/api/admin/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ import: { taskId: id } }),
+        body: JSON.stringify({ import: { taskId: id, rawText: rawText || '' } }),
       });
       console.log('[Import] Response status:', res.status);
       const data: ImportResult = await res.json();
@@ -82,16 +97,37 @@ export default function AdminImportPage() {
     setTaskId('');
   };
 
+  const handleSingleImport = () => {
+    const extracted = extractTaskIds(rawInput || taskId);
+    const contextText = rawInput || taskId;
+    if (extracted.length > 0) {
+      // Use the first extracted ID with the full text as context
+      const chunks = extractTextChunks(contextText);
+      handleImport(extracted[0], chunks.get(extracted[0]) || contextText);
+    } else if (taskId.trim()) {
+      handleImport(taskId.trim(), contextText);
+    }
+  };
+
   const handleBatchImport = async () => {
-    const ids = batchIds
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (ids.length === 0) return;
-
-    for (const id of ids) {
-      await handleImport(id);
+    const ids = extractTaskIds(batchIds);
+    
+    if (ids.length === 0) {
+      // Try splitting by newlines as fallback
+      const fallbackIds = batchIds
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      
+      for (const id of fallbackIds) {
+        await handleImport(id);
+      }
+    } else {
+      // Use extracted IDs with context
+      const chunks = extractTextChunks(batchIds);
+      for (const id of ids) {
+        await handleImport(id, chunks.get(id) || '');
+      }
     }
     setBatchIds('');
     setExtractedCount(0);
@@ -111,7 +147,7 @@ export default function AdminImportPage() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          输入 GrsAI 的任务 ID，或直接粘贴任意包含任务 ID 的文字，系统将自动提取并导入。导入的图片会自动上传到 S3 存储并生成永久访问链接。
+          直接粘贴 GrsAI 任务列表的任意文字（表格、日志等），系统将自动提取任务 ID、图片 URL 和描述信息进行导入。即使 GrsAI API 查询不到结果，也能从粘贴内容中提取图片数据。
         </p>
 
         {/* Mode Toggle */}
@@ -135,26 +171,21 @@ export default function AdminImportPage() {
         </div>
 
         {!batchMode ? (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={taskId}
-              onChange={(e) => setTaskId(e.target.value)}
-              placeholder="输入 GrsAI 任务 ID，或粘贴任意包含任务 ID 的文字"
-              className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-              onKeyDown={(e) => e.key === 'Enter' && taskId.trim() && handleImport(taskId.trim())}
+          <div className="space-y-3">
+            <textarea
+              value={rawInput || taskId}
+              onChange={(e) => {
+                setRawInput(e.target.value);
+                setTaskId(e.target.value);
+              }}
+              placeholder={'粘贴包含任务 ID 的文字，例如：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表\n{"aspectRatio":"1:1","prompt":"制作图文小店价格表",...}'}
+              rows={4}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
             />
             <button
-              onClick={() => {
-                const extracted = extractTaskIds(taskId);
-                if (extracted.length > 0) {
-                  handleImport(extracted[0]);
-                } else if (taskId.trim()) {
-                  handleImport(taskId.trim());
-                }
-              }}
-              disabled={!taskId.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors shrink-0"
+              onClick={handleSingleImport}
+              disabled={!rawInput.trim() && !taskId.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <Plus className="w-4 h-4" />
               导入
@@ -166,8 +197,8 @@ export default function AdminImportPage() {
               <textarea
                 value={batchIds}
                 onChange={handleBatchIdsChange}
-                placeholder="粘贴任意包含任务 ID 的文字，支持自动提取&#10;例如：13-9c2513b3-cae5-47a7-a92c-f8d91011db95	gpt-image-2-600 55s 成功..."
-                rows={6}
+                placeholder={'粘贴 GrsAI 任务列表的任意文字，系统自动提取任务 ID：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表\n15-f34f1e4b-9f01-4410-9f10-2f20f70a9977  gpt-image-2  成功  生成长春动物园...'}
+                rows={8}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
               />
               {extractedCount > 0 && (
@@ -183,7 +214,7 @@ export default function AdminImportPage() {
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <Download className="w-4 h-4" />
-              批量导入 ({batchIds.split('\n').filter((s) => s.trim()).length} 个)
+              批量导入 ({extractedCount || batchIds.split('\n').filter((s) => s.trim()).length} 个)
             </button>
           </div>
         )}
@@ -210,7 +241,7 @@ export default function AdminImportPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <code className="text-xs font-mono text-foreground truncate">{entry.taskId}</code>
-                    {entry.status === 'success' && entry.result?.imported && (
+                    {entry.status === 'success' && (
                       <a
                         href="/"
                         target="_blank"
@@ -223,8 +254,8 @@ export default function AdminImportPage() {
                   </div>
                   {entry.status === 'success' && entry.result && (
                     <p className="text-xs text-primary mt-0.5">
-                      成功导入 {entry.result.count} 张图片
-                      {entry.result.imported?.map((i) => i.prompt).join(', ')}
+                      {entry.result.skipped ? '已存在，跳过' : `成功导入 ${entry.result.count || 0} 张图片`}
+                      {entry.result.source === 'text_extraction' && ' (从文字提取)'}
                     </p>
                   )}
                   {entry.status === 'error' && entry.result?.error && (
@@ -251,10 +282,10 @@ export default function AdminImportPage() {
         <h3 className="text-sm font-semibold text-foreground">使用说明</h3>
         <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
           <li>支持从任意文字中自动提取任务 ID（格式：13-9c2513b3-cae5-47a7-a92c-f8d91011db95）</li>
-          <li>直接粘贴包含任务 ID 的表格、日志或任意文字即可</li>
-          <li>系统会自动查询 GrsAI 获取图片结果，上传到 S3 并保存到数据库</li>
-          <li>导入成功后，图片会立即出现在海报广场中</li>
-          <li>批量模式：粘贴多段文字，自动提取所有任务 ID 依次导入</li>
+          <li>直接粘贴 GrsAI 任务列表的完整文字即可，系统会自动提取图片 URL 和描述</li>
+          <li>即使 GrsAI API 查询不到结果，也能从粘贴的文字中提取图片数据导入</li>
+          <li>导入成功后，图片会自动上传到 S3 并出现在海报广场中</li>
+          <li>已导入过的任务会自动跳过，不会重复导入</li>
         </ol>
       </div>
     </div>
