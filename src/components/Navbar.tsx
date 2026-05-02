@@ -61,13 +61,16 @@ export default function Navbar() {
             >
               创作中心
             </Link>
-            <Link
-              href="/admin"
-              onClick={() => setMobileOpen(false)}
-              className="block px-3 py-2.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors"
-            >
-              管理后台
-            </Link>
+            <div className="pt-2 border-t border-border">
+              <Link
+                href="/admin"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                管理后台
+              </Link>
+            </div>
           </div>
         </div>
       )}
