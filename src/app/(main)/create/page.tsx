@@ -19,7 +19,7 @@ const promptTemplates = [
 const modelOptions = [
   { value: "image2-vip", label: "Spark2 VIP", desc: "最高画质，细节极致" },
   { value: "image2", label: "Spark2", desc: "高画质，性价比之选" },
-  { value: "nano-banana-fast", label: "Spark Lite", desc: "极速生成，快速预览" },
+  { value: "nano-banana-fast", label: "Spark Lite", desc: "适合纯图，无文字" },
 ];
 
 type GenerationMode = "text2img" | "img2img";
