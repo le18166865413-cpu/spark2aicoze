@@ -55,7 +55,7 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Right side buttons */}
+        {/* Right side */}
         <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
           {/* Mobile: 广场 button */}
           <Button
@@ -65,7 +65,7 @@ export function Navbar() {
             className={cn(
               "sm:hidden rounded-full text-xs font-semibold h-8",
               pathname === "/"
-                ? "bg-primary text-primary-foreground"
+                ? ""
                 : "border-primary/30 text-primary hover:bg-primary/10"
             )}
           >
@@ -79,11 +79,7 @@ export function Navbar() {
           <Button
             asChild
             size="sm"
-            className={cn(
-              "sm:hidden rounded-full text-xs font-semibold h-8",
-              "bg-primary text-primary-foreground hover:bg-primary/90",
-              "shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-            )}
+            className="sm:hidden rounded-full text-xs font-semibold h-8 shadow-[0_0_12px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.35)] transition-all"
           >
             <Link href="/create">
               <Plus className="h-3.5 w-3.5 mr-1" />
@@ -94,7 +90,7 @@ export function Navbar() {
           {/* Desktop: 开始创作 button */}
           <Button
             asChild
-            className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 font-bold rounded-full px-6 shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all"
+            className="hidden sm:inline-flex font-bold rounded-full px-6 shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all"
           >
             <Link href="/create">开始创作</Link>
           </Button>
