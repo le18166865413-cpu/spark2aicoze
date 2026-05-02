@@ -95,7 +95,7 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
         >
           {!imgLoaded && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <ImageIcon className="w-6 h-6 text-muted-foreground/30 animate-pulse" />
+              <ImageIcon className="w-8 h-8 text-muted-foreground/30 animate-pulse" />
             </div>
           )}
           <img
@@ -108,45 +108,45 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
           {/* Hover overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
           {/* Hover action buttons */}
-          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+          <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
             <button
               onClick={handleDownload}
-              className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
+              className="p-2 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
               title="下载"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4" />
             </button>
             <button
               onClick={handleShare}
-              className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
+              className="p-2 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-black/70 transition-colors"
               title="分享"
             >
-              <Share2 className="w-3.5 h-3.5" />
+              <Share2 className="w-4 h-4" />
             </button>
             {onDelete && (
               <button
                 onClick={handleDelete}
-                className="p-1.5 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-red-500/80 transition-colors"
+                className="p-2 bg-black/50 backdrop-blur-sm rounded-lg text-white hover:bg-red-500/80 transition-colors"
                 title="删除"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
           {/* Hover prompt */}
-          <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
-            <p className="text-white text-xs sm:text-sm line-clamp-2 leading-snug">{image.prompt}</p>
+          <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-200">
+            <p className="text-white text-sm line-clamp-2 leading-snug">{image.prompt}</p>
           </div>
         </div>
         {/* Bottom info bar */}
-        <div className="px-2.5 sm:px-3 py-2 flex items-center justify-between">
-          <span className="text-[10px] sm:text-xs text-muted-foreground">{modelNames[image.model] || image.model}</span>
-          <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground">
-            <span className="flex items-center gap-0.5 text-[10px] sm:text-xs">
-              <Eye className="w-3 h-3" />{image.views}
+        <div className="px-3 py-2.5 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">{modelNames[image.model] || image.model}</span>
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs">
+              <Eye className="w-3.5 h-3.5" />{image.views}
             </span>
-            <span className="flex items-center gap-0.5 text-[10px] sm:text-xs">
-              <Download className="w-3 h-3" />{image.downloads}
+            <span className="flex items-center gap-1 text-xs">
+              <Download className="w-3.5 h-3.5" />{image.downloads}
             </span>
           </div>
         </div>
@@ -155,57 +155,57 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
       {/* Detail Modal */}
       {showDetail && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
           onClick={() => setShowDetail(false)}
         >
           <div
-            className="bg-card w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-200"
+            className="bg-card w-full max-w-2xl rounded-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-              <h3 className="text-sm font-semibold text-foreground truncate pr-2">海报详情</h3>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <h3 className="text-base font-semibold text-foreground truncate pr-2">海报详情</h3>
               <button
                 onClick={() => setShowDetail(false)}
                 className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Image */}
-            <div className="overflow-auto flex-1 p-3 sm:p-4">
+            <div className="overflow-auto flex-1 p-4">
               <div className="relative rounded-xl overflow-hidden bg-muted/30">
                 <img
                   src={image.url}
                   alt={image.prompt}
-                  className="w-full h-auto max-h-[50vh] sm:max-h-[55vh] object-contain"
+                  className="w-full h-auto max-h-[55vh] object-contain"
                 />
               </div>
             </div>
 
             {/* Info & Actions */}
-            <div className="border-t border-border px-4 py-3 space-y-3 shrink-0">
+            <div className="border-t border-border px-5 py-4 space-y-3 shrink-0">
               <p className="text-sm text-foreground leading-relaxed">{image.prompt}</p>
 
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] sm:text-xs rounded-md font-medium">
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-xs rounded-md font-medium">
                   {modelNames[image.model] || image.model}
                 </span>
-                <span className="px-2 py-0.5 bg-muted text-muted-foreground text-[10px] sm:text-xs rounded-md">
+                <span className="px-2.5 py-0.5 bg-muted text-muted-foreground text-xs rounded-md">
                   {image.ratio}
                 </span>
-                <span className="px-2 py-0.5 bg-muted text-muted-foreground text-[10px] sm:text-xs rounded-md">
+                <span className="px-2.5 py-0.5 bg-muted text-muted-foreground text-xs rounded-md">
                   {image.width}×{image.height}
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{image.views}</span>
                   <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" />{image.downloads}</span>
                 </div>
-                <span className="text-[10px] sm:text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {new Date(image.createdAt).toLocaleDateString('zh-CN')}
                 </span>
               </div>
@@ -224,7 +224,7 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
                   className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">分享</span>
+                  分享
                 </button>
                 {onDelete && (
                   <button
@@ -232,7 +232,7 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
                     className="flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">删除</span>
+                    删除
                   </button>
                 )}
                 <a
@@ -243,7 +243,7 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
                   className="flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <ZoomIn className="w-4 h-4" />
-                  <span className="hidden sm:inline">查看原图</span>
+                  查看原图
                 </a>
               </div>
             </div>
