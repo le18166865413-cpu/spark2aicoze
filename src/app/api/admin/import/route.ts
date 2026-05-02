@@ -6,9 +6,11 @@ interface GrsAIResultResponse {
   code: number;
   msg: string;
   data: {
-    status: 'processing' | 'success' | 'failed';
-    images: Array<{ url: string; seed: number }>;
-    prompt: string;
+    status: string;
+    results: Array<{ url: string; width: number; height: number }>;
+    progress: number;
+    error: string;
+    id: string;
   } | null;
 }
 
@@ -49,7 +51,6 @@ async function getSignedUrl(key: string): Promise<string> {
   }
 }
 
-// Estimate dimensions from ratio string
 function estimateDimensions(ratio: string): { width: number; height: number } {
   const dimMap: Record<string, { width: number; height: number }> = {
     "1:1": { width: 1024, height: 1024 },
@@ -63,7 +64,6 @@ function estimateDimensions(ratio: string): { width: number; height: number } {
   return dimMap[ratio] || { width: 1024, height: 1024 };
 }
 
-// Import a single image by URL + metadata
 async function importImage(
   imageUrl: string,
   prompt: string,
@@ -73,7 +73,6 @@ async function importImage(
   supabase: ReturnType<typeof getSupabaseClient>
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if already imported
     const { data: existing } = await supabase
       .from('gallery_images')
       .select('id')
@@ -131,7 +130,6 @@ export async function POST(request: Request) {
     let taskId = '';
     let rawText = '';
 
-    // Support both formats
     const payload = body.import || body;
     taskId = payload.taskId || '';
     rawText = payload.rawText || '';
@@ -159,10 +157,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, count: 0, skipped: true });
     }
 
-    // Try to extract data from raw text first (for cases where GrsAI API can't find the result)
+    // Try to extract data from raw text first
     let extractedFromText = false;
     if (rawText) {
-      // Try to find JSON objects in the text that contain image URLs
       const jsonPattern = /\{[^{}]*"url"\s*:\s*"([^"]+)"[^{}]*\}/g;
       const urls: string[] = [];
       let match;
@@ -172,32 +169,25 @@ export async function POST(request: Request) {
         }
       }
 
-      // Also try to find prompt in JSON
       let prompt = '';
       const promptMatch = rawText.match(/"prompt"\s*:\s*"([^"]+)"/);
       if (promptMatch) {
         prompt = promptMatch[1];
       }
 
-      // Also try to find aspectRatio
       let ratio = '1:1';
       const ratioMatch = rawText.match(/"aspectRatio"\s*:\s*"([^"]+)"/);
       if (ratioMatch) {
         ratio = ratioMatch[1];
       }
 
-      // Also try to find model from the text line near the task ID
       let model = 'grsai';
-      const modelMatch = rawText.match(new RegExp(taskId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+\\S*\\s+\\S*\\s+\\S*\\s+\\S*\\s+(\\S+)'));
-      if (!modelMatch) {
-        // Try matching "gpt-image-2" or "nano-banana-fast" near the task ID
-        const nearbyModel = rawText.match(/(gpt-image-2-vip|gpt-image-2|nano-banana-fast)/);
-        if (nearbyModel) {
-          model = nearbyModel[1];
-        }
+      const nearbyModel = rawText.match(/(gpt-image-2-vip|gpt-image-2|nano-banana-fast)/);
+      if (nearbyModel) {
+        model = nearbyModel[1];
       }
 
-      // Try to find direct image URLs (not in JSON) - GrsAI result URLs
+      // Try to find direct image URLs
       const directUrlPattern = /https?:\/\/[^\s"<>]+(?:\.png|\.jpg|\.jpeg|\.webp)[^\s"<>]*/g;
       while ((match = directUrlPattern.exec(rawText)) !== null) {
         const url = match[0];
@@ -208,8 +198,6 @@ export async function POST(request: Request) {
 
       if (urls.length > 0) {
         console.log('Extracted', urls.length, 'image URLs from raw text');
-        console.log('Extracted prompt:', prompt);
-        console.log('Extracted ratio:', ratio);
 
         let imported = 0;
         for (const imageUrl of urls) {
@@ -252,14 +240,15 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('Querying GrsAI task result:', taskId);
+    // CRITICAL: GrsAI result API uses "id" not "task_id" as the parameter name!
+    console.log('Querying GrsAI task result with id:', taskId);
     const resultRes = await fetch(`${baseUrl}/v1/draw/result`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({ task_id: taskId })
+      body: JSON.stringify({ id: taskId })
     });
 
     const resultData = await resultRes.json() as GrsAIResultResponse;
@@ -269,7 +258,7 @@ export async function POST(request: Request) {
       const errMsg = resultData.msg || '获取任务结果失败';
       if (errMsg === 'result not exist') {
         return NextResponse.json(
-          { error: '任务结果不存在或已过期，请粘贴包含图片URL的完整任务信息进行导入' },
+          { error: '任务结果不存在或已过期（GrsAI 仅保留2小时），请粘贴包含图片URL的完整任务信息进行导入' },
           { status: 400 }
         );
       }
@@ -279,7 +268,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (resultData.data.status === 'processing') {
+    if (resultData.data.status === 'processing' || resultData.data.progress < 100) {
       return NextResponse.json(
         { error: '任务正在处理中，请稍后再试' },
         { status: 202 }
@@ -293,13 +282,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const imageUrls = resultData.data.images.map(img => img.url);
-    const prompt = resultData.data.prompt;
+    // GrsAI returns results array with url field
+    const imageUrls = (resultData.data.results || []).map(img => img.url).filter(Boolean);
     console.log('Found', imageUrls.length, 'images from GrsAI API');
+
+    if (imageUrls.length === 0) {
+      return NextResponse.json(
+        { error: '任务结果中没有图片' },
+        { status: 400 }
+      );
+    }
 
     let imported = 0;
     for (const imageUrl of imageUrls) {
-      const result = await importImage(imageUrl, prompt, '1:1', 'grsai', taskId, supabase);
+      const result = await importImage(imageUrl, '从 GrsAI 导入', '1:1', 'grsai', taskId, supabase);
       if (result.success) imported++;
     }
 

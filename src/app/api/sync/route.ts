@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${GRSAI_API_KEY}`,
       },
-      body: JSON.stringify({ task_id: taskId }),
+      body: JSON.stringify({ id: taskId }),
     });
 
     if (!response.ok) {
