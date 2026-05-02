@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { Menu, X, Sparkles } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Sparkles, LayoutGrid, PenTool } from 'lucide-react';
 
 export default function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (path: string) => pathname === path;
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-lg">
@@ -19,63 +21,53 @@ export default function Navbar() {
 
           {/* Desktop Nav */}
           <div className="hidden sm:flex items-center gap-6">
-            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              海报广场
-            </Link>
-            <Link href="/create" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              创作中心
-            </Link>
-            {/* 管理后台仅桌面端显示 */}
-            <Link
-              href="/admin"
-              className="hidden sm:inline-flex text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              管理后台
-            </Link>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="sm:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {mobileOpen && (
-        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-lg">
-          <div className="px-4 py-3 space-y-1">
             <Link
               href="/"
-              onClick={() => setMobileOpen(false)}
-              className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              className={`text-sm transition-colors ${isActive('/') ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               海报广场
             </Link>
             <Link
               href="/create"
-              onClick={() => setMobileOpen(false)}
-              className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              className={`text-sm transition-colors ${isActive('/create') ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
               创作中心
             </Link>
-            {/* 管理后台入口仅桌面端显示，手机端不显示 */}
-            <div className="hidden sm:block pt-2 border-t border-border">
-              <Link
-                href="/admin"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                <Sparkles className="w-4 h-4" />
-                管理后台
-              </Link>
-            </div>
+            <Link
+              href="/admin"
+              className="text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              管理后台
+            </Link>
+          </div>
+
+          {/* Mobile Nav - 两个按钮平铺 */}
+          <div className="flex sm:hidden items-center gap-2">
+            <Link
+              href="/"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                isActive('/')
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              广场
+            </Link>
+            <Link
+              href="/create"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                isActive('/create')
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              创作
+            </Link>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 }
