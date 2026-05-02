@@ -25,9 +25,10 @@ export default function Navbar() {
             <Link href="/create" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               创作中心
             </Link>
+            {/* 管理后台仅桌面端显示 */}
             <Link
               href="/admin"
-              className="text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              className="hidden sm:inline-flex text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               管理后台
             </Link>
@@ -61,7 +62,8 @@ export default function Navbar() {
             >
               创作中心
             </Link>
-            <div className="pt-2 border-t border-border">
+            {/* 管理后台入口仅桌面端显示，手机端不显示 */}
+            <div className="hidden sm:block pt-2 border-t border-border">
               <Link
                 href="/admin"
                 onClick={() => setMobileOpen(false)}
