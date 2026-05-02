@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 
-const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+
+async function getGrsaiApiKey(): Promise<string> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.from("admin_settings").select("value").eq("key", "grsai_api_key").single();
+    if (data?.value) return data.value;
+  } catch { /* fallback */ }
+  return process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
+}
 
 interface GalleryImage {
   id: string;
@@ -16,7 +24,6 @@ interface GalleryImage {
   downloads: number;
   model: string;
   ratio: string;
-  type: string;
   taskId: string;
   createdAt: string;
 }
@@ -207,7 +214,7 @@ export async function POST(request: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${GRSAI_API_KEY}`,
+              Authorization: `Bearer ${await getGrsaiApiKey()}`,
             },
             body: JSON.stringify(requestBody),
           });
@@ -316,7 +323,6 @@ export async function POST(request: NextRequest) {
             downloads: 0,
             model: model,
             ratio: ratio,
-            type: "generated",
             taskId: taskId,
             createdAt: now,
           };

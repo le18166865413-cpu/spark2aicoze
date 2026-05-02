@@ -6,25 +6,16 @@ export const healthCheck = pgTable("health_check", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
-export const galleryImages = pgTable(
-  "gallery_images",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
-    prompt: text("prompt").notNull(),
-    url: text("url").notNull(),
-    imageKey: varchar("image_key", { length: 500 }),
-    width: integer("width").default(3),
-    height: integer("height").default(4),
-    views: integer("views").default(0).notNull(),
-    downloads: integer("downloads").default(0).notNull(),
-    model: varchar("model", { length: 100 }),
-    ratio: varchar("ratio", { length: 20 }),
-    taskId: varchar("task_id", { length: 200 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    index("gallery_images_created_at_idx").on(table.createdAt),
-    index("gallery_images_views_idx").on(table.views),
-    index("gallery_images_downloads_idx").on(table.downloads),
-  ]
-);
+export const adminSettings = pgTable("admin_settings", {
+  key: varchar("key", { length: 200 }).primaryKey(),
+  value: text("value").notNull(),
+  category: varchar("category", { length: 50 }).default("general").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const adminSessions = pgTable("admin_sessions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  username: varchar("username", { length: 100 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
