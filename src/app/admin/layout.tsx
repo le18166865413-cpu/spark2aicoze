@@ -29,7 +29,14 @@ const navItems = [
 
 function getAdminToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('admin_token');
+  try {
+    const token = localStorage.getItem('admin_token');
+    console.log('[AdminLayout] getAdminToken:', token ? token.substring(0, 16) + '...' : null);
+    return token;
+  } catch (e) {
+    console.error('[AdminLayout] Failed to get token from localStorage:', e);
+    return null;
+  }
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -41,39 +48,66 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // 登录页不显示后台布局
   const isLoginPage = pathname === '/admin/login';
 
+  console.log('[AdminLayout] Mounted, pathname:', pathname);
+
   // 非登录页验证 token
   useEffect(() => {
+    console.log('[AdminLayout] useEffect fired, isLoginPage:', isLoginPage);
     if (isLoginPage) {
       setAuthChecked(true);
       return;
     }
     const token = getAdminToken();
     if (!token) {
-      window.location.replace('/admin/login');
+      console.log('[AdminLayout] No token found, redirecting to login');
+      try {
+        window.location.replace('/admin/login');
+      } catch (e) {
+        console.error('[AdminLayout] Redirect failed:', e);
+        try {
+          window.location.href = '/admin/login';
+        } catch (e2) {
+          console.error('[AdminLayout] window.location.href also failed:', e2);
+        }
+      }
       return;
     }
+    console.log('[AdminLayout] Token found, verifying...');
     // 验证 token 是否有效
-    fetch(`/api/admin/auth?token=${token}`)
-      .then((res) => res.json())
+    fetch(`/api/admin/auth?token=${encodeURIComponent(token)}`)
+      .then((res) => {
+        console.log('[AdminLayout] Auth check response status:', res.status);
+        return res.json();
+      })
       .then((data) => {
+        console.log('[AdminLayout] Auth check data:', data);
         if (!data.authenticated) {
-          localStorage.removeItem('admin_token');
+          console.log('[AdminLayout] Auth failed, removing token and redirecting');
+          try {
+            localStorage.removeItem('admin_token');
+          } catch (e) {
+            console.error('[AdminLayout] Failed to remove token:', e);
+          }
           window.location.replace('/admin/login');
         } else {
+          console.log('[AdminLayout] Auth success, setting authChecked = true');
           setAuthChecked(true);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[AdminLayout] Auth check error:', err);
         // 网络错误时仍然允许访问（可能只是暂时的）
         setAuthChecked(true);
       });
   }, [isLoginPage]);
 
   if (isLoginPage) {
+    console.log('[AdminLayout] Rendering login page children');
     return <>{children}</>;
   }
 
   if (!authChecked) {
+    console.log('[AdminLayout] Rendering loading spinner');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -81,14 +115,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  console.log('[AdminLayout] Rendering admin dashboard layout');
+
   const handleLogout = async () => {
+    console.log('[AdminLayout] Logging out...');
     const token = getAdminToken();
     try {
-      await fetch(`/api/admin/auth?token=${token || ''}`, { method: 'DELETE' });
-    } catch {
-      // ignore
+      await fetch(`/api/admin/auth?token=${encodeURIComponent(token || '')}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('[AdminLayout] Logout API call failed:', e);
     }
-    localStorage.removeItem('admin_token');
+    try {
+      localStorage.removeItem('admin_token');
+    } catch (e) {
+      console.error('[AdminLayout] Failed to remove token:', e);
+    }
     window.location.replace('/admin/login');
   };
 

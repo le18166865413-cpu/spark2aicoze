@@ -14,6 +14,8 @@ export default function AdminLoginPage() {
     setError('');
     setLoading(true);
 
+    console.log('[Login] Starting login...');
+
     try {
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
@@ -21,18 +23,55 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('[Login] Response status:', res.status);
+
       const data = await res.json();
+      console.log('[Login] Response data:', data);
 
       if (data.success && data.token) {
+        console.log('[Login] Login successful, token:', data.token.substring(0, 16) + '...');
+        
         // 存储 token 到 localStorage
-        localStorage.setItem('admin_token', data.token);
-        // 硬跳转到 admin 页面
-        window.location.href = '/admin';
+        try {
+          localStorage.setItem('admin_token', data.token);
+          console.log('[Login] Token stored to localStorage');
+        } catch (storageErr) {
+          console.error('[Login] Failed to store token:', storageErr);
+        }
+
+        // 尝试多种跳转方法，适配 iframe 环境
+        console.log('[Login] Attempting redirect...');
+        
+        // 方法1: 当前窗口跳转
+        try {
+          window.location.href = '/admin';
+          console.log('[Login] window.location.href set to /admin');
+        } catch (err1) {
+          console.error('[Login] window.location.href failed:', err1);
+          
+          // 方法2: iframe 中的 parent 跳转
+          try {
+            (window as any).parent.location.href = '/admin';
+            console.log('[Login] window.parent.location.href set to /admin');
+          } catch (err2) {
+            console.error('[Login] window.parent.location.href failed:', err2);
+            
+            // 方法3: iframe 中的 top 跳转
+            try {
+              (window as any).top.location.href = '/admin';
+              console.log('[Login] window.top.location.href set to /admin');
+            } catch (err3) {
+              console.error('[Login] All redirect methods failed:', err3);
+              setError('跳转失败，请手动刷新页面');
+            }
+          }
+        }
       } else {
+        console.log('[Login] Login failed, data:', data);
         setError(data.error || '登录失败');
       }
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('[Login] Error:', err);
       setError('网络错误，请重试');
     } finally {
       setLoading(false);
