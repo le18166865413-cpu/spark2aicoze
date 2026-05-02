@@ -139,39 +139,39 @@ export default function ThemePage() {
   }
 
   return (
-    <div className="space-y-6">
-      {message && <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
+    <div className="space-y-4 sm:space-y-6">
+      {message && <div className={`p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
 
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
+        <div className="flex items-center gap-2 mb-1 sm:mb-2">
           <Palette className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">主色调</h3>
+          <h3 className="text-xs sm:text-sm font-semibold text-foreground">主色调</h3>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
           {THEMES.map((t) => (
-            <button key={t.id} onClick={() => handleThemeChange(t.id)} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${theme === t.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-              <div className={`w-6 h-6 rounded-full ${t.color} flex items-center justify-center`}>
+            <button key={t.id} onClick={() => handleThemeChange(t.id)} className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border cursor-pointer transition-colors ${theme === t.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full ${t.color} flex items-center justify-center shrink-0`}>
                 {theme === t.id && <Check className="w-3 h-3 text-white" />}
               </div>
-              <span className="text-sm text-foreground">{t.name}</span>
+              <span className="text-xs sm:text-sm text-foreground">{t.name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">显示模式</h3>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
+        <h3 className="text-xs sm:text-sm font-semibold text-foreground">显示模式</h3>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {MODES.map((m) => (
-            <button key={m.id} onClick={() => handleModeChange(m.id)} className={`p-3 rounded-lg border cursor-pointer transition-colors text-center ${mode === m.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-              <span className="text-sm font-medium text-foreground">{m.name}</span>
+            <button key={m.id} onClick={() => handleModeChange(m.id)} className={`p-2.5 sm:p-3 rounded-lg border cursor-pointer transition-colors text-center ${mode === m.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+              <span className="text-xs sm:text-sm font-medium text-foreground">{m.name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+      <div className="flex gap-2 sm:gap-3">
+        <button onClick={handleSave} disabled={saving} className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
           <Save className="w-4 h-4" />{saving ? '保存中...' : '保存主题'}
         </button>
         <button onClick={() => {
@@ -179,12 +179,12 @@ export default function ThemePage() {
           setMode('dark');
           applyThemeColor('green');
           applyThemeMode('dark');
-        }} className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors">
+        }} className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-secondary/80 transition-colors">
           <RefreshCcw className="w-4 h-4" />重置
         </button>
       </div>
 
-      <p className="text-sm text-muted-foreground">选择主题后立即预览效果，点击保存按钮永久保存。</p>
+      <p className="text-xs sm:text-sm text-muted-foreground">选择主题后立即预览效果，点击保存按钮永久保存。</p>
     </div>
   );
 }

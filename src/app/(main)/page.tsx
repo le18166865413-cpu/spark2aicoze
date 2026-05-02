@@ -1,248 +1,196 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { ImageCard } from "@/components/ImageCard";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Eye, Download, Search, Sparkles, ImagePlus, Palette } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-
-type SortBy = "views" | "downloads" | "created_at";
-type SortOrder = "asc" | "desc";
-type Period = "day" | "week" | "month" | "all";
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, ArrowUpDown, Clock, Eye, Download, X } from 'lucide-react';
+import ImageCard from '@/components/ImageCard';
 
 interface GalleryImage {
   id: string;
-  url: string;
+  imageKey: string;
   prompt: string;
+  url: string;
   width: number;
   height: number;
   views: number;
   downloads: number;
-  imageKey?: string;
-  taskId?: string;
+  model: string;
+  ratio: string;
+  taskId: string;
+  createdAt: string;
 }
 
-export default function Home() {
+export default function HomePage() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<SortBy>("created_at");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [period, setPeriod] = useState<Period>("all");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const [columnCount, setColumnCount] = useState(2);
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const fetchImages = useCallback(async () => {
-    setLoading(true);
-    try {
-      const queryParams = new URLSearchParams();
-      if (sortBy) queryParams.set("sortBy", sortBy);
-      if (sortOrder) queryParams.set("sortOrder", sortOrder);
-      if (period && period !== "all") queryParams.set("period", period);
-      if (debouncedSearch) queryParams.set("search", debouncedSearch);
-
-      const res = await fetch(`/api/images?${queryParams.toString()}`);
-      const data = await res.json();
-      setImages(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [sortBy, sortOrder, period, debouncedSearch]);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'created_at' | 'views' | 'downloads'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchImages();
-  }, [fetchImages]);
+  }, [sortBy, sortOrder, timeRange]);
 
-  // Refresh when page becomes visible (user navigates back from create page)
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        fetchImages();
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [fetchImages]);
-
-  // Responsive column count
-  useEffect(() => {
-    const handleResize = () => {
-      const w = window.innerWidth;
-      if (w < 768) setColumnCount(2);
-      else if (w < 1024) setColumnCount(3);
-      else if (w < 1280) setColumnCount(4);
-      else if (w < 1536) setColumnCount(5);
-      else setColumnCount(6);
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Distribute images into columns
-  const columns = useMemo(() => {
-    if (!images.length) return [];
-
-    const cols = Array.from({ length: columnCount }, () => [] as GalleryImage[]);
-
-    images.forEach((img, i) => {
-      cols[i % columnCount].push(img);
-    });
-
-    return cols.filter(col => col.length > 0);
-  }, [images, columnCount]);
-
-  const toggleSortOrder = () => {
-    setSortOrder(prev => prev === "desc" ? "asc" : "desc");
+  const fetchImages = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        sortBy,
+        sortOrder,
+        ...(timeRange !== 'all' ? { timeRange } : {}),
+        ...(search ? { search } : {}),
+      });
+      const res = await fetch(`/api/images?${params}`);
+      const data = await res.json();
+      setImages(data);
+    } catch (err) {
+      console.error('Failed to fetch images:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle image deletion
-  const handleDeleteImage = (deletedId: string) => {
-    setImages(prev => prev.filter(img => img.id !== deletedId));
+  const handleSearch = useCallback(() => {
+    fetchImages();
+  }, [search, sortBy, sortOrder, timeRange]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSearch();
+  }, [handleSearch]);
+
+  const toggleSort = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
   };
+
+  const timeRangeLabels: Record<string, string> = { all: '全部', today: '今天', week: '本周', month: '本月' };
 
   return (
-    <div className="pt-6 px-4 pb-8 max-w-[1800px] mx-auto">
-      {/* Hero Section */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-          海报生成记录
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          查看通过 SparkAI 生成的所有海报作品
-        </p>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="bg-card border rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Search Bar */}
-        <div className="relative flex-1 w-full max-w-2xl group">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            <Search className="w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-          </div>
-          <Input
-            className="w-full h-11 pl-11 pr-10 rounded-xl border-input bg-background focus:ring-2 focus:ring-primary/20 text-sm transition-all"
-            placeholder="搜索海报关键词..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <div className="absolute inset-y-0 right-2 flex items-center">
-              <button
-                onClick={() => setSearch("")}
-                className="w-7 h-7 hover:bg-muted rounded-full flex items-center justify-center text-muted-foreground transition-colors"
-              >
-                <span className="text-lg leading-none">&times;</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Filter Controls */}
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
-          {/* Sort Dropdown */}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-[130px] h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20 gap-2">
-              <SelectValue placeholder="排序方式" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border shadow-lg">
-              <SelectItem value="created_at" className="cursor-pointer rounded-lg">
-                <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> 生成时间</div>
-              </SelectItem>
-              <SelectItem value="views" className="cursor-pointer rounded-lg">
-                <div className="flex items-center gap-2"><Eye className="w-4 h-4" /> 浏览热度</div>
-              </SelectItem>
-              <SelectItem value="downloads" className="cursor-pointer rounded-lg">
-                <div className="flex items-center gap-2"><Download className="w-4 h-4" /> 下载数量</div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sort Order Toggle */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleSortOrder}
-            className="w-10 h-10 flex-shrink-0 rounded-xl border-input"
-            title={sortOrder === "desc" ? "当前：降序 (从高到低)" : "当前：升序 (从低到高)"}
-          >
-            {sortOrder === "desc" ? <ArrowDownWideNarrow className="w-4 h-4" /> : <ArrowUpNarrowWide className="w-4 h-4" />}
-          </Button>
-
-          <div className="w-px h-8 bg-border mx-1" />
-
-          {/* Time Period Dropdown */}
-          <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[120px] h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border shadow-lg">
-              <SelectItem value="all" className="cursor-pointer rounded-lg">全部时间</SelectItem>
-              <SelectItem value="day" className="cursor-pointer rounded-lg">24小时内</SelectItem>
-              <SelectItem value="week" className="cursor-pointer rounded-lg">一周内</SelectItem>
-              <SelectItem value="month" className="cursor-pointer rounded-lg">一个月内</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-              <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-primary animate-pulse" />
-            </div>
-            <p className="text-muted-foreground text-sm">加载中...</p>
-          </div>
-        </div>
-      ) : images.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-2">
-            <ImagePlus className="w-10 h-10 opacity-30" />
-          </div>
-          <p className="text-xl font-semibold">还没有生成记录</p>
-          <p className="text-sm text-muted-foreground/70 max-w-md text-center">
-            前往创作中心，使用 AI 生成你的第一张海报吧
+    <div className="min-h-screen">
+      {/* Hero Section - Compact on mobile */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10">
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground tracking-tight">
+            海报广场
+          </h1>
+          <p className="mt-1.5 sm:mt-2 text-sm sm:text-base text-muted-foreground">
+            AI 驱动的海报生成与展示平台
           </p>
-          <Button asChild className="mt-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all px-6">
-            <Link href="/create">
-              <Palette className="w-4 h-4 mr-2" />
-              开始创作
-            </Link>
-          </Button>
         </div>
-      ) : (
-        <div className="flex justify-center gap-4">
-          {columns.map((colImages, colIndex) => (
-            <div key={colIndex} className="flex flex-col gap-4 flex-1 min-w-0 max-w-[360px]">
-              {colImages.map((img) => (
-                <ImageCard key={img.id} image={img} onDelete={handleDeleteImage} />
+      </div>
+
+      {/* Filter Bar */}
+      <div className="sticky top-14 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-2.5 sm:py-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Search - icon button on mobile, expanded on click */}
+            <div className="flex items-center flex-1 min-w-0">
+              {searchOpen ? (
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="搜索海报..."
+                    className="flex-1 min-w-0 h-9 px-3 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => { handleSearch(); }}
+                    className="h-9 px-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium shrink-0"
+                  >
+                    搜索
+                  </button>
+                  <button
+                    onClick={() => { setSearchOpen(false); setSearch(''); }}
+                    className="p-2 text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort Toggle */}
+            <button
+              onClick={toggleSort}
+              className="flex items-center gap-1 px-2.5 sm:px-3 h-9 text-xs sm:text-sm text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors shrink-0"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{sortOrder === 'desc' ? '最新优先' : '最早优先'}</span>
+            </button>
+
+            {/* Sort By */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'created_at' | 'views' | 'downloads')}
+              className="h-9 px-2 sm:px-3 text-xs sm:text-sm bg-muted/50 hover:bg-muted border-0 rounded-lg text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
+            >
+              <option value="created_at">时间</option>
+              <option value="views">浏览</option>
+              <option value="downloads">下载</option>
+            </select>
+
+            {/* Time Range */}
+            <div className="hidden sm:flex items-center gap-1">
+              {(['all', 'today', 'week', 'month'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                    timeRange === range
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {timeRangeLabels[range]}
+                </button>
               ))}
             </div>
-          ))}
+
+            {/* Mobile Time Range Dropdown */}
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as 'all' | 'today' | 'week' | 'month')}
+              className="sm:hidden h-9 px-2 text-xs bg-muted/50 hover:bg-muted border-0 rounded-lg text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
+            >
+              <option value="all">全部</option>
+              <option value="today">今天</option>
+              <option value="week">本周</option>
+              <option value="month">本月</option>
+            </select>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Gallery Grid */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        ) : images.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground text-sm">暂无海报</p>
+          </div>
+        ) : (
+          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4 space-y-3 sm:space-y-4">
+            {images.map((image) => (
+              <ImageCard key={image.id} image={image} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
