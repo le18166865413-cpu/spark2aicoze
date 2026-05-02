@@ -1,64 +1,75 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-export async function GET(request: Request) {
+export async function GET() {
+  console.log('[Admin Settings API] GET: Fetching all settings');
   try {
-    console.log('[Settings API] GET request received');
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('admin_settings')
       .select('*')
-      .order('key');
+      .order('key', { ascending: true });
 
     if (error) {
-      console.error('[Settings API] Get settings error:', error);
+      console.error('[Admin Settings API] GET Error:', error);
       return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
     }
 
-    console.log('[Settings API] GET successful, returning', data?.length, 'settings');
+    console.log('[Admin Settings API] GET Success, found', data?.length || 0, 'settings');
     return NextResponse.json(data || []);
   } catch (error) {
-    console.error('[Settings API] Get settings error:', error);
-    return NextResponse.json({ error: '获取设置失败' }, { status: 500 });
+    console.error('[Admin Settings API] GET Exception:', error);
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  console.log('[Admin Settings API] PUT: Starting');
   try {
-    const settings = await request.json();
-    console.log('[Settings API] PUT request received, body:', JSON.stringify(settings));
-
-    if (!Array.isArray(settings)) {
-      console.error('[Settings API] Invalid request: body is not an array');
-      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
+    const body = await request.json();
+    console.log('[Admin Settings API] PUT Received body:', body);
+    
+    // 支持两种格式：直接数组或 { settings: [...] }
+    const settingsToSave = Array.isArray(body) ? body : body.settings;
+    
+    if (!Array.isArray(settingsToSave)) {
+      console.error('[Admin Settings API] PUT: Body is not an array');
+      return NextResponse.json({ error: '无效的请求格式' }, { status: 400 });
     }
+    
+    console.log('[Admin Settings API] PUT: Settings to save:', settingsToSave);
 
     const supabase = getSupabaseClient();
+    const results = [];
 
-    for (const { key, value } of settings) {
-      if (!key) {
-        console.error('[Settings API] Invalid setting: missing key');
-        continue;
-      }
-
-      console.log('[Settings API] Upserting setting:', key, '=', value);
+    for (const setting of settingsToSave) {
+      console.log('[Admin Settings API] PUT: Upserting setting:', setting);
       const { data, error } = await supabase
         .from('admin_settings')
-        .upsert({ key, value }, { onConflict: 'key' })
+        .upsert(
+          { 
+            key: setting.key, 
+            value: setting.value, 
+            category: setting.category || 'general',
+            updated_at: new Date().toISOString() 
+          },
+          { onConflict: 'key' }
+        )
         .select();
 
       if (error) {
-        console.error('[Settings API] Update setting error:', error);
-        return NextResponse.json({ error: '保存设置失败' }, { status: 500 });
+        console.error('[Admin Settings API] PUT: Upsert error for', setting.key, ':', error);
+        return NextResponse.json({ error: `保存 ${setting.key} 失败` }, { status: 500 });
       }
-
-      console.log('[Settings API] Upserted successfully:', data);
+      
+      console.log('[Admin Settings API] PUT: Upsert result for', setting.key, ':', data);
+      results.push(data);
     }
 
-    console.log('[Settings API] PUT successful');
-    return NextResponse.json({ success: true });
+    console.log('[Admin Settings API] PUT: All saved successfully');
+    return NextResponse.json({ success: true, results });
   } catch (error) {
-    console.error('[Settings API] Update settings error:', error);
-    return NextResponse.json({ error: '保存设置失败' }, { status: 500 });
+    console.error('[Admin Settings API] PUT Exception:', error);
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }

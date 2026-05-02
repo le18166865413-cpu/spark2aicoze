@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-export interface SettingItem {
+interface Setting {
   key: string;
   value: string;
-  category: string;
-  updated_at: string;
+  category?: string;
+  updated_at?: string;
 }
 
 export function useAdminSettings() {
-  const [settings, setSettings] = useState<SettingItem[]>([]);
+  const [settings, setSettings] = useState<Setting[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
@@ -18,13 +18,15 @@ export function useAdminSettings() {
       console.log('[useAdminSettings] Fetching settings...');
       const res = await fetch('/api/admin/settings');
       console.log('[useAdminSettings] Fetch response status:', res.status);
+      if (!res.ok) {
+        console.error('[useAdminSettings] Fetch failed:', res.status);
+        throw new Error('获取设置失败');
+      }
       const data = await res.json();
       console.log('[useAdminSettings] Fetch data:', data);
-      if (Array.isArray(data)) {
-        setSettings(data);
-      }
+      setSettings(data || []);
     } catch (error) {
-      console.error('[useAdminSettings] Fetch settings error:', error);
+      console.error('[useAdminSettings] Fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -35,38 +37,40 @@ export function useAdminSettings() {
   }, [fetchSettings]);
 
   const getSetting = useCallback((key: string, defaultValue: string = ''): string => {
-    const item = settings.find(s => s.key === key);
-    return item?.value ?? defaultValue;
+    const setting = settings.find((s) => s.key === key);
+    return setting?.value ?? defaultValue;
   }, [settings]);
 
-  const saveSettings = useCallback(async (settingsToSave: Array<{ key: string; value: string }>) => {
+  const saveSettings = useCallback(async (newSettings: { key: string; value: string; category?: string }[]) => {
+    console.log('[useAdminSettings] Saving settings:', newSettings);
     try {
-      console.log('[useAdminSettings] Saving settings:', settingsToSave);
+      console.log('[useAdminSettings] Sending request...');
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settingsToSave)
+        body: JSON.stringify({ settings: newSettings }), // 包装在对象里
       });
 
       console.log('[useAdminSettings] Save response status:', res.status);
-
+      
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('[useAdminSettings] Save failed, response:', errorText);
+        const text = await res.text();
+        console.log('[useAdminSettings] Save failed, response:', text);
         throw new Error('保存失败');
       }
-
+      
       const result = await res.json();
       console.log('[useAdminSettings] Save result:', result);
+      
       await fetchSettings();
+      console.log('[useAdminSettings] Save completed successfully');
     } catch (error) {
-      console.error('[useAdminSettings] Save settings error:', error);
+      console.error('[useAdminSettings] Save error:', error);
       throw error;
     }
   }, [fetchSettings]);
 
   const refetch = useCallback(() => {
-    setLoading(true);
     fetchSettings();
   }, [fetchSettings]);
 
