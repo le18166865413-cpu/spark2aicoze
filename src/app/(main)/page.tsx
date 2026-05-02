@@ -162,7 +162,7 @@ export default function Home() {
         <div className="flex items-center gap-2 w-full md:w-auto md:gap-2">
           {/* Sort Dropdown */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-auto min-w-0 flex-1 md:w-[130px] md:flex-none h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20 gap-2">
+            <SelectTrigger className="w-auto min-w-0 flex-[1.4] md:w-[130px] md:flex-none h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20 gap-2">
               <SelectValue placeholder="排序方式" />
             </SelectTrigger>
             <SelectContent className="rounded-xl border shadow-lg">
@@ -191,7 +191,7 @@ export default function Home() {
 
           {/* Time Period Dropdown */}
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-auto min-w-0 flex-1 md:w-[120px] md:flex-none h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20">
+            <SelectTrigger className="w-auto min-w-0 flex-[0.8] md:w-[120px] md:flex-none h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-xl border shadow-lg">
