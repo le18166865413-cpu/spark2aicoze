@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/admin-auth';
+import { isAdminAuthenticated, getSessionToken } from '@/lib/admin-auth';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 async function getGrsaiConfig(): Promise<{ apiKey: string; baseUrl: string }> {
@@ -18,7 +18,8 @@ async function getGrsaiConfig(): Promise<{ apiKey: string; baseUrl: string }> {
 
 export async function POST(request: NextRequest) {
   try {
-    const authenticated = await isAdminAuthenticated();
+    const token = getSessionToken(request);
+    const authenticated = await isAdminAuthenticated(token);
     if (!authenticated) {
       return NextResponse.json({ error: '未授权' }, { status: 401 });
     }

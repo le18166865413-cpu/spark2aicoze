@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -32,6 +32,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking, setChecking] = useState(!isLoginPage);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 从 localStorage 读取 session token
+  const getSessionToken = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('admin_session');
+  }, []);
+
+  // 认证请求的封装
+  const authFetch = useCallback(async (url: string, options?: RequestInit) => {
+    const token = getSessionToken();
+    const headers: Record<string, string> = {
+      ...(options?.headers as Record<string, string> || {}),
+    };
+    if (token) {
+      headers['X-Admin-Session'] = token;
+    }
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'same-origin',
+    });
+  }, [getSessionToken]);
+
   useEffect(() => {
     if (isLoginPage) return;
 
@@ -39,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const check = async () => {
       try {
-        const res = await fetch('/api/admin/auth', { credentials: 'same-origin' });
+        const res = await authFetch('/api/admin/auth');
         const data = await res.json();
         if (cancelled) return;
 
@@ -47,10 +69,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           setAuthed(true);
           setChecking(false);
         } else {
+          // 清除无效 token
+          localStorage.removeItem('admin_session');
           window.location.replace('/admin/login');
         }
       } catch {
         if (!cancelled) {
+          localStorage.removeItem('admin_session');
           window.location.replace('/admin/login');
         }
       }
@@ -58,17 +83,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     check();
     return () => { cancelled = true; };
-  }, [isLoginPage]);
+  }, [isLoginPage, authFetch]);
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/admin/auth', {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      });
+      await authFetch('/api/admin/auth', { method: 'DELETE' });
     } catch {
       // ignore
     }
+    localStorage.removeItem('admin_session');
     window.location.replace('/admin/login');
   };
 

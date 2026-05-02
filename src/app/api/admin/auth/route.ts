@@ -1,64 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  validateCredentials,
-  createSession,
-  isAdminAuthenticated,
-  destroySession,
-  getAdminSession,
-  SESSION_COOKIE,
-  SESSION_DURATION_HOURS,
-} from '@/lib/admin-auth';
+import { createSession, isAdminAuthenticated, deleteSession } from '@/lib/admin-auth';
 
-// POST - Login
-export async function POST(request: NextRequest) {
+const ADMIN_USERNAME = 'wuhe';
+const ADMIN_PASSWORD = '666666';
+
+// GET - 检查认证状态
+export async function GET(request: NextRequest) {
   try {
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: '请求格式错误' }, { status: 400 });
-    }
+    const cookieToken = request.cookies.get('admin_session')?.value;
+    const headerToken = request.headers.get('x-admin-session');
+    const token = cookieToken || headerToken || null;
 
-    const { username, password } = body;
-
-    if (!username || !password) {
-      return NextResponse.json({ error: '请输入用户名和密码' }, { status: 400 });
-    }
-
-    if (!validateCredentials(username, password)) {
-      return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
-    }
-
-    const sessionId = await createSession();
-    if (!sessionId) {
-      console.error('Session creation returned null');
-      return NextResponse.json({ error: '会话创建失败，请重试' }, { status: 500 });
-    }
-
-    console.log('Login success, session created:', sessionId.substring(0, 8) + '...');
-
-    const response = NextResponse.json({ success: true });
-
-    // Set cookie - 不使用 Secure 标志，确保在所有环境下都能工作
-    response.cookies.set(SESSION_COOKIE, sessionId, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: SESSION_DURATION_HOURS * 60 * 60,
-      secure: false,
-    });
-
-    return response;
-  } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
-  }
-}
-
-// GET - Check auth status
-export async function GET() {
-  try {
-    const authenticated = await isAdminAuthenticated();
+    const authenticated = await isAdminAuthenticated(token);
     return NextResponse.json({ authenticated });
   } catch (error) {
     console.error('Auth check error:', error);
@@ -66,26 +19,64 @@ export async function GET() {
   }
 }
 
-// DELETE - Logout
-export async function DELETE() {
+// POST - 登录
+export async function POST(request: NextRequest) {
   try {
-    const sessionId = await getAdminSession();
-    if (sessionId) {
-      await destroySession(sessionId);
+    const body = await request.json();
+    const { username, password } = body;
+
+    if (!username || !password) {
+      return NextResponse.json({ error: '请输入用户名和密码' }, { status: 400 });
     }
 
-    const response = NextResponse.json({ success: true });
-    response.cookies.set(SESSION_COOKIE, '', {
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
+    }
+
+    const sessionToken = await createSession(username);
+
+    if (!sessionToken) {
+      console.error('Failed to create session - token is null');
+      return NextResponse.json({ error: '会话创建失败' }, { status: 500 });
+    }
+
+    const response = NextResponse.json({
+      success: true,
+      sessionToken,
+    });
+
+    // 设置 cookie（双重保障）
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    response.cookies.set('admin_session', sessionToken, {
+      path: '/',
+      expires,
       httpOnly: true,
       sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-      secure: false,
     });
 
     return response;
   } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json({ error: '登录失败' }, { status: 500 });
+  }
+}
+
+// DELETE - 登出
+export async function DELETE(request: NextRequest) {
+  try {
+    const cookieToken = request.cookies.get('admin_session')?.value;
+    const headerToken = request.headers.get('x-admin-session');
+    const token = cookieToken || headerToken || null;
+
+    if (token) {
+      await deleteSession(token);
+    }
+
+    const response = NextResponse.json({ success: true });
+    response.cookies.set('admin_session', '', { path: '/', maxAge: 0 });
+    return response;
+  } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json({ error: '退出失败' }, { status: 500 });
+    return NextResponse.json({ success: true });
   }
 }

@@ -33,15 +33,20 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setError(data.error || '登录失败');
+        setError(data.error || '登录失败，请检查用户名和密码');
         setLoading(false);
         return;
       }
 
-      // 登录成功，延迟跳转确保 cookie 已保存
+      // 将 session token 存入 localStorage（双重保障，cookie + localStorage）
+      if (data.sessionToken) {
+        localStorage.setItem('admin_session', data.sessionToken);
+      }
+
+      // 短暂延迟确保存储完成，然后跳转
       setTimeout(() => {
-        window.location.replace('/admin');
-      }, 300);
+        window.location.href = '/admin';
+      }, 200);
     } catch {
       setError('网络错误，请重试');
       setLoading(false);

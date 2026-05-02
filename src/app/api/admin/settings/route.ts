@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { isAdminAuthenticated } from '@/lib/admin-auth';
+import { isAdminAuthenticated, getSessionToken } from '@/lib/admin-auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const authenticated = await isAdminAuthenticated();
+    const token = getSessionToken(request);
+    const authenticated = await isAdminAuthenticated(token);
     if (!authenticated) {
       return NextResponse.json({ error: '未授权' }, { status: 401 });
     }
@@ -34,7 +35,8 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const authenticated = await isAdminAuthenticated();
+    const token = getSessionToken(request);
+    const authenticated = await isAdminAuthenticated(token);
     if (!authenticated) {
       return NextResponse.json({ error: '未授权' }, { status: 401 });
     }

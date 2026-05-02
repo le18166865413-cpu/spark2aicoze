@@ -1,81 +1,74 @@
-import { cookies } from 'next/headers';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-const ADMIN_USERNAME = 'wuhe';
-const ADMIN_PASSWORD = '666666';
-const SESSION_COOKIE = 'admin_session';
-const SESSION_DURATION_HOURS = 24;
+const SESSION_EXPIRY_HOURS = 24;
+const supabase = getSupabaseClient();
 
-export function validateCredentials(username: string, password: string): boolean {
-  return username === ADMIN_USERNAME && password === ADMIN_PASSWORD;
-}
+export async function createSession(username: string): Promise<string | null> {
+  const id = crypto.randomUUID().replace(/-/g, '') + Math.random().toString(36).substring(2, 8);
+  const expiresAt = new Date(Date.now() + SESSION_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
 
-export async function createSession(): Promise<string | null> {
   try {
-    const sessionId = crypto.randomUUID().replace(/-/g, '') + Date.now().toString(36);
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + SESSION_DURATION_HOURS * 60 * 60 * 1000);
-
-    const supabase = getSupabaseClient();
-    const { error } = await supabase.from('admin_sessions').insert({
-      id: sessionId,
-      username: ADMIN_USERNAME,
-      created_at: now.toISOString(),
-      expires_at: expiresAt.toISOString(),
-    });
+    const { data, error } = await supabase
+      .from('admin_sessions')
+      .insert({ id, username, expires_at: expiresAt })
+      .select('id')
+      .single();
 
     if (error) {
-      console.error('Failed to create session:', error);
+      console.error('Create session DB error:', error);
       return null;
     }
 
-    return sessionId;
-  } catch (error) {
-    console.error('Session creation error:', error);
+    return data?.id || null;
+  } catch (err) {
+    console.error('Create session error:', err);
     return null;
   }
 }
 
-export async function validateSession(sessionId: string): Promise<boolean> {
-  if (!sessionId) return false;
+export async function isAdminAuthenticated(token: string | null | undefined): Promise<boolean> {
+  if (!token) return false;
 
   try {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('admin_sessions')
-      .select('expires_at')
-      .eq('id', sessionId)
+      .select('id, expires_at')
+      .eq('id', token)
       .single();
 
     if (error || !data) return false;
-    return new Date(data.expires_at) > new Date();
+
+    const expiresAt = new Date(data.expires_at);
+    if (expiresAt <= new Date()) {
+      // 过期了，删除
+      await supabase.from('admin_sessions').delete().eq('id', token);
+      return false;
+    }
+
+    return true;
   } catch {
     return false;
   }
 }
 
-export async function destroySession(sessionId: string): Promise<void> {
+export async function deleteSession(token: string): Promise<void> {
   try {
-    const supabase = getSupabaseClient();
-    await supabase.from('admin_sessions').delete().eq('id', sessionId);
-  } catch (error) {
-    console.error('Failed to destroy session:', error);
-  }
-}
-
-export async function getAdminSession(): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    return cookieStore.get(SESSION_COOKIE)?.value ?? null;
+    await supabase.from('admin_sessions').delete().eq('id', token);
   } catch {
-    return null;
+    // ignore
   }
 }
 
-export async function isAdminAuthenticated(): Promise<boolean> {
-  const sessionId = await getAdminSession();
-  if (!sessionId) return false;
-  return validateSession(sessionId);
-}
+// 从请求中获取 session token（cookie 或 header）
+export function getSessionToken(request: Request): string | null {
+  // 优先从 cookie 读取
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieMatch = cookieHeader.match(/admin_session=([^;]+)/);
+  if (cookieMatch) return cookieMatch[1];
 
-export { SESSION_COOKIE, SESSION_DURATION_HOURS };
+  // 备用：从自定义 header 读取
+  const headerToken = request.headers.get('x-admin-session');
+  if (headerToken) return headerToken;
+
+  return null;
+}
