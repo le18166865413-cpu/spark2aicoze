@@ -27,15 +27,20 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
-    const ok = await saveSettings([
-      { key: 'site_name', value: siteName },
-      { key: 'site_description', value: siteDescription },
-      { key: 'site_enabled', value: siteEnabled ? 'true' : 'false' },
-      { key: 'register_enabled', value: registerEnabled ? 'true' : 'false' },
-    ]);
-    setSaving(false);
-    setMessage(ok ? { type: 'success', text: '设置已保存' } : { type: 'error', text: '保存失败' });
-    if (ok) setTimeout(() => setMessage(null), 3000);
+    try {
+      await saveSettings([
+        { key: 'site_name', value: siteName },
+        { key: 'site_description', value: siteDescription },
+        { key: 'site_enabled', value: siteEnabled ? 'true' : 'false' },
+        { key: 'register_enabled', value: registerEnabled ? 'true' : 'false' },
+      ]);
+      setMessage({ type: 'success', text: '设置已保存' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: 'error', text: '保存失败' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

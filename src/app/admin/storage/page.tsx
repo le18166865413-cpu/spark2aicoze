@@ -25,14 +25,19 @@ export default function StoragePage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
-    const ok = await saveSettings([
-      { key: 's3_bucket', value: bucket },
-      { key: 's3_region', value: region },
-      { key: 's3_endpoint', value: endpoint },
-    ]);
-    setSaving(false);
-    setMessage(ok ? { type: 'success', text: '存储配置已保存' } : { type: 'error', text: '保存失败' });
-    if (ok) setTimeout(() => setMessage(null), 3000);
+    try {
+      await saveSettings([
+        { key: 's3_bucket', value: bucket },
+        { key: 's3_region', value: region },
+        { key: 's3_endpoint', value: endpoint },
+      ]);
+      setMessage({ type: 'success', text: '存储配置已保存' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: 'error', text: '保存失败' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

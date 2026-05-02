@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSession, verifyAdminSession, deleteSession } from '@/lib/admin-auth';
+import { verifyToken, createSession, deleteSession, getTokenFromRequest } from '@/lib/admin-token-auth';
 
 const ADMIN_USERNAME = 'wuhe';
 const ADMIN_PASSWORD = '666666';
@@ -7,8 +7,8 @@ const ADMIN_PASSWORD = '666666';
 // GET - 检查认证状态 (通过 query param token)
 export async function GET(request: NextRequest) {
   try {
-    const token = request.nextUrl.searchParams.get('token');
-    const authenticated = await verifyAdminSession(token);
+    const token = getTokenFromRequest(request);
+    const authenticated = await verifyToken(token);
     return NextResponse.json({ authenticated });
   } catch (error) {
     console.error('Auth check error:', error);
@@ -30,12 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
 
-    const token = await createSession(username);
-
-    if (!token) {
-      console.error('Failed to create session - token is null');
-      return NextResponse.json({ error: '会话创建失败' }, { status: 500 });
-    }
+    const token = createSession(username);
 
     return NextResponse.json({
       success: true,
@@ -50,9 +45,9 @@ export async function POST(request: NextRequest) {
 // DELETE - 登出 (通过 query param token)
 export async function DELETE(request: NextRequest) {
   try {
-    const token = request.nextUrl.searchParams.get('token');
+    const token = getTokenFromRequest(request);
     if (token) {
-      await deleteSession(token);
+      deleteSession(token);
     }
     return NextResponse.json({ success: true });
   } catch (error) {

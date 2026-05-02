@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdminSession } from '@/lib/admin-auth';
+import { verifyToken, getTokenFromRequest } from '@/lib/admin-token-auth';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { storage } from '@/utils/storage';
 
 // POST - 手动导入 GrsAI 任务
 export async function POST(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
-  const isAuth = await verifyAdminSession(token);
+  const token = getTokenFromRequest(request);
+  const isAuth = await verifyToken(token);
   if (!isAuth) {
     return NextResponse.json({ error: '未授权' }, { status: 401 });
   }

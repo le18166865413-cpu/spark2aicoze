@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdminSession } from '@/lib/admin-auth';
+import { verifyToken, getTokenFromRequest } from '@/lib/admin-token-auth';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
 // GET - 获取所有设置
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
-  const authenticated = await verifyAdminSession(token);
+  const token = getTokenFromRequest(request);
+  const authenticated = await verifyToken(token);
   if (!authenticated) {
     return NextResponse.json({ error: '未授权' }, { status: 401 });
   }
@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
 
 // PUT - 保存设置
 export async function PUT(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('token');
-  const authenticated = await verifyAdminSession(token);
+  const token = getTokenFromRequest(request);
+  const authenticated = await verifyToken(token);
   if (!authenticated) {
     return NextResponse.json({ error: '未授权' }, { status: 401 });
   }

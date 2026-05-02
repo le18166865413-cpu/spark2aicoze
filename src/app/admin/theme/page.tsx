@@ -37,13 +37,18 @@ export default function ThemePage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
-    const ok = await saveSettings([
-      { key: 'theme_color', value: theme },
-      { key: 'theme_mode', value: mode },
-    ]);
-    setSaving(false);
-    setMessage(ok ? { type: 'success', text: '主题设置已保存，刷新页面生效' } : { type: 'error', text: '保存失败' });
-    if (ok) setTimeout(() => setMessage(null), 3000);
+    try {
+      await saveSettings([
+        { key: 'theme_color', value: theme },
+        { key: 'theme_mode', value: mode },
+      ]);
+      setMessage({ type: 'success', text: '主题设置已保存，刷新页面生效' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: 'error', text: '保存失败' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

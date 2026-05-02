@@ -5,8 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 interface AdminSetting {
   key: string;
   value: string;
-  category: string;
-  updated_at: string;
+  category?: string;
+  updated_at?: string;
 }
 
 function getAdminToken(): string | null {
@@ -16,8 +16,8 @@ function getAdminToken(): string | null {
 
 function getApiUrl(path: string): string {
   const token = getAdminToken();
-  const sep = path.includes('?') ? '&' : '?';
-  return `${path}${sep}token=${encodeURIComponent(token || '')}`;
+  const separator = path.includes('?') ? '&' : '?';
+  return token ? `${path}${separator}token=${encodeURIComponent(token)}` : path;
 }
 
 export function useAdminSettings() {
@@ -26,15 +26,14 @@ export function useAdminSettings() {
   const [authFailed, setAuthFailed] = useState(false);
 
   const fetchSettings = useCallback(async () => {
-    // 没有 token 时不要发起请求
-    const token = getAdminToken();
-    if (!token) {
-      setLoading(false);
-      setAuthFailed(true);
-      return;
-    }
-
     try {
+      const token = getAdminToken();
+      if (!token) {
+        setAuthFailed(true);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(getApiUrl('/api/admin/settings'));
       if (res.status === 401) {
         setAuthFailed(true);
@@ -42,40 +41,67 @@ export function useAdminSettings() {
         window.location.replace('/admin/login');
         return;
       }
+      if (!res.ok) throw new Error('Failed to fetch settings');
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setSettings(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch settings:', err);
+      setSettings(data);
+      setAuthFailed(false);
+    } catch {
+      // ignore
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const getSetting = useCallback((key: string, defaultValue: string = ''): string => {
+    const setting = settings.find((s) => s.key === key);
+    return setting ? setting.value : defaultValue;
+  }, [settings]);
+
+  const saveSettings = useCallback(async (newSettings: Array<{ key: string; value: string; category?: string }>): Promise<void> => {
+    try {
+      const token = getAdminToken();
+      if (!token) {
+        setAuthFailed(true);
+        localStorage.removeItem('admin_token');
+        window.location.replace('/admin/login');
+        return;
+      }
+
+      const res = await fetch(getApiUrl('/api/admin/settings'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: newSettings }),
+      });
+
+      if (res.status === 401) {
+        setAuthFailed(true);
+        localStorage.removeItem('admin_token');
+        window.location.replace('/admin/login');
+        return;
+      }
+
+      if (!res.ok) throw new Error('Failed to save settings');
+      await fetchSettings();
+    } catch (error) {
+      throw error;
+    }
+  }, [fetchSettings]);
+
+  const refetch = useCallback(() => {
+    setLoading(true);
+    setAuthFailed(false);
+    fetchSettings();
+  }, [fetchSettings]);
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const getSetting = useCallback((key: string): string => {
-    const s = settings.find((s) => s.key === key);
-    return s?.value || '';
-  }, [settings]);
-
-  const saveSettings = async (updates: Array<{ key: string; value: string }>) => {
-    const token = getAdminToken();
-    if (!token) return false;
-
-    const res = await fetch(getApiUrl('/api/admin/settings'), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: updates }),
-    });
-    if (res.ok) {
-      await fetchSettings();
-    }
-    return res.ok;
+  return {
+    settings,
+    loading,
+    getSetting,
+    saveSettings,
+    refetch,
   };
-
-  return { settings, loading, getSetting, saveSettings, refetch: fetchSettings, authFailed };
 }

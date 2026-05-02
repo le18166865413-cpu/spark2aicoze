@@ -28,14 +28,19 @@ export default function ApiTokensPage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
-    const ok = await saveSettings([
-      { key: 'grsai_api_key', value: apiKey },
-      { key: 'grsai_base_url', value: baseUrl },
-      { key: 'default_model', value: defaultModel },
-    ]);
-    setSaving(false);
-    setMessage(ok ? { type: 'success', text: 'API 配置已保存' } : { type: 'error', text: '保存失败' });
-    if (ok) setTimeout(() => setMessage(null), 3000);
+    try {
+      await saveSettings([
+        { key: 'grsai_api_key', value: apiKey },
+        { key: 'grsai_base_url', value: baseUrl },
+        { key: 'default_model', value: defaultModel },
+      ]);
+      setMessage({ type: 'success', text: 'API 配置已保存' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setMessage({ type: 'error', text: '保存失败' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTest = async () => {
