@@ -53,18 +53,18 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Stats - 2列网格适配手机 */}
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
-          <div key={stat.label} className="bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-muted/50 ${stat.color}`}>
-                <stat.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg bg-muted/50 ${stat.color}`}>
+                <stat.icon className="w-4 h-4" />
               </div>
-              <div className="min-w-0">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-base sm:text-xl font-bold text-foreground">
+              <div>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-xl font-bold text-foreground">
                   {loading ? '...' : stat.value.toLocaleString()}
                 </p>
               </div>
@@ -75,30 +75,30 @@ export default function AdminDashboardPage() {
 
       {/* Quick Links */}
       <div>
-        <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground mb-2 sm:mb-3">快捷操作</h2>
-        <div className="grid grid-cols-1 gap-2 sm:gap-3">
+        <h2 className="text-sm font-semibold text-muted-foreground mb-3">快捷操作</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {quickLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4 hover:border-primary/50 transition-colors group"
+              className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-colors group"
             >
-              <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
+              <div className="flex items-center gap-2 mb-1">
                 <Zap className="w-3 h-3 text-primary" />
-                <span className="text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                   {link.label}
                 </span>
               </div>
-              <p className="text-[10px] sm:text-xs text-muted-foreground ml-5">{link.desc}</p>
+              <p className="text-xs text-muted-foreground">{link.desc}</p>
             </Link>
           ))}
         </div>
       </div>
 
       {/* System Info */}
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5">
-        <h2 className="text-xs sm:text-sm font-semibold text-foreground mb-2 sm:mb-3">系统信息</h2>
-        <div className="grid grid-cols-2 gap-y-1.5 sm:gap-y-2 text-xs sm:text-sm">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-3">系统信息</h2>
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
           <span className="text-muted-foreground">平台版本</span>
           <span className="text-foreground">SparkAI v1.0.0</span>
           <span className="text-muted-foreground">框架</span>

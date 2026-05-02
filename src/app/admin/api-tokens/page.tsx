@@ -71,16 +71,16 @@ export default function ApiTokensPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {message && <div className={`p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
+    <div className="space-y-6">
+      {message && <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
 
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
-        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
           <Key className="w-4 h-4 text-primary" />
-          <h3 className="text-xs sm:text-sm font-semibold text-foreground">GrsAI API 配置</h3>
+          <h3 className="text-sm font-semibold text-foreground">GrsAI API 配置</h3>
         </div>
-        <div className="space-y-1.5 sm:space-y-2">
-          <label className="text-xs sm:text-sm text-muted-foreground">API Key</label>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">API Key</label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input type={showKey ? 'text' : 'password'} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="w-full px-3 py-2 pr-10 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="sk-xxxx" />
@@ -88,37 +88,37 @@ export default function ApiTokensPage() {
             </div>
           </div>
         </div>
-        <div className="space-y-1.5 sm:space-y-2">
-          <label className="text-xs sm:text-sm text-muted-foreground">Base URL</label>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">Base URL</label>
           <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="https://grsai.dakka.com.cn" />
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
-        <h3 className="text-xs sm:text-sm font-semibold text-foreground">默认模型</h3>
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">默认模型</h3>
         {['gpt-image-2-vip', 'gpt-image-2', 'nano-banana-fast'].map((model) => (
-          <label key={model} className={`flex items-center gap-3 p-2.5 sm:p-3 rounded-lg border cursor-pointer transition-colors ${defaultModel === model ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+          <label key={model} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${defaultModel === model ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
             <input type="radio" name="model" value={model} checked={defaultModel === model} onChange={() => setDefaultModel(model)} className="accent-primary" />
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-foreground">{model}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">{model === 'gpt-image-2-vip' ? '最高画质' : model === 'gpt-image-2' ? '高画质性价比之选' : '极速生成'}</p>
+            <div>
+              <p className="text-sm font-medium text-foreground">{model}</p>
+              <p className="text-xs text-muted-foreground">{model === 'gpt-image-2-vip' ? '最高画质' : model === 'gpt-image-2' ? '高画质性价比之选' : '极速生成'}</p>
             </div>
           </label>
         ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-        <button onClick={handleSave} disabled={saving} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+      <div className="flex items-center gap-3">
+        <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
           <Save className="w-4 h-4" />{saving ? '保存中...' : '保存配置'}
         </button>
-        <button onClick={handleTest} disabled={testing} className="flex items-center justify-center gap-2 px-5 py-2.5 border border-border text-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+        <button onClick={handleTest} disabled={testing} className="flex items-center gap-2 px-5 py-2.5 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
           <Zap className="w-4 h-4" />{testing ? '测试中...' : '测试连接'}
         </button>
       </div>
 
       {testResult && (
-        <div className={`flex items-center gap-2 p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${testResult.ok ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-          {testResult.ok ? <CheckCircle className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}{testResult.msg}
+        <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${testResult.ok ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+          {testResult.ok ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}{testResult.msg}
         </div>
       )}
     </div>

@@ -52,51 +52,51 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       {message && (
-        <div className={`p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+        <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
           {message.text}
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
-        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
           <Globe className="w-4 h-4 text-primary" />
-          <h3 className="text-xs sm:text-sm font-semibold text-foreground">站点信息</h3>
+          <h3 className="text-sm font-semibold text-foreground">站点信息</h3>
         </div>
-        <div className="space-y-1.5 sm:space-y-2">
-          <label className="text-xs sm:text-sm text-muted-foreground">站点名称</label>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">站点名称</label>
           <input type="text" value={siteName} onChange={(e) => setSiteName(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="SparkAI" />
         </div>
-        <div className="space-y-1.5 sm:space-y-2">
-          <label className="text-xs sm:text-sm text-muted-foreground">站点描述</label>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">站点描述</label>
           <textarea value={siteDescription} onChange={(e) => setSiteDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" placeholder="AI 驱动的海报生成与展示平台" />
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-4 sm:p-5 space-y-3 sm:space-y-4">
-        <h3 className="text-xs sm:text-sm font-semibold text-foreground">功能开关</h3>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm text-foreground">站点开放</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">关闭后用户将无法访问前台页面</p>
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">功能开关</h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-foreground">站点开放</p>
+            <p className="text-xs text-muted-foreground">关闭后用户将无法访问前台页面</p>
           </div>
-          <button onClick={() => setSiteEnabled(!siteEnabled)} className="text-primary shrink-0">
+          <button onClick={() => setSiteEnabled(!siteEnabled)} className="text-primary">
             {siteEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
           </button>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm text-foreground">允许注册</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">控制新用户是否可以注册账号</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-foreground">允许注册</p>
+            <p className="text-xs text-muted-foreground">控制新用户是否可以注册账号</p>
           </div>
-          <button onClick={() => setRegisterEnabled(!registerEnabled)} className="text-primary shrink-0">
+          <button onClick={() => setRegisterEnabled(!registerEnabled)} className="text-primary">
             {registerEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
           </button>
         </div>
       </div>
 
-      <button onClick={handleSave} disabled={saving} className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+      <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
         <Save className="w-4 h-4" />
         {saving ? '保存中...' : '保存设置'}
       </button>
