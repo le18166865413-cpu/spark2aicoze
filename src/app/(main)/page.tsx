@@ -189,8 +189,6 @@ export default function Home() {
             {sortOrder === "desc" ? <ArrowDownWideNarrow className="w-4 h-4" /> : <ArrowUpNarrowWide className="w-4 h-4" />}
           </Button>
 
-          <div className="w-px h-8 bg-border mx-1" />
-
           {/* Time Period Dropdown */}
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
             <SelectTrigger className="w-auto min-w-0 flex-1 md:w-[120px] md:flex-none h-10 rounded-xl border-input bg-background text-sm font-medium focus:ring-2 focus:ring-primary/20">
