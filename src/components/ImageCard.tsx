@@ -22,6 +22,7 @@ interface GalleryImage {
 
 export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?: (id: string) => void }) {
   const [imgError, setImgError] = useState(false);
+  const [detailImgError, setDetailImgError] = useState(false);
   const [liked, setLiked] = useState(false);
   const router = useRouter();
 
@@ -161,18 +162,21 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
 
         {/* Left Image Side */}
         <div className="flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[40vh] md:h-full min-w-0 md:min-w-[50%]">
-          <div className="relative w-full h-full p-6 flex items-center justify-center">
-            {imgError ? (
+          <div className="relative w-full h-full p-2 md:p-6 flex items-center justify-center">
+            {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
                 <ImageOff className="w-16 h-16 mb-4 opacity-30" />
                 <p>图片加载失败</p>
               </div>
             ) : (
-              <img
+              <Image
                 src={image.url}
                 alt={image.prompt}
+                width={image.width || 1024}
+                height={image.height || 1024}
                 className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
-                onError={() => setImgError(true)}
+                unoptimized={true}
+                onError={() => setDetailImgError(true)}
               />
             )}
           </div>
