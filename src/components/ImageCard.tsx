@@ -126,10 +126,7 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
               <Button
                 size="icon"
                 className={cn(
-                  "rounded-full w-7 h-7 md:w-10 md:h-10 transition-all",
-                  liked
-                    ? "bg-red-500 text-white hover:bg-red-600"
-                    : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+                  "rounded-full w-7 h-7 md:w-10 md:h-10 transition-all bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
                 )}
                 onClick={handleLike}
               >
