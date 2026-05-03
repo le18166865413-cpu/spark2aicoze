@@ -15,6 +15,7 @@ interface GalleryImage {
   height: number;
   views: number;
   downloads: number;
+  liked?: boolean;
   imageKey?: string;
   taskId?: string;
   createdAt?: string;
@@ -23,8 +24,29 @@ interface GalleryImage {
 export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?: (id: string) => void }) {
   const [imgError, setImgError] = useState(false);
   const [detailImgError, setDetailImgError] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(image.liked || false);
+  const [likeLoading, setLikeLoading] = useState(false);
   const router = useRouter();
+
+  const handleLike = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (likeLoading) return;
+    setLikeLoading(true);
+    try {
+      const res = await fetch(`/api/images/${image.id}/like`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setLiked(data.liked);
+        toast.success(data.liked ? "已收藏到灵感库" : "已取消收藏");
+      } else {
+        toast.error("操作失败");
+      }
+    } catch {
+      toast.error("操作失败");
+    } finally {
+      setLikeLoading(false);
+    }
+  };
 
   const handleDownload = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -109,13 +131,9 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
                     ? "bg-red-500 text-white hover:bg-red-600"
                     : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
                 )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLiked(!liked);
-                  toast.success(liked ? "已取消收藏" : "已收藏到灵感库");
-                }}
+                onClick={handleLike}
               >
-                <Heart className={cn("w-3.5 h-3.5 md:w-5 md:h-5", liked && "fill-current")} />
+                <Heart className={cn("w-3.5 h-3.5 md:w-5 md:h-5 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
               </Button>
             </div>
 
@@ -196,8 +214,9 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
             </div>
-            <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-6 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all">
-              收藏
+            <Button onClick={handleLike} disabled={likeLoading} className={cn("rounded-full font-bold px-6 transition-all", liked ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 shadow-none" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]")}>
+              <Heart className={cn("w-4 h-4 mr-1.5", liked && "fill-current")} />
+              {liked ? "已收藏" : "收藏"}
             </Button>
           </div>
 

@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
           height: img.height,
           views: img.views || 0,
           downloads: img.downloads || 0,
+          liked: img.liked || false,
           model: img.model,
           ratio: img.ratio,
           taskId: img.task_id,
