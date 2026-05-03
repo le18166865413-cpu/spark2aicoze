@@ -161,7 +161,7 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
         <DialogTitle className="sr-only">海报详情</DialogTitle>
 
         {/* Left Image Side */}
-        <div className="flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[40vh] md:h-full min-w-0 md:min-w-[50%]">
+        <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%]">
           <div className="relative w-full h-full p-2 md:p-6 flex items-center justify-center">
             {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
@@ -169,13 +169,11 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
                 <p>图片加载失败</p>
               </div>
             ) : (
-              <Image
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
                 src={image.url}
                 alt={image.prompt}
-                width={image.width || 1024}
-                height={image.height || 1024}
                 className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
-                unoptimized={true}
                 onError={() => setDetailImgError(true)}
               />
             )}
@@ -183,7 +181,7 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
         </div>
 
         {/* Right Info Side */}
-        <div className="w-full md:w-[400px] flex-shrink-0 p-6 md:p-8 flex flex-col gap-6 bg-background h-full overflow-y-auto">
+        <div className="w-full md:w-[400px] flex-shrink-0 p-4 md:p-6 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full overflow-y-auto flex-1 md:flex-none">
           <div className="flex items-center justify-between sticky top-0 bg-background z-10 pb-4 border-b">
             <div className="flex gap-2">
               <Button size="icon" variant="ghost" className="rounded-full hover:bg-secondary">
