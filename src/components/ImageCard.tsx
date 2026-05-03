@@ -116,11 +116,11 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
             </div>
           )}
 
-          {/* Overlay Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          {/* Overlay Gradient - desktop only */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none hidden md:block" />
 
-          {/* Hover Overlay Controls */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 md:p-4 flex flex-col justify-between pointer-events-none">
+          {/* Hover Overlay Controls - desktop only */}
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 md:p-4 flex-col justify-between pointer-events-none hidden md:flex">
             {/* Top Section */}
             <div className="flex justify-end gap-1 md:gap-2 pointer-events-auto">
               <Button
