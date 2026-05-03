@@ -116,58 +116,48 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
             </div>
           )}
 
-          {/* Overlay Gradient - desktop only */}
+          {/* Overlay Gradient & Controls - desktop only */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none hidden md:block" />
-
-          {/* Hover Overlay Controls - desktop only */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2 md:p-4 flex-col justify-between pointer-events-none hidden md:flex">
-            {/* Top Section */}
-            <div className="flex justify-end gap-1 md:gap-2 pointer-events-auto">
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex-col justify-between pointer-events-none hidden md:flex">
+            {/* Top Section - desktop */}
+            <div className="flex justify-end gap-2 pointer-events-auto">
               <Button
                 size="icon"
                 className={cn(
-                  "rounded-full w-7 h-7 md:w-10 md:h-10 transition-all bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+                  "rounded-full w-10 h-10 transition-all bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
                 )}
                 onClick={handleLike}
               >
-                <Heart className={cn("w-3.5 h-3.5 md:w-5 md:h-5 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
+                <Heart className={cn("w-5 h-5 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
               </Button>
             </div>
-
-            {/* Bottom Section */}
-            <div className="flex flex-col gap-1 md:gap-3 pointer-events-auto">
-              <p className="text-white text-xs md:text-sm line-clamp-1 md:line-clamp-2 font-medium drop-shadow-lg">
-                {image.prompt}
-              </p>
-              <div className="flex justify-end gap-1 md:gap-2">
-                {/* 制作同款 */}
-                <Button
-                  size="sm"
-                  className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] md:text-xs font-medium px-2 md:px-3 h-6 md:h-8"
-                  onClick={handleMakeSame}
-                >
-                  <Copy className="w-2.5 h-2.5 md:w-3 md:h-3 mr-0.5 md:mr-1" />
-                  制作同款
+            {/* Bottom Section - desktop */}
+            <div className="flex flex-col gap-3 pointer-events-auto">
+              <p className="text-white text-sm line-clamp-2 font-medium drop-shadow-lg">{image.prompt}</p>
+              <div className="flex justify-end gap-2">
+                <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleMakeSame}>
+                  <Copy className="w-3 h-3 mr-1" />制作同款
                 </Button>
-                {/* 删除 */}
-                <Button
-                  size="icon"
-                  className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 md:w-9 md:h-9"
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
-                </Button>
-                {/* 下载 */}
-                <Button
-                  size="icon"
-                  className="rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20 w-6 h-6 md:w-9 md:h-9"
-                  onClick={handleDownload}
-                >
-                  <Download className="w-3 h-3 md:w-4 md:h-4" />
+                <Button size="icon" className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-9 h-9" onClick={handleDelete}>
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
           </div>
+
+          {/* Mobile: buttons below image */}
+          <div className="flex md:hidden items-center justify-between px-2 py-1.5">
+            <p className="text-xs text-muted-foreground line-clamp-1 flex-1 mr-2">{image.prompt}</p>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full" onClick={handleLike}>
+                <Heart className={cn("w-4 h-4 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
+              </Button>
+              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-primary" onClick={handleMakeSame}>
+                <Copy className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+
         </div>
       </DialogTrigger>
 
