@@ -521,6 +521,28 @@ function CreatePageInner() {
 
           {/* Right: Preview Panel */}
           <div className="lg:sticky lg:top-24 lg:h-fit space-y-6">
+            {/* Tips */}
+            <div className="bg-primary/5 rounded-2xl p-6 border border-primary/10">
+              <h4 className="font-semibold text-primary mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                创作小贴士
+              </h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  描述越具体，生成效果越好
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  可以指定风格、颜色、布局等
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  使用参考图可以保持一致的视觉风格
+                </li>
+              </ul>
+            </div>
+
             {/* Preview Card */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
               <div className="flex items-center justify-between mb-4">
@@ -572,28 +594,6 @@ function CreatePageInner() {
                   </Button>
                 </div>
               )}
-            </div>
-
-            {/* Tips */}
-            <div className="bg-primary/5 rounded-2xl p-6 border border-primary/10">
-              <h4 className="font-semibold text-primary mb-3 flex items-center gap-2">
-                <Zap className="w-5 h-5" />
-                创作小贴士
-              </h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  描述越具体，生成效果越好
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  可以指定风格、颜色、布局等
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  使用参考图可以保持一致的视觉风格
-                </li>
-              </ul>
             </div>
           </div>
         </div>
