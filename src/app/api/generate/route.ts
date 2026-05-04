@@ -109,6 +109,7 @@ const MODEL_CONFIG: Record<string, { apiModel: string; endpoint: string }> = {
 // Estimate pixel dimensions from ratio
 function estimateDimensions(ratio: string): { width: number; height: number } {
   const dimMap: Record<string, { width: number; height: number }> = {
+    "auto": { width: 1024, height: 1024 },
     "9:16": { width: 1024, height: 1792 },
     "3:4": { width: 1024, height: 1365 },
     "1:1": { width: 1024, height: 1024 },
@@ -116,14 +117,17 @@ function estimateDimensions(ratio: string): { width: number; height: number } {
     "4:3": { width: 1365, height: 1024 },
     "2:3": { width: 1024, height: 1536 },
     "3:2": { width: 1536, height: 1024 },
+    "4:5": { width: 1024, height: 1280 },
+    "5:4": { width: 1280, height: 1024 },
+    "21:9": { width: 1792, height: 768 },
   };
-  return dimMap[ratio] || { width: 1024, height: 1365 };
+  return dimMap[ratio] || { width: 1024, height: 1024 };
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, ratio = "9:16", model = "image2", refImgs, refImageUrl, refImageKey, refImageContentType } = body;
+    const { prompt, ratio = "auto", model = "image2", refImgs, refImageUrl, refImageKey, refImageContentType } = body;
 
     console.log("Generate API received:", {
       hasPrompt: !!prompt,

@@ -37,7 +37,7 @@ function CreatePageInner() {
   const [mode, setMode] = useState<GenerationMode>(initialMode as GenerationMode);
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
-  const [ratio, setRatio] = useState("9:16");
+  const [ratio, setRatio] = useState("auto");
   const [model, setModel] = useState("image2");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -409,14 +409,17 @@ function CreatePageInner() {
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
                 <div className="grid grid-cols-4 gap-2">
                   {[
+                    { value: "auto", label: "Auto", desc: "自动" },
                     { value: "1:1", label: "1:1", desc: "方形" },
                     { value: "3:4", label: "3:4", desc: "竖版" },
                     { value: "4:3", label: "4:3", desc: "横版" },
                     { value: "9:16", label: "9:16", desc: "手机" },
                     { value: "16:9", label: "16:9", desc: "宽屏" },
                     { value: "2:3", label: "2:3", desc: "人像" },
+                    { value: "3:2", label: "3:2", desc: "风景" },
+                    { value: "4:5", label: "4:5", desc: "社交" },
+                    { value: "5:4", label: "5:4", desc: "摄影" },
                     { value: "21:9", label: "21:9", desc: "全景" },
-                    { value: "A4", label: "A4", desc: "海报" },
                   ].map((r) => (
                     <button
                       key={r.value}
