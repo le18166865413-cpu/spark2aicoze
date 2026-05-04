@@ -3,15 +3,17 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
 
 const menuItems = [
   { href: '/admin', icon: LayoutDashboard, label: '仪表盘' },
   { href: '/admin/settings', icon: Settings, label: '网站设置' },
   { href: '/admin/api-tokens', icon: Key, label: 'API 令牌' },
   { href: '/admin/theme', icon: Palette, label: '主题配色' },
+  { href: '/admin/creation', icon: Wand2, label: '创作配置' },
   { href: '/admin/storage', icon: HardDrive, label: '图片存储' },
   { href: '/admin/import', icon: Upload, label: '任务导入' },
 ];
@@ -28,6 +30,16 @@ export default function SidebarLayout({
   onMobileMenuChange?: (open: boolean) => void;
 }) {
   const pathname = usePathname();
+  const [siteName, setSiteName] = useState('SparkAI');
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.siteName) setSiteName(data.siteName);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -38,7 +50,7 @@ export default function SidebarLayout({
             <div className="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
               <Sparkles className="h-4 w-4 text-primary" />
             </div>
-            <span className="font-bold text-lg">SparkAI</span>
+            <span className="font-bold text-lg">{siteName}</span>
           </Link>
         </div>
         <nav className="flex-1 space-y-1 p-4">

@@ -40,6 +40,17 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [columnCount, setColumnCount] = useState(2);
+  const [pageSize, setPageSize] = useState(50);
+
+  // Load page size from config
+  useEffect(() => {
+    fetch("/api/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.galleryPageSize) setPageSize(Number(data.galleryPageSize));
+      })
+      .catch(() => {});
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -57,6 +68,7 @@ export default function Home() {
       if (sortOrder) queryParams.set("sortOrder", sortOrder);
       if (period && period !== "all") queryParams.set("period", period);
       if (debouncedSearch) queryParams.set("search", debouncedSearch);
+      queryParams.set("limit", String(pageSize));
 
       const res = await fetch(`/api/images?${queryParams.toString()}`);
       const data = await res.json();
@@ -66,7 +78,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, sortOrder, period, debouncedSearch]);
+  }, [sortBy, sortOrder, period, debouncedSearch, pageSize]);
 
   useEffect(() => {
     fetchImages();

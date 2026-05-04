@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const promptTemplates = [
+// Default fallback values (used before config loads)
+const defaultTemplates = [
   { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出" },
   { label: "教培代理招募", prompt: "教培代理招募海报，教育行业风格，知识图标与成长箭头，蓝绿色调，专业可信，招募信息醒目" },
   { label: "餐饮节日宣传", prompt: "餐饮节日宣传海报，美食特写，节日装饰元素，暖色灯光，诱人菜品，促销信息突出" },
@@ -22,10 +23,31 @@ const promptTemplates = [
   { label: "公众号配图", prompt: "公众号配图，简约扁平风格，与文章主题呼应，留白充足，色彩柔和，信息图表元素" },
 ];
 
-const modelOptions = [
+const defaultModels = [
   { value: "image2-vip", label: "Spark2 VIP", desc: "最高画质，细节极致" },
   { value: "image2", label: "Spark2", desc: "高画质，性价比之选" },
   { value: "nano-banana-fast", label: "Spark Lite", desc: "适合纯图，无文字" },
+];
+
+const defaultRatios = [
+  { value: "auto", label: "Auto", desc: "自动" },
+  { value: "1:1", label: "1:1", desc: "方形" },
+  { value: "3:4", label: "3:4", desc: "竖版" },
+  { value: "4:3", label: "4:3", desc: "横版" },
+  { value: "9:16", label: "9:16", desc: "手机" },
+  { value: "16:9", label: "16:9", desc: "宽屏" },
+  { value: "2:3", label: "2:3", desc: "人像" },
+  { value: "3:2", label: "3:2", desc: "风景" },
+  { value: "4:5", label: "4:5", desc: "社交" },
+  { value: "5:4", label: "5:4", desc: "摄影" },
+  { value: "21:9", label: "21:9", desc: "全景" },
+  { value: "9:21", label: "9:21", desc: "长图" },
+];
+
+const defaultTips = [
+  "描述越具体，生成效果越好",
+  "可以指定风格、颜色、布局等",
+  "使用参考图可以保持一致的视觉风格",
 ];
 
 type GenerationMode = "text2img" | "img2img";
@@ -39,6 +61,15 @@ function CreatePageInner() {
   const initialPrompt = searchParams.get("prompt") || "";
   const initialMode = searchParams.get("mode") || "text2img";
   const initialRefImageUrl = searchParams.get("refImageUrl") || "";
+
+  // Dynamic config from API
+  const [templates, setTemplates] = useState(defaultTemplates);
+  const [modelOptions, setModelOptions] = useState(defaultModels);
+  const [ratioOptions, setRatioOptions] = useState(defaultRatios);
+  const [tips, setTips] = useState(defaultTips);
+  const [waitMessage, setWaitMessage] = useState("请等待30-120秒，不要切换页面");
+  const [waitDuration, setWaitDuration] = useState(5000);
+  const [defaultRatio, setDefaultRatio] = useState("auto");
   
   const [mode, setMode] = useState<GenerationMode>(initialMode as GenerationMode);
   const [prompt, setPrompt] = useState(initialPrompt);
@@ -55,6 +86,28 @@ function CreatePageInner() {
   const [refImagePreview, setRefImagePreview] = useState<string | null>(initialRefImageUrl || null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load config from API
+  useEffect(() => {
+    fetch("/api/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.templates?.length) setTemplates(data.templates);
+        if (data.models?.length) setModelOptions(data.models);
+        if (data.ratios?.length) setRatioOptions(data.ratios);
+        if (data.tips?.length) setTips(data.tips);
+        if (data.waitMessage) setWaitMessage(data.waitMessage);
+        if (data.waitDuration) setWaitDuration(Number(data.waitDuration));
+        if (data.defaultRatio) {
+          setDefaultRatio(data.defaultRatio);
+          setRatio(data.defaultRatio);
+        }
+        if (data.defaultModel) setModel(data.defaultModel);
+      })
+      .catch(() => {
+        // Use defaults on error
+      });
+  }, []);
 
   // Template selection
   const handleTemplateSelect = useCallback((templatePrompt: string) => {
@@ -136,7 +189,7 @@ function CreatePageInner() {
     setProgress(0);
     setProgressStatus("正在提交任务...");
     setResult(null);
-    toast("请等待30-120秒，不要切换页面", { duration: 5000 });
+    toast(waitMessage, { duration: waitDuration });
 
     try {
       const body: Record<string, unknown> = {
@@ -368,18 +421,12 @@ function CreatePageInner() {
                 创作小贴士
               </h4>
               <ul className="space-y-1.5 text-xs text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  描述越具体，生成效果越好
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  可以指定风格、颜色、布局等
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  使用参考图可以保持一致的视觉风格
-                </li>
+                {tips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">&#8226;</span>
+                    {tip}
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -416,7 +463,7 @@ function CreatePageInner() {
               <div className="mt-4">
                 <p className="text-xs text-muted-foreground mb-2">快捷模板</p>
                 <div className="flex flex-wrap gap-2">
-                  {promptTemplates.map((template) => (
+                  {templates.map((template) => (
                     <button
                       key={template.label}
                       onClick={() => handleTemplateSelect(template.prompt)}
@@ -437,20 +484,7 @@ function CreatePageInner() {
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
                 <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { value: "auto", label: "Auto", desc: "自动" },
-                    { value: "1:1", label: "1:1", desc: "方形" },
-                    { value: "3:4", label: "3:4", desc: "竖版" },
-                    { value: "4:3", label: "4:3", desc: "横版" },
-                    { value: "9:16", label: "9:16", desc: "手机" },
-                    { value: "16:9", label: "16:9", desc: "宽屏" },
-                    { value: "2:3", label: "2:3", desc: "人像" },
-                    { value: "3:2", label: "3:2", desc: "风景" },
-                    { value: "4:5", label: "4:5", desc: "社交" },
-                    { value: "5:4", label: "5:4", desc: "摄影" },
-                    { value: "21:9", label: "21:9", desc: "全景" },
-                    { value: "9:21", label: "9:21", desc: "长图" },
-                  ].map((r) => (
+                  {ratioOptions.map((r) => (
                     <button
                       key={r.value}
                       onClick={() => setRatio(r.value)}
@@ -550,18 +584,12 @@ function CreatePageInner() {
                 创作小贴士
               </h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  描述越具体，生成效果越好
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  可以指定风格、颜色、布局等
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  使用参考图可以保持一致的视觉风格
-                </li>
+                {tips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">&#8226;</span>
+                    {tip}
+                  </li>
+                ))}
               </ul>
             </div>
 

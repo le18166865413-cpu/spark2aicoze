@@ -78,7 +78,8 @@ export async function GET(request: NextRequest) {
     query = query.order(sortColumn, { ascending });
 
     // Limit
-    query = query.limit(50);
+    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 10), 200);
+    query = query.limit(limit);
 
     const { data: images, error } = await query;
 
