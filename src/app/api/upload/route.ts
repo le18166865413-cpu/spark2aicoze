@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { getStorageErrorMessage } from "@/utils/storage-error";
 
 // Generate UUID
 function generateId(): string {
@@ -59,11 +60,17 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const key = await storage.uploadFile({
-      fileContent: buffer,
-      fileName: file.name,
-      contentType: file.type,
-    });
+    let key: string;
+    try {
+      key = await storage.uploadFile({
+        fileContent: buffer,
+        fileName: file.name,
+        contentType: file.type,
+      });
+    } catch (uploadError) {
+      console.error("S3 upload failed:", uploadError);
+      return NextResponse.json({ error: getStorageErrorMessage(uploadError) }, { status: 500 });
+    }
 
     // If this is for GrsAI, return the key directly
     if (forGrsai) {

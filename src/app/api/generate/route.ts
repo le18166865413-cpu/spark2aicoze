@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { getStorageErrorMessage } from "@/utils/storage-error";
 
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
 
@@ -57,7 +58,7 @@ async function uploadBase64ToStorage(base64Data: string): Promise<string> {
     return result;
   } catch (error) {
     console.error("Failed to upload base64 to storage:", error);
-    throw error;
+    throw new Error(getStorageErrorMessage(error));
   }
 }
 
@@ -313,10 +314,18 @@ export async function POST(request: NextRequest) {
           sendSSE({ type: "progress", progress: 95, status: "uploading" });
 
           // Upload to S3
-          const key = await storage.uploadFromUrl({
-            url: imageUrl,
-            timeout: 120000,
-          });
+          let key: string;
+          try {
+            key = await storage.uploadFromUrl({
+              url: imageUrl,
+              timeout: 120000,
+            });
+          } catch (uploadError) {
+            console.error("S3 upload failed:", uploadError);
+            sendSSE({ type: "error", error: getStorageErrorMessage(uploadError) });
+            controller.close();
+            return;
+          }
 
           const { width, height } = estimateDimensions(ratio);
           const imageId = generateId();

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { storage } from '@/utils/storage';
+import { getStorageErrorMessage } from '@/utils/storage-error';
 
 interface GrsAIResultData {
   id: string;
@@ -91,10 +92,16 @@ async function importImage(
     }
 
     console.log('Uploading image from URL:', imageUrl.substring(0, 100));
-    const key = await storage.uploadFromUrl({
-      url: imageUrl,
-      timeout: 120000,
-    });
+    let key: string;
+    try {
+      key = await storage.uploadFromUrl({
+        url: imageUrl,
+        timeout: 120000,
+      });
+    } catch (uploadError) {
+      console.error('S3 upload failed:', uploadError);
+      return { success: false, error: getStorageErrorMessage(uploadError) };
+    }
 
     const signedUrl = await getSignedUrl(key);
     console.log('Uploaded to S3, signed URL obtained');
