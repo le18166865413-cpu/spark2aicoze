@@ -16,6 +16,8 @@ const DEFAULTS: Record<string, string> = {
     { label: "图片重构", prompt: "图片重构，保留原始构图与主体，提升画质细节，优化色彩与光影，增强视觉表现力" },
     { label: "电商主图", prompt: "电商主图，商品居中展示，纯净背景，光影立体感，卖点标签，高端产品摄影风格" },
     { label: "公众号配图", prompt: "公众号配图，简约扁平风格，与文章主题呼应，留白充足，色彩柔和，信息图表元素" },
+    { label: "高考倒计时", prompt: "高考倒计时海报，励志标语，书本与钢笔元素，拼搏向上氛围，红金配色，倒计时数字醒目" },
+    { label: "图书封面设计", prompt: "图书封面设计，精美装帧，书名与作者排版考究，艺术插画风格，质感纸张纹理，文学气息" },
   ]),
   available_models: JSON.stringify([
     { value: "image2-vip", label: "Spark2 VIP", desc: "最高画质，细节极致" },
