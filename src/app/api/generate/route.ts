@@ -120,6 +120,7 @@ function estimateDimensions(ratio: string): { width: number; height: number } {
     "4:5": { width: 1024, height: 1280 },
     "5:4": { width: 1280, height: 1024 },
     "21:9": { width: 1792, height: 768 },
+    "9:21": { width: 768, height: 1792 },
   };
   return dimMap[ratio] || { width: 1024, height: 1024 };
 }

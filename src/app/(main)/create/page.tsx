@@ -426,6 +426,7 @@ function CreatePageInner() {
                     { value: "4:5", label: "4:5", desc: "社交" },
                     { value: "5:4", label: "5:4", desc: "摄影" },
                     { value: "21:9", label: "21:9", desc: "全景" },
+                    { value: "9:21", label: "9:21", desc: "长图" },
                   ].map((r) => (
                     <button
                       key={r.value}
