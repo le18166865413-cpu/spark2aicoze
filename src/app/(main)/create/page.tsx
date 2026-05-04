@@ -472,7 +472,7 @@ function CreatePageInner() {
                   {/* Add more button */}
                   {refImages.length < 4 && (
                     <div
-                      className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
+                      className="rounded-xl overflow-hidden border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
                       onClick={() => fileInputRef.current?.click()}
                     >
                       {uploading ? (
