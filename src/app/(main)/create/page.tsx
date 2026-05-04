@@ -10,10 +10,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const promptTemplates = [
-  { label: "科技峰会", prompt: "Tech conference poster, futuristic gradient background, holographic elements, bold typography" },
-  { label: "电商促销", prompt: "E-commerce sale poster, vibrant colors, discount badges, product showcase layout, energetic vibe" },
-  { label: "音乐节", prompt: "Music festival poster, psychedelic colors, sound wave graphics, bold headline, creative typography" },
-  { label: "美食推广", prompt: "Food promotion poster, appetizing close-up, warm lighting, elegant plating, modern minimalist layout" },
+  { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出" },
+  { label: "教培代理招募", prompt: "教培代理招募海报，教育行业风格，知识图标与成长箭头，蓝绿色调，专业可信，招募信息醒目" },
+  { label: "餐饮节日宣传", prompt: "餐饮节日宣传海报，美食特写，节日装饰元素，暖色灯光，诱人菜品，促销信息突出" },
+  { label: "电商促销", prompt: "电商促销海报，鲜艳配色，折扣标签，商品展示布局，动感活力，促销信息醒目" },
 ];
 
 const modelOptions = [
