@@ -136,6 +136,7 @@ function CreatePageInner() {
     setProgress(0);
     setProgressStatus("正在提交任务...");
     setResult(null);
+    toast("请等待30-120秒，不要切换页面", { duration: 5000 });
 
     try {
       const body: Record<string, unknown> = {
