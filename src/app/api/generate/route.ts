@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!prompt) {
-      return new Response(JSON.stringify({ error: "Prompt is required" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "请输入提示词" }), { status: 400 });
     }
 
     const modelConfig = MODEL_CONFIG[model];
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
           // Parse SSE stream
           const reader = response.body?.getReader();
           if (!reader) {
-            sendSSE({ type: "error", error: "No response body" });
+            sendSSE({ type: "error", error: "服务响应异常" });
             controller.close();
             return;
           }
@@ -282,7 +282,13 @@ export async function POST(request: NextRequest) {
                 }
 
                 if (data.status === "failed") {
-                  const reason = data.failure_reason || data.error || "Generation failed";
+                  const rawReason = data.failure_reason || data.error || "";
+                  const friendlyErrors: Record<string, string> = {
+                    output_moderation: "生成内容违规，请修改提示词后重试",
+                    input_moderation: "输入内容违规，请修改提示词后重试",
+                    error: "生成失败，请重试",
+                  };
+                  const reason = friendlyErrors[rawReason] || rawReason || "生成失败，请重试";
                   sendSSE({ type: "error", error: reason });
                   controller.close();
                   return;
@@ -294,7 +300,7 @@ export async function POST(request: NextRequest) {
           }
 
           if (!imageUrl) {
-            sendSSE({ type: "error", error: "No image URL in response" });
+            sendSSE({ type: "error", error: "未获取到图片，请重试" });
             controller.close();
             return;
           }
@@ -373,7 +379,7 @@ export async function POST(request: NextRequest) {
           controller.close();
         } catch (error: unknown) {
           console.error("Generate error:", error);
-          const message = error instanceof Error ? error.message : "Internal Server Error";
+          const message = error instanceof Error ? error.message : "服务器内部错误";
           sendSSE({ type: "error", error: message });
           controller.close();
         }
@@ -389,7 +395,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error(error);
-    const message = error instanceof Error ? error.message : "Internal Server Error";
+    const message = error instanceof Error ? error.message : "服务器内部错误";
     return new Response(JSON.stringify({ error: message }), { status: 500 });
   }
 }
