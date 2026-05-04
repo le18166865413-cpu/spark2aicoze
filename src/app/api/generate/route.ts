@@ -129,16 +129,19 @@ function estimateDimensions(ratio: string): { width: number; height: number } {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, ratio = "auto", model = "image2", refImgs, refImageUrl, refImageKey, refImageContentType } = body;
+    const { prompt, ratio = "auto", model = "image2", count = 1, refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType } = body;
+
+    const imageCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
     console.log("Generate API received:", {
       hasPrompt: !!prompt,
       ratio,
       model,
+      count: imageCount,
       hasRefImgs: !!(refImgs && Array.isArray(refImgs) && refImgs.length > 0),
+      hasRefImageKeys: !!(refImageKeys && Array.isArray(refImageKeys) && refImageKeys.length > 0),
       hasRefImageUrl: !!refImageUrl,
       hasRefImageKey: !!refImageKey,
-      hasRefImageContentType: !!refImageContentType,
     });
 
     if (!prompt) {
@@ -161,10 +164,40 @@ export async function POST(request: NextRequest) {
     // Handle reference images (urls)
     let urls: string[] | undefined;
 
-    if (refImgs && Array.isArray(refImgs) && refImgs.length > 0) {
-      urls = refImgs.filter((url: string) => url && url.length > 0);
+    if (refImageKeys && Array.isArray(refImageKeys) && refImageKeys.length > 0) {
+      // Multiple S3 keys - convert each to public URL
+      console.log("Getting public URLs for refImageKeys:", refImageKeys);
+      const publicUrls: string[] = [];
+      for (const key of refImageKeys) {
+        try {
+          const publicUrl = await getSignedUrl(key);
+          publicUrls.push(publicUrl);
+        } catch (err) {
+          console.error("Failed to get public URL for key:", key, err);
+          throw err;
+        }
+      }
+      urls = publicUrls;
+      console.log("Got public URLs for", publicUrls.length, "images");
+    } else if (refImgs && Array.isArray(refImgs) && refImgs.length > 0) {
+      // Multiple ref images (mix of URLs and S3 keys)
+      const resolvedUrls: string[] = [];
+      for (const refImg of refImgs) {
+        if (refImg.startsWith("http")) {
+          resolvedUrls.push(refImg);
+        } else {
+          // S3 key
+          try {
+            const publicUrl = await getSignedUrl(refImg);
+            resolvedUrls.push(publicUrl);
+          } catch (err) {
+            console.error("Failed to get URL for key:", refImg, err);
+          }
+        }
+      }
+      urls = resolvedUrls.filter((u) => u.length > 0);
     } else if (refImageKey) {
-      // S3 key - get permanent signed URL
+      // Single S3 key - get permanent signed URL
       console.log("Getting public URL for refImageKey:", refImageKey);
       try {
         const publicUrl = await getSignedUrl(refImageKey);
@@ -214,182 +247,196 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          sendSSE({ type: "progress", progress: 0, status: "submitted" });
+          sendSSE({ type: "progress", progress: 0, status: "submitted", total: imageCount, current: 0 });
 
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${await getGrsaiApiKey()}`,
-            },
-            body: JSON.stringify(requestBody),
-          });
+          for (let imgIndex = 0; imgIndex < imageCount; imgIndex++) {
+            sendSSE({ type: "progress", progress: 0, status: imageCount > 1 ? `正在生成第 ${imgIndex + 1}/${imageCount} 张...` : "submitted", total: imageCount, current: imgIndex });
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            let errorMessage = `GrsAI API error: ${response.status}`;
-            try {
-              const errorJson = JSON.parse(errorText);
-              errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
-            } catch {
-              // ignore parse error
-            }
-            console.error("GrsAI error:", errorText);
-            sendSSE({ type: "error", error: errorMessage });
-            controller.close();
-            return;
-          }
+            const response = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${await getGrsaiApiKey()}`,
+              },
+              body: JSON.stringify(requestBody),
+            });
 
-          // Parse SSE stream
-          const reader = response.body?.getReader();
-          if (!reader) {
-            sendSSE({ type: "error", error: "服务响应异常" });
-            controller.close();
-            return;
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let imageUrl = "";
-          let taskId = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-              const jsonStr = trimmed.slice(6);
-              if (jsonStr === "[DONE]") continue;
-
+            if (!response.ok) {
+              const errorText = await response.text();
+              let errorMessage = `GrsAI API error: ${response.status}`;
               try {
-                const data = JSON.parse(jsonStr);
-                console.log("GrsAI SSE data:", JSON.stringify(data).substring(0, 200));
-
-                // Capture task ID
-                if (data.id && !taskId) {
-                  taskId = data.id;
-                }
-
-                // Forward progress
-                if (data.progress !== undefined) {
-                  sendSSE({ type: "progress", progress: data.progress, status: data.status || "running" });
-                }
-
-                // Capture final result
-                if (data.status === "succeeded" && data.results) {
-                  imageUrl = data.results[0]?.url || data.url || "";
-                }
-
-                if (data.status === "failed") {
-                  const rawReason = data.failure_reason || data.error || "";
-                  const friendlyErrors: Record<string, string> = {
-                    output_moderation: "生成内容违规，请修改提示词后重试",
-                    input_moderation: "输入内容违规，请修改提示词后重试",
-                    error: "生成失败，请重试",
-                  };
-                  const reason = friendlyErrors[rawReason] || rawReason || "生成失败，请重试";
-                  sendSSE({ type: "error", error: reason });
-                  controller.close();
-                  return;
-                }
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
               } catch {
-                // Skip malformed JSON lines
+                // ignore parse error
+              }
+              console.error("GrsAI error:", errorText);
+              sendSSE({ type: "error", error: errorMessage });
+              controller.close();
+              return;
+            }
+
+            // Parse SSE stream
+            const reader = response.body?.getReader();
+            if (!reader) {
+              sendSSE({ type: "error", error: "服务响应异常" });
+              controller.close();
+              return;
+            }
+
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let imageUrl = "";
+            let taskId = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") continue;
+
+                try {
+                  const data = JSON.parse(jsonStr);
+                  console.log("GrsAI SSE data:", JSON.stringify(data).substring(0, 200));
+
+                  // Capture task ID
+                  if (data.id && !taskId) {
+                    taskId = data.id;
+                  }
+
+                  // Forward progress
+                  if (data.progress !== undefined) {
+                    const baseProgress = imageCount > 1 ? Math.round((imgIndex / imageCount) * 100) : 0;
+                    const stepProgress = imageCount > 1
+                      ? Math.round((data.progress / 100) * (100 / imageCount))
+                      : data.progress;
+                    const statusText = imageCount > 1
+                      ? `第 ${imgIndex + 1}/${imageCount} 张 - ${data.status === "submitted" ? "等待处理" : data.status === "running" ? "正在生成" : data.status === "uploading" ? "上传中" : data.status || "处理中"}`
+                      : (data.status === "submitted" ? "等待处理" : data.status === "running" ? "正在生成" : data.status === "uploading" ? "上传中" : data.status || "处理中");
+                    sendSSE({ type: "progress", progress: Math.min(baseProgress + stepProgress, 99), status: statusText, total: imageCount, current: imgIndex });
+                  }
+
+                  // Capture final result
+                  if (data.status === "succeeded" && data.results) {
+                    imageUrl = data.results[0]?.url || data.url || "";
+                  }
+
+                  if (data.status === "failed") {
+                    const rawReason = data.failure_reason || data.error || "";
+                    const friendlyErrors: Record<string, string> = {
+                      output_moderation: "生成内容违规，请修改提示词后重试",
+                      input_moderation: "输入内容违规，请修改提示词后重试",
+                      error: "生成失败，请重试",
+                    };
+                    const reason = friendlyErrors[rawReason] || rawReason || "生成失败，请重试";
+                    sendSSE({ type: "error", error: reason });
+                    controller.close();
+                    return;
+                  }
+                } catch {
+                  // Skip malformed JSON lines
+                }
               }
             }
-          }
 
-          if (!imageUrl) {
-            sendSSE({ type: "error", error: "未获取到图片，请重试" });
-            controller.close();
-            return;
-          }
+            if (!imageUrl) {
+              sendSSE({ type: "error", error: `第 ${imgIndex + 1} 张未获取到图片，请重试` });
+              controller.close();
+              return;
+            }
 
-          sendSSE({ type: "progress", progress: 95, status: "uploading" });
+            sendSSE({ type: "progress", progress: imageCount > 1 ? Math.round(((imgIndex + 0.95) / imageCount) * 100) : 95, status: imageCount > 1 ? `第 ${imgIndex + 1} 张上传中...` : "uploading", total: imageCount, current: imgIndex });
 
-          // Upload to S3
-          let key: string;
-          try {
-            key = await storage.uploadFromUrl({
-              url: imageUrl,
-              timeout: 120000,
-            });
-          } catch (uploadError) {
-            console.error("S3 upload failed:", uploadError);
-            sendSSE({ type: "error", error: getStorageErrorMessage(uploadError) });
-            controller.close();
-            return;
-          }
+            // Upload to S3
+            let key: string;
+            try {
+              key = await storage.uploadFromUrl({
+                url: imageUrl,
+                timeout: 120000,
+              });
+            } catch (uploadError) {
+              console.error("S3 upload failed:", uploadError);
+              sendSSE({ type: "error", error: getStorageErrorMessage(uploadError) });
+              controller.close();
+              return;
+            }
 
-          const { width, height } = estimateDimensions(ratio);
-          const imageId = generateId();
-          const now = new Date().toISOString();
+            const { width, height } = estimateDimensions(ratio);
+            const imageId = generateId();
+            const now = new Date().toISOString();
 
-          // Create new image entry
-          const newImage: GalleryImage = {
-            id: imageId,
-            imageKey: key,
-            prompt: prompt,
-            url: "",
-            width: width,
-            height: height,
-            views: 0,
-            downloads: 0,
-            model: model,
-            ratio: ratio,
-            taskId: taskId,
-            createdAt: now,
-          };
-
-          // Save to Supabase
-          try {
-            const supabase = getSupabaseClient();
-            const { error: dbError } = await supabase.from("gallery_images").insert({
+            // Create new image entry
+            const newImage: GalleryImage = {
               id: imageId,
+              imageKey: key,
               prompt: prompt,
               url: "",
-              image_key: key,
               width: width,
               height: height,
               views: 0,
               downloads: 0,
               model: model,
               ratio: ratio,
-              task_id: taskId,
-              created_at: now,
-            });
+              taskId: taskId,
+              createdAt: now,
+            };
 
-            if (dbError) {
-              console.error("Failed to save to Supabase:", dbError);
-            } else {
-              console.log("Saved to Supabase, id:", imageId);
-            }
-          } catch (dbErr) {
-            console.error("Supabase save error:", dbErr);
-          }
-
-          // Get permanent signed URL for the uploaded image
-          let signedUrl = "";
-          try {
-            signedUrl = await getSignedUrl(key);
-          } catch (err) {
-            console.error("Failed to get signed URL:", err);
-            // Fallback to presigned URL
+            // Save to Supabase
             try {
-              signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
-            } catch {
-              signedUrl = key;
+              const supabase = getSupabaseClient();
+              const { error: dbError } = await supabase.from("gallery_images").insert({
+                id: imageId,
+                prompt: prompt,
+                url: "",
+                image_key: key,
+                width: width,
+                height: height,
+                views: 0,
+                downloads: 0,
+                model: model,
+                ratio: ratio,
+                task_id: taskId,
+                created_at: now,
+              });
+
+              if (dbError) {
+                console.error("Failed to save to Supabase:", dbError);
+              } else {
+                console.log("Saved to Supabase, id:", imageId);
+              }
+            } catch (dbErr) {
+              console.error("Supabase save error:", dbErr);
             }
+
+            // Get permanent signed URL for the uploaded image
+            let signedUrl = "";
+            try {
+              signedUrl = await getSignedUrl(key);
+            } catch (err) {
+              console.error("Failed to get signed URL:", err);
+              // Fallback to presigned URL
+              try {
+                signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+              } catch {
+                signedUrl = key;
+              }
+            }
+
+            // Return complete with URL for preview
+            sendSSE({ type: "complete", data: { ...newImage, url: signedUrl, taskId }, index: imgIndex, total: imageCount });
           }
 
-          // Return complete with URL for preview
-          sendSSE({ type: "complete", data: { ...newImage, url: signedUrl, taskId } });
+          // All images done
+          sendSSE({ type: "all_complete", total: imageCount });
           controller.close();
         } catch (error: unknown) {
           console.error("Generate error:", error);

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Undo2, Upload, X } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Undo2, Upload, X, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,16 @@ const defaultTips = [
 
 type GenerationMode = "text2img" | "img2img";
 
+interface RefImage {
+  url: string; // S3 key or HTTP URL
+  preview: string; // Object URL for preview
+}
+
+interface GenerationResult {
+  url: string;
+  [key: string]: unknown;
+}
+
 // Inner component that uses useSearchParams
 function CreatePageInner() {
   const router = useRouter();
@@ -76,16 +86,23 @@ function CreatePageInner() {
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
   const [model, setModel] = useState("image2");
+  const [imageCount, setImageCount] = useState(1);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
-  const [result, setResult] = useState<{ url?: string; [key: string]: unknown } | null>(null);
+  const [results, setResults] = useState<GenerationResult[]>([]);
 
-  // Image-to-image state
-  const [refImageUrl, setRefImageUrl] = useState<string | null>(initialRefImageUrl || null);
-  const [refImagePreview, setRefImagePreview] = useState<string | null>(initialRefImageUrl || null);
+  // Image-to-image state - support multiple images
+  const [refImages, setRefImages] = useState<RefImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle initial refImageUrl from URL params
+  useEffect(() => {
+    if (initialRefImageUrl && initialMode === "img2img") {
+      setRefImages([{ url: initialRefImageUrl, preview: initialRefImageUrl }]);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load config from API
   useEffect(() => {
@@ -115,72 +132,83 @@ function CreatePageInner() {
     promptRef.current = templatePrompt;
   }, []);
 
-  // File upload handler
+  // File upload handler - supports multiple files
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    // Validate file
-    if (!file.type.startsWith("image/")) {
-      toast.error("请选择图片文件");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("图片大小不能超过 10MB");
-      return;
-    }
+    const newImages: RefImage[] = [];
 
-    // Show preview immediately
-    const previewUrl = URL.createObjectURL(file);
-    setRefImagePreview(previewUrl);
-    setUploading(true);
-
-    try {
-      // Upload to server first to get a temporary URL
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("forGrsai", "true");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error("Upload failed");
-      
-      const data = await res.json();
-      
-      if (data.key) {
-        setRefImageUrl(data.key);
-        // Store content type for later use
-        (window as unknown as Record<string, unknown>).__refImageContentType = file.type;
-        toast.success("参考图已上传");
-      } else if (data.url) {
-        setRefImageUrl(data.url);
-        toast.success("参考图已上传");
-      } else {
-        throw new Error("No key or URL returned");
+    for (const file of files) {
+      // Validate file
+      if (!file.type.startsWith("image/")) {
+        toast.error(`${file.name} 不是图片文件，已跳过`);
+        continue;
       }
-    } catch (error) {
-      console.error("Error preparing reference image:", error);
-      toast.error("图片上传失败，请重试");
-      setRefImagePreview(null);
-      setRefImageUrl(null);
-    } finally {
-      setUploading(false);
-      // Reset file input
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} 超过 10MB，已跳过`);
+        continue;
+      }
+
+      // Show preview immediately
+      const previewUrl = URL.createObjectURL(file);
+      setUploading(true);
+
+      try {
+        // Upload to server first to get a temporary URL
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("forGrsai", "true");
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error("Upload failed");
+        
+        const data = await res.json();
+        
+        if (data.key) {
+          newImages.push({ url: data.key, preview: previewUrl });
+        } else if (data.url) {
+          newImages.push({ url: data.url, preview: previewUrl });
+        } else {
+          URL.revokeObjectURL(previewUrl);
+          throw new Error("No key or URL returned");
+        }
+      } catch (error) {
+        console.error("Error preparing reference image:", error);
+        toast.error(`${file.name} 上传失败`);
+        URL.revokeObjectURL(previewUrl);
+      }
     }
+
+    setRefImages((prev) => [...prev, ...newImages]);
+    setUploading(false);
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
-  // Generate handler
+  // Remove a reference image
+  const removeRefImage = useCallback((index: number) => {
+    setRefImages((prev) => {
+      const img = prev[index];
+      if (img && img.preview.startsWith("blob:")) {
+        URL.revokeObjectURL(img.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  // Generate handler - supports multiple images
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) {
       toast.error("请输入海报描述");
       return;
     }
     
-    if (mode === "img2img" && !refImageUrl) {
+    if (mode === "img2img" && refImages.length === 0) {
       toast.error("请先上传参考图片");
       return;
     }
@@ -188,88 +216,133 @@ function CreatePageInner() {
     setLoading(true);
     setProgress(0);
     setProgressStatus("正在提交任务...");
-    setResult(null);
+    setResults([]);
     toast(waitMessage, { duration: waitDuration });
 
     try {
-      const body: Record<string, unknown> = {
-        prompt: prompt,
-        ratio,
-        model,
-      };
-      if (mode === "img2img" && refImageUrl) {
-        // Check if it's an S3 key (starts with certain patterns) or a URL
-        if (!refImageUrl.startsWith("http") && !refImageUrl.startsWith("data:")) {
-          // It's an S3 key
-          body.refImageKey = refImageUrl;
-          body.refImageContentType = (window as unknown as Record<string, unknown>).__refImageContentType || "image/jpeg";
-        } else {
-          body.refImageUrl = refImageUrl;
+      const allResults: GenerationResult[] = [];
+
+      for (let i = 0; i < imageCount; i++) {
+        if (imageCount > 1) {
+          setProgressStatus(`正在生成第 ${i + 1}/${imageCount} 张...`);
+          setProgress(Math.round((i / imageCount) * 100));
         }
-      }
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+        const body: Record<string, unknown> = {
+          prompt: prompt,
+          ratio,
+          model,
+        };
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error((error as Record<string, string>).error || "Generation failed");
-      }
-
-      // Handle SSE stream
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response body");
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data: ")) continue;
-
-          const jsonStr = trimmed.slice(6);
-          if (jsonStr === "[DONE]") continue;
-
-          try {
-            const data = JSON.parse(jsonStr);
-
-            if (data.type === "progress") {
-              setProgress(data.progress || 0);
-              setProgressStatus(data.status === "submitted" ? "等待处理..." : 
-                               data.status === "running" ? "正在生成..." : 
-                               data.status === "uploading" ? "上传中..." : 
-                               data.status || "处理中...");
+        if (mode === "img2img" && refImages.length > 0) {
+          const refImgs = refImages
+            .map((img) => {
+              if (!img.url.startsWith("http") && !img.url.startsWith("data:")) {
+                return img.url; // S3 key - backend will handle
+              }
+              return img.url;
+            })
+            .filter((url) => url.length > 0);
+          
+          if (refImgs.length === 1) {
+            // Single ref image - use legacy field for backward compat
+            if (!refImgs[0].startsWith("http") && !refImgs[0].startsWith("data:")) {
+              body.refImageKey = refImgs[0];
+              body.refImageContentType = "image/jpeg";
+            } else {
+              body.refImageUrl = refImgs[0];
             }
+          } else {
+            // Multiple ref images - use refImgs array
+            // For S3 keys, backend needs to convert them to URLs
+            body.refImgs = refImgs;
+            body.refImageKeys = refImages
+              .filter((img) => !img.url.startsWith("http") && !img.url.startsWith("data:"))
+              .map((img) => img.url);
+          }
+        }
 
-            if (data.type === "error") {
-              throw new Error(data.error);
-            }
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
 
-            if (data.type === "complete") {
-              setResult(data.data);
-              setProgress(100);
-              setProgressStatus("完成！");
-              toast.success("海报生成成功！");
-            }
-          } catch (parseError) {
-            // Skip malformed JSON
-            if (parseError instanceof Error && parseError.message !== "Unexpected end of JSON input") {
-              // Only re-throw if it's our custom error
-              if (!(parseError instanceof SyntaxError)) throw parseError;
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error((error as Record<string, string>).error || "Generation failed");
+        }
+
+        // Handle SSE stream
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No response body");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+
+            const jsonStr = trimmed.slice(6);
+            if (jsonStr === "[DONE]") continue;
+
+            try {
+              const data = JSON.parse(jsonStr);
+
+              if (data.type === "progress") {
+                if (imageCount <= 1) {
+                  setProgress(data.progress || 0);
+                  setProgressStatus(
+                    data.status === "submitted" ? "等待处理..." : 
+                    data.status === "running" ? "正在生成..." : 
+                    data.status === "uploading" ? "上传中..." : 
+                    data.status || "处理中..."
+                  );
+                } else {
+                  // Multi-image: show combined progress
+                  const baseProgress = Math.round((i / imageCount) * 100);
+                  const stepProgress = Math.round(((data.progress || 0) / 100) * (100 / imageCount));
+                  setProgress(Math.min(baseProgress + stepProgress, 99));
+                  setProgressStatus(`第 ${i + 1}/${imageCount} 张 - ${
+                    data.status === "submitted" ? "等待处理..." : 
+                    data.status === "running" ? "正在生成..." : 
+                    data.status === "uploading" ? "上传中..." : 
+                    data.status || "处理中..."
+                  }`);
+                }
+              }
+
+              if (data.type === "error") {
+                throw new Error(data.error);
+              }
+
+              if (data.type === "complete") {
+                allResults.push(data.data as GenerationResult);
+                setResults([...allResults]);
+              }
+            } catch (parseError) {
+              // Skip malformed JSON
+              if (parseError instanceof Error && parseError.message !== "Unexpected end of JSON input") {
+                if (!(parseError instanceof SyntaxError)) throw parseError;
+              }
             }
           }
         }
+      }
+
+      setProgress(100);
+      setProgressStatus(`完成！共生成 ${allResults.length} 张`);
+      if (allResults.length > 0) {
+        toast.success(`海报生成成功！共 ${allResults.length} 张`);
       }
     } catch (error: unknown) {
       console.error("Generation error:", error);
@@ -278,20 +351,36 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, mode, refImageUrl, ratio, model]);
+  }, [prompt, mode, refImages, ratio, model, imageCount, waitMessage, waitDuration]);
 
   // Download handler
-  const handleDownload = useCallback(async () => {
-    if (!result?.url) return;
-    
+  const handleDownload = useCallback(async (url: string) => {
     try {
-      window.open(result.url as string, "_blank");
-      toast.success("正在下载...");
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `sparkai-${Date.now()}.png`;
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+      toast.success("下载中...");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("下载失败");
     }
-  }, [result]);
+  }, []);
+
+  // Download all
+  const handleDownloadAll = useCallback(async () => {
+    for (const result of results) {
+      if (result.url) {
+        await handleDownload(result.url as string);
+        // Small delay between downloads
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  }, [results, handleDownload]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 dark:from-background dark:to-background">
@@ -351,64 +440,76 @@ function CreatePageInner() {
               </button>
             </div>
 
-            {/* Reference Image Upload (for img2img) */}
+            {/* Reference Image Upload (for img2img) - Multiple images */}
             {mode === "img2img" && (
               <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-                <Label className="text-base font-semibold mb-4 block">上传参考图片</Label>
-                <div
-                  className={cn(
-                    "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
-                    refImagePreview
-                      ? "border-primary bg-primary/5 dark:bg-primary/20"
-                      : "border-border dark:hover:border-primary"
-                  )}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                  {uploading ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                      <p className="text-muted-foreground">上传中...</p>
-                    </div>
-                  ) : refImagePreview ? (
-                    <div className="flex flex-col items-center gap-3">
+                <Label className="text-base font-semibold mb-4 block">
+                  上传参考图片
+                  <span className="text-sm font-normal text-muted-foreground ml-2">最多 4 张</span>
+                </Label>
+                
+                {/* Image grid */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {refImages.map((img, index) => (
+                    <div key={index} className="relative group rounded-xl overflow-hidden border border-border aspect-square">
                       <img
-                        src={refImagePreview}
-                        alt="Preview"
-                        className="max-h-48 rounded-lg object-contain"
+                        src={img.preview}
+                        alt={`参考图 ${index + 1}`}
+                        className="w-full h-full object-cover"
                       />
-                      <p className="text-primary text-sm">点击更换图片</p>
+                      <button
+                        onClick={() => removeRefImage(index)}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
+                        <span className="text-white text-xs">参考图 {index + 1}</span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
-                        <Upload className="w-6 h-6 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">点击上传参考图片</p>
-                        <p className="text-xs text-muted-foreground mt-1">支持 JPG、PNG，最大 10MB</p>
-                      </div>
+                  ))}
+                  
+                  {/* Add more button */}
+                  {refImages.length < 4 && (
+                    <div
+                      className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploading ? (
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="w-8 h-8 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground mt-1">添加图片</span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-                {refImagePreview && (
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+
+                {refImages.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-3 w-full text-muted-foreground"
+                    className="w-full text-muted-foreground"
                     onClick={() => {
-                      setRefImageUrl(null);
-                      setRefImagePreview(null);
+                      refImages.forEach((img) => {
+                        if (img.preview.startsWith("blob:")) URL.revokeObjectURL(img.preview);
+                      });
+                      setRefImages([]);
                     }}
                   >
                     <X className="w-4 h-4 mr-2" />
-                    移除参考图
+                    清空所有参考图
                   </Button>
                 )}
               </div>
@@ -480,6 +581,36 @@ function CreatePageInner() {
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
               <h3 className="font-semibold mb-4">生成选项</h3>
               
+              {/* Image Count */}
+              <div className="mb-6">
+                <Label className="text-sm text-muted-foreground mb-3 block">生成数量</Label>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center bg-secondary rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setImageCount(Math.max(1, imageCount - 1))}
+                      disabled={imageCount <= 1 || loading}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <span className="w-12 text-center font-bold text-lg">{imageCount}</span>
+                    <button
+                      onClick={() => setImageCount(Math.min(4, imageCount + 1))}
+                      disabled={imageCount >= 4 || loading}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <span className="text-sm text-muted-foreground">张图片</span>
+                  {imageCount > 1 && (
+                    <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full">
+                      逐张生成
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {/* Ratio */}
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
@@ -537,7 +668,7 @@ function CreatePageInner() {
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={loading || !prompt.trim() || (mode === "img2img" && !refImageUrl)}
+              disabled={loading || !prompt.trim() || (mode === "img2img" && refImages.length === 0)}
               className={cn(
                 "w-full py-6 text-lg font-bold rounded-2xl transition-all shadow-lg",
                 loading
@@ -554,6 +685,7 @@ function CreatePageInner() {
                 <div className="flex items-center gap-3">
                   <Wand2 className="w-6 h-6" />
                   {mode === "img2img" ? "基于参考图生成" : "立即生成"}
+                  {imageCount > 1 && ` (${imageCount}张)`}
                 </div>
               )}
             </Button>
@@ -596,38 +728,86 @@ function CreatePageInner() {
             {/* Preview Card */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">生成预览</h3>
-                {result && (
-                  <Button variant="outline" size="sm" onClick={() => setResult(null)}>
-                    清空
-                  </Button>
-                )}
+                <h3 className="font-semibold">
+                  生成预览
+                  {results.length > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      {results.length} 张
+                    </span>
+                  )}
+                </h3>
+                <div className="flex items-center gap-2">
+                  {results.length > 1 && (
+                    <Button variant="outline" size="sm" onClick={handleDownloadAll}>
+                      <Download className="w-4 h-4 mr-1" />
+                      全部下载
+                    </Button>
+                  )}
+                  {results.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => setResults([])}>
+                      清空
+                    </Button>
+                  )}
+                </div>
               </div>
               
-              <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
-                {result?.url ? (
-                  <img
-                    src={result.url as string}
-                    alt="Generated"
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
+              {results.length === 0 ? (
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
                   <div className="text-center text-muted-foreground p-8">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-foreground/20 flex items-center justify-center">
                       <ImageIcon className="w-8 h-8" />
                     </div>
                     <p>生成的海报将在这里显示</p>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : results.length === 1 ? (
+                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
+                  <img
+                    src={results[0].url as string}
+                    alt="Generated"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className={cn(
+                  "grid gap-3",
+                  results.length === 2 ? "grid-cols-2" :
+                  results.length === 3 ? "grid-cols-3" :
+                  "grid-cols-2"
+                )}>
+                  {results.map((result, index) => (
+                    <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square">
+                      <img
+                        src={result.url as string}
+                        alt={`Generated ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDownload(result.url as string)}
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          下载
+                        </Button>
+                      </div>
+                      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                        {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              {/* Actions */}
-              {result && (
+              {/* Actions for single result */}
+              {results.length === 1 && (
                 <div className="flex gap-3 mt-4">
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={handleDownload}
+                    onClick={() => handleDownload(results[0].url as string)}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     下载
@@ -636,7 +816,7 @@ function CreatePageInner() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
-                      navigator.clipboard.writeText(result.url as string);
+                      navigator.clipboard.writeText(results[0].url as string);
                       toast.success("链接已复制");
                     }}
                   >
@@ -652,8 +832,7 @@ function CreatePageInner() {
   );
 }
 
-// Wrapper with Suspense
-export default function Page() {
+export default function CreatePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
