@@ -29,10 +29,12 @@ function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Get prompt from URL params (for "制作同款")
+  // Get params from URL (for "制作同款")
   const initialPrompt = searchParams.get("prompt") || "";
+  const initialMode = searchParams.get("mode") || "text2img";
+  const initialRefImageUrl = searchParams.get("refImageUrl") || "";
   
-  const [mode, setMode] = useState<GenerationMode>("text2img");
+  const [mode, setMode] = useState<GenerationMode>(initialMode as GenerationMode);
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("9:16");
@@ -43,8 +45,8 @@ function CreatePageInner() {
   const [result, setResult] = useState<{ url?: string; [key: string]: unknown } | null>(null);
 
   // Image-to-image state
-  const [refImageUrl, setRefImageUrl] = useState<string | null>(null);
-  const [refImagePreview, setRefImagePreview] = useState<string | null>(null);
+  const [refImageUrl, setRefImageUrl] = useState<string | null>(initialRefImageUrl || null);
+  const [refImagePreview, setRefImagePreview] = useState<string | null>(initialRefImageUrl || null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

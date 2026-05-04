@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2 } from "lucide-react";
+import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2, Sparkles, ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
   const [detailImgError, setDetailImgError] = useState(false);
   const [liked, setLiked] = useState(image.liked || false);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [showMakeSameDialog, setShowMakeSameDialog] = useState(false);
   const router = useRouter();
 
   const handleLike = async (e?: React.MouseEvent) => {
@@ -61,8 +62,20 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
 
   const handleMakeSame = (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    setShowMakeSameDialog(true);
+  };
+
+  const goCreateWithRef = () => {
+    setShowMakeSameDialog(false);
     const encodedPrompt = encodeURIComponent(image.prompt);
-    router.push(`/create?prompt=${encodedPrompt}`);
+    const encodedRefUrl = encodeURIComponent(image.url);
+    router.push(`/create?prompt=${encodedPrompt}&mode=img2img&refImageUrl=${encodedRefUrl}`);
+  };
+
+  const goCreateTextOnly = () => {
+    setShowMakeSameDialog(false);
+    const encodedPrompt = encodeURIComponent(image.prompt);
+    router.push(`/create?prompt=${encodedPrompt}&mode=text2img`);
   };
 
   const handleDelete = async (e?: React.MouseEvent) => {
@@ -270,6 +283,40 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
           </div>
         </div>
       </DialogContent>
+
+      {/* Make Same Choice Dialog */}
+      <Dialog open={showMakeSameDialog} onOpenChange={setShowMakeSameDialog}>
+        <DialogContent className="w-[90vw] max-w-[400px] bg-background rounded-2xl p-6 border border-border shadow-2xl">
+          <DialogTitle className="text-lg font-bold text-center">制作同款</DialogTitle>
+          <p className="text-sm text-muted-foreground text-center -mt-2">选择生成方式</p>
+          <div className="flex flex-col gap-3 mt-2">
+            <button
+              onClick={goCreateWithRef}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group text-left"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                <ImageIcon className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">参考图生图</p>
+                <p className="text-xs text-muted-foreground mt-0.5">使用该图作为参考图生成</p>
+              </div>
+            </button>
+            <button
+              onClick={goCreateTextOnly}
+              className="flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group text-left"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">文生图</p>
+                <p className="text-xs text-muted-foreground mt-0.5">仅使用提示词生成</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
