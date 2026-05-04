@@ -71,9 +71,10 @@ export async function GET(request: NextRequest) {
       query = query.gte("created_at", cutoff.toISOString());
     }
 
-    // Sort
+    // Sort: liked items first, then by the selected sort column
     const sortColumn = sortBy === "views" ? "views" : sortBy === "downloads" ? "downloads" : "created_at";
     const ascending = sortOrder === "asc";
+    query = query.order("liked", { ascending: false, nullsFirst: false });
     query = query.order(sortColumn, { ascending });
 
     // Limit
