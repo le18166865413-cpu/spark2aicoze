@@ -99,11 +99,11 @@ async function getSignedUrl(key: string): Promise<string> {
   }
 }
 
-// Model config
-const MODEL_CONFIG: Record<string, { apiModel: string }> = {
-  "image2-vip": { apiModel: "gpt-image-2-vip" },
-  "image2": { apiModel: "gpt-image-2" },
-  "nano-banana-fast": { apiModel: "nano-banana-fast" },
+// Model config - nano-banana series uses a different endpoint
+const MODEL_CONFIG: Record<string, { apiModel: string; endpoint: string }> = {
+  "image2-vip": { apiModel: "gpt-image-2-vip", endpoint: "/v1/draw/completions" },
+  "image2": { apiModel: "gpt-image-2", endpoint: "/v1/draw/completions" },
+  "nano-banana-fast": { apiModel: "nano-banana-fast", endpoint: "/v1/draw/nano-banana" },
 };
 
 // Estimate pixel dimensions from ratio
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    const url = `${GRSAI_BASE_URL}/v1/draw/completions`;
+    const url = `${GRSAI_BASE_URL}${modelConfig.endpoint}`;
 
     // Use SSE streaming
     const encoder = new TextEncoder();
