@@ -126,6 +126,8 @@ export async function GET(request: NextRequest) {
           model: img.model,
           ratio: img.ratio,
           taskId: img.task_id,
+          creatorName: img.creator_name || '',
+          userId: img.user_id || null,
           createdAt: img.created_at,
         };
       })

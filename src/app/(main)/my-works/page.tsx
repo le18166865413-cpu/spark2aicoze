@@ -10,7 +10,7 @@ interface GalleryImage {
   id: string;
   prompt: string;
   url: string;
-  image_key: string;
+  imageKey: string;
   width: number;
   height: number;
   views: number;
@@ -18,8 +18,9 @@ interface GalleryImage {
   model: string;
   ratio: string;
   liked: boolean;
-  creator_name: string;
-  created_at: string;
+  creatorName: string;
+  userId: string | null;
+  createdAt: string;
 }
 
 export default function MyWorksPage() {
@@ -31,10 +32,11 @@ export default function MyWorksPage() {
   const fetchMyImages = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/images?sort=newest&limit=200&userId=${user.id}`);
+      const res = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=200&userId=${user.id}`, { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
-      setImages(data.images || []);
+      const imageList = Array.isArray(data) ? data : (data.images || []);
+      setImages(imageList);
     } catch (e) {
       console.error('Failed to fetch images:', e);
     } finally {
