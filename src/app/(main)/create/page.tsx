@@ -671,23 +671,23 @@ function CreatePageInner() {
               {/* Model */}
               <div>
                 <Label className="text-sm text-muted-foreground mb-3 block">生成模型</Label>
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   {modelOptions.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => setModel(opt.value)}
                       className={cn(
-                        "w-full p-4 rounded-xl text-left transition-all flex items-center justify-between",
+                        "w-full p-3 rounded-xl text-left transition-all flex items-center justify-between",
                         model === opt.value
                           ? "bg-primary/10 border-2 border-primary"
                           : "bg-secondary border-2 border-transparent hover:border-border"
                       )}
                     >
-                      <div>
-                        <p className={cn("font-medium", model === opt.value ? "text-primary" : "")}>
+                      <div className="min-w-0">
+                        <p className={cn("font-medium text-sm truncate", model === opt.value ? "text-primary" : "")}>
                           {opt.label}
                         </p>
-                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                        <p className="text-xs text-muted-foreground truncate">{opt.desc}</p>
                       </div>
                       {model === opt.value && (
                         <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
