@@ -100,36 +100,51 @@ async function getSignedUrl(key: string): Promise<string> {
   }
 }
 
-// Model config - nano-banana series uses a different endpoint
-const MODEL_CONFIG: Record<string, { apiModel: string; endpoint: string }> = {
-  "image2-vip": { apiModel: "gpt-image-2-vip", endpoint: "/v1/draw/completions" },
-  "image2": { apiModel: "gpt-image-2", endpoint: "/v1/draw/completions" },
-  "nano-banana-fast": { apiModel: "nano-banana-fast", endpoint: "/v1/draw/nano-banana" },
+// Unified endpoint: both gpt-image-2 and nano-banana use /v1/api/generate
+const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean }> = {
+  "image2-vip": { apiModel: "gpt-image-2-vip", supportsImageSize: true },
+  "image2": { apiModel: "gpt-image-2", supportsImageSize: false },
+  "nano-banana-fast": { apiModel: "nano-banana-fast", supportsImageSize: false },
+  "nano-banana-2": { apiModel: "nano-banana-2", supportsImageSize: true },
+  "nano-banana-pro-vip": { apiModel: "nano-banana-pro-vip", supportsImageSize: true },
 };
 
-// Estimate pixel dimensions from ratio
-function estimateDimensions(ratio: string): { width: number; height: number } {
-  const dimMap: Record<string, { width: number; height: number }> = {
-    "auto": { width: 1024, height: 1024 },
-    "9:16": { width: 1024, height: 1792 },
-    "3:4": { width: 1024, height: 1365 },
-    "1:1": { width: 1024, height: 1024 },
-    "16:9": { width: 1792, height: 1024 },
-    "4:3": { width: 1365, height: 1024 },
-    "2:3": { width: 1024, height: 1536 },
-    "3:2": { width: 1536, height: 1024 },
-    "4:5": { width: 1024, height: 1280 },
-    "5:4": { width: 1280, height: 1024 },
-    "21:9": { width: 1792, height: 768 },
-    "9:21": { width: 768, height: 1792 },
+// Precise pixel dimensions from official API docs
+function estimateDimensions(ratio: string, imageSize: string = "1K"): { width: number; height: number } {
+  const is2K = imageSize === "2K";
+  const is4K = imageSize === "4K";
+  const dimMap: Record<string, { width1K: number; height1K: number; width2K?: number; height2K?: number; width4K?: number; height4K?: number }> = {
+    "auto": { width1K: 1024, height1K: 1024 },
+    "1:1": { width1K: 1024, height1K: 1024, width2K: 2048, height2K: 2048, width4K: 2880, height4K: 2880 },
+    "16:9": { width1K: 1280, height1K: 720, width2K: 2048, height2K: 1152, width4K: 3840, height4K: 2160 },
+    "9:16": { width1K: 720, height1K: 1280, width2K: 1152, height2K: 2048, width4K: 2160, height4K: 3840 },
+    "4:3": { width1K: 1024, height1K: 768, width2K: 2048, height2K: 1536, width4K: 3264, height4K: 2448 },
+    "3:4": { width1K: 768, height1K: 1024, width2K: 1536, height2K: 2048, width4K: 2448, height4K: 3264 },
+    "3:2": { width1K: 1536, height1K: 1024, width2K: 2048, height2K: 1360, width4K: 3504, height4K: 2336 },
+    "2:3": { width1K: 1024, height1K: 1536, width2K: 1360, height2K: 2048, width4K: 2336, height4K: 3504 },
+    "5:4": { width1K: 1280, height1K: 1024, width2K: 2048, height2K: 1632, width4K: 3200, height4K: 2560 },
+    "4:5": { width1K: 1024, height1K: 1280, width2K: 1632, height2K: 2048, width4K: 2560, height4K: 3200 },
+    "21:9": { width1K: 2048, height1K: 880, width2K: 3840, height2K: 1648 },
+    "9:21": { width1K: 880, height1K: 2048, width2K: 1648, height2K: 3840 },
+    "1:3": { width1K: 688, height1K: 2048, width2K: 1280, height2K: 3840 },
+    "3:1": { width1K: 2048, height1K: 688, width2K: 3840, height2K: 1280 },
+    "2:1": { width1K: 2048, height1K: 1024, width2K: 3840, height2K: 1920 },
+    "1:2": { width1K: 1024, height1K: 2048, width2K: 1920, height2K: 3840 },
+    "1:4": { width1K: 512, height1K: 2048, width2K: 960, height2K: 3840 },
+    "4:1": { width1K: 2048, height1K: 512, width2K: 3840, height2K: 960 },
+    "1:8": { width1K: 256, height1K: 2048, width2K: 480, height2K: 3840 },
+    "8:1": { width1K: 2048, height1K: 256, width2K: 3840, height2K: 480 },
   };
-  return dimMap[ratio] || { width: 1024, height: 1024 };
+  const entry = dimMap[ratio] || dimMap["auto"];
+  if (is4K && entry.width4K) return { width: entry.width4K, height: entry.height4K! };
+  if (is2K && entry.width2K) return { width: entry.width2K, height: entry.height2K! };
+  return { width: entry.width1K, height: entry.height1K };
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, ratio = "auto", model = "image2", count = 1, refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType } = body;
+    const { prompt, ratio = "auto", model = "image2", count = 1, imageSize = "1K", refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType } = body;
 
     const imageCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
@@ -153,13 +168,19 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: `Unknown model: ${model}` }), { status: 400 });
     }
 
-    // Build request body according to GrsAI API docs
+    // Build request body using unified /v1/api/generate endpoint
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModel,
       prompt: prompt,
       aspectRatio: ratio,
+      replyType: "stream",
       shutProgress: false,
     };
+
+    // Add imageSize for models that support it
+    if (modelConfig.supportsImageSize && imageSize && imageSize !== "1K") {
+      requestBody.imageSize = imageSize;
+    }
 
     // Handle reference images (urls)
     let urls: string[] | undefined;
@@ -221,7 +242,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (urls && urls.length > 0) {
-      requestBody.urls = urls;
+      requestBody.images = urls;
     }
 
     console.log(
@@ -236,7 +257,7 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    const url = `${GRSAI_BASE_URL}${modelConfig.endpoint}`;
+    const url = `${GRSAI_BASE_URL}/v1/api/generate`;
 
     // Use SSE streaming
     const encoder = new TextEncoder();
@@ -330,11 +351,12 @@ export async function POST(request: NextRequest) {
                     imageUrl = data.results[0]?.url || data.url || "";
                   }
 
-                  if (data.status === "failed") {
-                    const rawReason = data.failure_reason || data.error || "";
+                  if (data.status === "failed" || data.status === "violation") {
+                    const rawReason = data.failure_reason || data.error || data.status === "violation" ? "violation" : "";
                     const friendlyErrors: Record<string, string> = {
                       output_moderation: "生成内容违规，请修改提示词后重试",
                       input_moderation: "输入内容违规，请修改提示词后重试",
+                      violation: "生成内容违规，请修改提示词后重试",
                       error: "生成失败，请重试",
                     };
                     const reason = friendlyErrors[rawReason] || rawReason || "生成失败，请重试";
@@ -370,7 +392,7 @@ export async function POST(request: NextRequest) {
               return;
             }
 
-            const { width, height } = estimateDimensions(ratio);
+            const { width, height } = estimateDimensions(ratio, imageSize);
             const imageId = generateId();
             const now = new Date().toISOString();
 

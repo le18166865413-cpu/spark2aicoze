@@ -86,6 +86,7 @@ function CreatePageInner() {
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
   const [model, setModel] = useState("image2");
+  const [imageSize, setImageSize] = useState("1K");
   const [imageCount, setImageCount] = useState(1);
   const [imageCountMax, setImageCountMax] = useState(4);
   const [imageCountEnabled, setImageCountEnabled] = useState(true);
@@ -237,6 +238,7 @@ function CreatePageInner() {
           prompt: prompt,
           ratio,
           model,
+          imageSize,
         };
 
         if (mode === "img2img" && refImages.length > 0) {
@@ -580,6 +582,36 @@ function CreatePageInner() {
                   ))}
                 </div>
               </div>
+
+              {/* Image Size - only for VIP/Pro models */}
+              {["image2-vip", "nano-banana-2", "nano-banana-pro-vip"].includes(model) && (
+                <div>
+                  <Label className="text-sm text-muted-foreground mb-3 block">输出分辨率</Label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: "1K", label: "1K", desc: "标准" },
+                      { value: "2K", label: "2K", desc: "高清" },
+                      { value: "4K", label: "4K", desc: "超清" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setImageSize(opt.value)}
+                        className={cn(
+                          "flex-1 py-3 rounded-xl text-center transition-all",
+                          imageSize === opt.value
+                            ? "bg-primary/10 border-2 border-primary"
+                            : "bg-secondary border-2 border-transparent hover:border-border"
+                        )}
+                      >
+                        <p className={cn("font-medium text-sm", imageSize === opt.value ? "text-primary" : "")}>
+                          {opt.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Options */}
