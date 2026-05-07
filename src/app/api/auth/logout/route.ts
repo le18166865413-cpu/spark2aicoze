@@ -19,9 +19,6 @@ export async function DELETE() {
       maxAge: 0,
     };
 
-    // Clear cookie via both APIs for reliability
-    cookieStore.set('user_session', '', clearOptions);
-
     const response = NextResponse.json({ success: true });
     response.cookies.set('user_session', '', clearOptions);
 

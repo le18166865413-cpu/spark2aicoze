@@ -68,11 +68,7 @@ export async function POST(request: Request) {
       maxAge: 7 * 24 * 60 * 60,
     };
 
-    // Set cookie via both response header and next/headers for reliability
-    const cookieStore = await cookies();
-    cookieStore.set('user_session', token, cookieOptions);
-
-    // Also set on response for client-side reading
+    // Set cookie via response Set-Cookie header (browser will store it)
     response.cookies.set('user_session', token, cookieOptions);
 
     console.log(`[Login] Set cookie user_session=${token} for user=${user.username} role=${user.role}`);
