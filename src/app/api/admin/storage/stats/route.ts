@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { S3Storage } from 'coze-coding-dev-sdk';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,12 @@ const storage = new S3Storage({
   region: 'cn-beijing',
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+  }
+
   try {
     // Collect all files with pagination
     const allKeys: { key: string; size: number; lastModified?: Date }[] = [];
@@ -37,8 +43,6 @@ export async function GET() {
     const totalFiles = allKeys.length;
 
     // Estimate storage size by checking database records
-    // S3 listFiles doesn't return size, so we estimate based on typical poster sizes
-    // Average poster image size ~500KB
     const estimatedSizeKB = totalFiles * 500;
     const estimatedSizeMB = Math.round(estimatedSizeKB / 1024 * 100) / 100;
 

@@ -1,16 +1,42 @@
 import { NextResponse } from 'next/server';
+import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// POST - 登录 (已禁用，直接返回成功
-export async function POST(request: Request) {
-  return NextResponse.json({ success: true, token: 'bypassed' });
-}
-
-// GET - 检查认证状态 (已禁用，直接返回已认证)
+// GET - 检查当前管理员认证状态
 export async function GET(request: Request) {
-  return NextResponse.json({ authenticated: true });
-}
+  try {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const sessionMatch = cookieHeader.match(/user_session=([^;]+)/);
+    if (!sessionMatch) {
+      return NextResponse.json({ authenticated: false });
+    }
 
-// DELETE - 登出 (已禁用，直接返回成功)
-export async function DELETE(request: Request) {
-  return NextResponse.json({ success: true });
+    const sessionId = sessionMatch[1];
+    const supabase = getSupabaseClient();
+
+    // Check session
+    const { data: session } = await supabase
+      .from('user_sessions')
+      .select('user_id, expires_at')
+      .eq('id', sessionId)
+      .single();
+
+    if (!session || new Date(session.expires_at) < new Date()) {
+      return NextResponse.json({ authenticated: false });
+    }
+
+    // Check user role
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, username, nickname, role')
+      .eq('id', session.user_id)
+      .single();
+
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ authenticated: false });
+    }
+
+    return NextResponse.json({ authenticated: true, user });
+  } catch {
+    return NextResponse.json({ authenticated: false });
+  }
 }

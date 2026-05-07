@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { storage } from "@/utils/storage";
 import { getStorageErrorMessage } from "@/utils/storage-error";
+import { verifyAdmin } from "@/lib/admin-auth";
 
 interface GalleryImage {
   id: string;
@@ -85,7 +86,13 @@ async function checkImageExists(imageKey: string): Promise<boolean> {
 
 // POST /api/admin/sync-auto
 // Automatically checks pending tasks and imports new ones from task IDs
-export async function POST() {
+export async function POST(request: Request) {
+  // Verify admin
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+  }
+
   console.log("[AutoSync] Starting auto sync...");
 
   const apiKey = await getApiKey();
@@ -241,7 +248,13 @@ export async function POST() {
 }
 
 // GET - check auto sync status
-export async function GET() {
+export async function GET(request: Request) {
+  // Verify admin
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+  }
+
   const autoEnabled = await getSetting("auto_sync_enabled");
   const lastSync = await getSetting("auto_sync_last_sync");
 

@@ -25,7 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const applyTheme = async () => {
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch('/api/admin/settings', { credentials: 'include' });
       const settings: Setting[] = await res.json();
       
       // 获取主题颜色

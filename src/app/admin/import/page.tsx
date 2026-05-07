@@ -67,7 +67,7 @@ export default function AdminImportPage() {
   useEffect(() => {
     const loadAutoSyncStatus = async () => {
       try {
-        const res = await fetch('/api/admin/sync-auto');
+        const res = await fetch('/api/admin/sync-auto', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setAutoSyncStatus({
@@ -99,7 +99,7 @@ export default function AdminImportPage() {
   const triggerAutoSync = async () => {
     setSyncingNow(true);
     try {
-      const res = await fetch('/api/admin/sync-auto', { method: 'POST' });
+      const res = await fetch('/api/admin/sync-auto', { method: 'POST', credentials: 'include' });
       const data = await res.json();
       if (data.success && data.imported > 0) {
         setImports((prev) => [
@@ -130,6 +130,7 @@ export default function AdminImportPage() {
       await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           settings: [{ key: 'auto_sync_enabled', value: String(newEnabled) }],
         }),
@@ -159,6 +160,7 @@ export default function AdminImportPage() {
       const res = await fetch('/api/admin/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ import: { taskId: id, rawText: rawText || '' } }),
       });
       const data: ImportResult = await res.json();

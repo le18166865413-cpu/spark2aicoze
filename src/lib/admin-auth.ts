@@ -1,71 +1,42 @@
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// 验证管理员 session token
-export async function verifyAdminSession(token: string | null): Promise<boolean> {
-  if (!token) return false;
+interface AdminUser {
+  id: string;
+  role: string;
+}
+
+// 验证管理员身份 - 从 user_session cookie 中验证
+export async function verifyAdmin(request: Request): Promise<AdminUser | null> {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const match = cookieHeader.match(/user_session=([^;]+)/);
+  const token = match ? match[1] : null;
+
+  if (!token) return null;
 
   try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('admin_sessions')
-      .select('id, expires_at')
+    // Find session
+    const { data: session } = await getSupabaseClient()
+      .from('user_sessions')
+      .select('user_id, expires_at')
       .eq('id', token)
       .single();
 
-    if (error || !data) return false;
-    if (new Date(data.expires_at) < new Date()) {
-      // 过期 session，删除
-      await supabase.from('admin_sessions').delete().eq('id', token);
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error('Verify session error:', error);
-    return false;
-  }
-}
-
-// 创建 session
-export async function createSession(username: string): Promise<string | null> {
-  try {
-    const sessionId = Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 8);
-
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-    const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('admin_sessions')
-      .insert({ id: sessionId, username, expires_at: expiresAt });
-
-    if (error) {
-      console.error('Create session error:', error);
+    if (!session || new Date(session.expires_at) < new Date()) {
       return null;
     }
-    return sessionId;
+
+    // Get user and check role
+    const { data: user } = await getSupabaseClient()
+      .from('users')
+      .select('id, role')
+      .eq('id', session.user_id)
+      .single();
+
+    if (!user || user.role !== 'admin') return null;
+
+    return user;
   } catch (error) {
-    console.error('Create session error:', error);
+    console.error('Verify admin error:', error);
     return null;
   }
-}
-
-// 删除 session
-export async function deleteSession(token: string): Promise<void> {
-  try {
-    const supabase = getSupabaseClient();
-    await supabase.from('admin_sessions').delete().eq('id', token);
-  } catch (error) {
-    console.error('Delete session error:', error);
-  }
-}
-
-// 从请求中提取 token（优先从 header，其次从 cookie）
-export function extractToken(request: Request): string | null {
-  const headerToken = request.headers.get('x-admin-session');
-  if (headerToken) return headerToken;
-
-  const cookieHeader = request.headers.get('cookie') || '';
-  const match = cookieHeader.match(/admin_session=([^;]+)/);
-  return match ? match[1] : null;
 }

@@ -16,7 +16,7 @@ export function useAdminSettings() {
   const fetchSettings = useCallback(async () => {
     try {
       console.log('[useAdminSettings] Fetching settings...');
-      const res = await fetch('/api/admin/settings');
+      const res = await fetch('/api/admin/settings', { credentials: 'include' });
       console.log('[useAdminSettings] Fetch response status:', res.status);
       if (!res.ok) {
         console.error('[useAdminSettings] Fetch failed:', res.status);
@@ -48,6 +48,7 @@ export function useAdminSettings() {
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ settings: newSettings }), // 包装在对象里
       });
 

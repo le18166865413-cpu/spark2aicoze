@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { useAdminSettings } from '@/hooks/use-admin-settings';
 
 interface User {
   id: string;
@@ -32,7 +31,6 @@ interface User {
 }
 
 export default function AdminUsersPage() {
-  const { settings } = useAdminSettings();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -44,7 +42,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch('/api/admin/users', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
@@ -65,6 +63,7 @@ export default function AdminUsersPage() {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(newUser),
       });
       if (res.ok) {
@@ -86,6 +85,7 @@ export default function AdminUsersPage() {
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id: editingUser.id, nickname: editForm.nickname, role: editForm.role }),
       });
       if (res.ok) {
@@ -106,6 +106,7 @@ export default function AdminUsersPage() {
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id: resetPwdUser.id, password: newPassword }),
       });
       if (res.ok) {
@@ -126,10 +127,14 @@ export default function AdminUsersPage() {
       const res = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ id: userId, status }),
       });
       if (res.ok) {
         fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || '操作失败');
       }
     } catch {
       alert('操作失败');
@@ -139,9 +144,12 @@ export default function AdminUsersPage() {
   const handleDelete = async (userId: string) => {
     if (!confirm('确定要删除此用户吗？此操作不可恢复。')) return;
     try {
-      const res = await fetch(`/api/admin/users?id=${userId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/users?id=${userId}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
         fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || '删除失败');
       }
     } catch {
       alert('删除失败');

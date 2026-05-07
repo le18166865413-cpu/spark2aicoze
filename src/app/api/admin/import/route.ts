@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { storage } from '@/utils/storage';
 import { getStorageErrorMessage } from '@/utils/storage-error';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 interface GrsAIResultData {
   id: string;
@@ -135,6 +136,12 @@ async function importImage(
 }
 
 export async function POST(request: Request) {
+  // Verify admin
+  const admin = await verifyAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+  }
+
   console.log('Import request received');
   try {
     const body = await request.json();

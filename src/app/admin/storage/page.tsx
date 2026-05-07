@@ -37,7 +37,7 @@ export default function StoragePage() {
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const res = await fetch('/api/admin/storage/stats');
+      const res = await fetch('/api/admin/storage/stats', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -78,6 +78,7 @@ export default function StoragePage() {
       const res = await fetch('/api/admin/storage/files', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ key }),
       });
       const data = await res.json();
