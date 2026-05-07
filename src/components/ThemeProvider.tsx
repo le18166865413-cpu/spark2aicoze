@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-interface Setting {
-  key: string;
-  value: string;
-}
-
 const THEME_COLORS: Record<string, string> = {
   green: '#22C55E', // emerald-500
   blue: '#3B82F6', // blue-500
@@ -25,13 +20,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const applyTheme = async () => {
     try {
-      const res = await fetch('/api/admin/settings', { credentials: 'include' });
-      const settings: Setting[] = await res.json();
-      
-      // 获取主题颜色
-      const themeColor = settings.find((s) => s.key === 'theme_color')?.value || 'green';
-      // 获取主题模式
-      const themeMode = settings.find((s) => s.key === 'theme_mode')?.value || 'dark';
+      const res = await fetch('/api/config');
+      const config = await res.json();
+
+      // 获取主题颜色和模式
+      const themeColor = config.themeColor || config.theme_color || 'green';
+      const themeMode = config.themeMode || config.theme_mode || 'dark';
 
       // 应用主题颜色
       const primaryColor = THEME_COLORS[themeColor] || THEME_COLORS.green;

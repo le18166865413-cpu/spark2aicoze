@@ -75,6 +75,8 @@ const DEFAULTS: Record<string, string> = {
   }),
   daily_generate_limit: "0",
   prompt_max_length: "2000",
+  theme_color: "green",
+  theme_mode: "dark",
 };
 
 export async function GET() {
@@ -133,6 +135,8 @@ export async function GET() {
     config.models = config.available_models;
     config.ratios = config.available_ratios;
     config.tips = config.tips_content;
+    config.themeColor = config.theme_color;
+    config.themeMode = config.theme_mode;
 
     return NextResponse.json(config);
   } catch (error) {
