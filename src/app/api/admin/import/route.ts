@@ -260,55 +260,77 @@ export async function POST(request: Request) {
       );
     }
 
-    // CRITICAL: GrsAI result API uses "id" not "task_id" as the parameter name!
+    // CRITICAL: Use unified GrsAI result API
     console.log('Querying GrsAI task result with id:', taskId);
-    const resultRes = await fetch(`${baseUrl}/v1/draw/result`, {
-      method: 'POST',
+    const resultRes = await fetch(`${baseUrl}/v1/api/result?id=${encodeURIComponent(taskId)}`, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({ id: taskId })
+      }
     });
 
-    const resultData = await resultRes.json() as GrsAIResultResponse;
-    console.log('GrsAI response code:', resultData.code, 'msg:', resultData.msg);
+    const resultData = await resultRes.json();
+    console.log('GrsAI response:', JSON.stringify(resultData).substring(0, 300));
 
-    if (resultData.code === -22) {
+    // Handle error response from /v1/api/result
+    if (resultData.error) {
+      if (resultData.error.includes('not exist') || resultData.error.includes('2 hour')) {
+        return NextResponse.json(
+          { error: '任务不存在或已过期（GrsAI 仅保留2小时），请粘贴包含图片URL的完整任务信息进行导入' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: '任务不存在或已过期（GrsAI 仅保留2小时），请粘贴包含图片URL的完整任务信息进行导入' },
+        { error: resultData.error },
         { status: 400 }
       );
     }
 
-    if (resultData.code !== 0 || !resultData.data) {
+    // Support both old format { code: 0, data: {...} } and new format { id, status, results, ... }
+    const taskResult = resultData.data || resultData;
+
+    if (!taskResult || (!taskResult.id && !taskResult.status)) {
       return NextResponse.json(
-        { error: resultData.msg || '获取任务结果失败' },
+        { error: '获取任务结果失败' },
         { status: 400 }
       );
     }
 
-    if (resultData.data.status === 'processing' || resultData.data.progress < 100) {
+    if (taskResult.status === 'processing' || taskResult.status === 'submitted' || (taskResult.progress !== undefined && taskResult.progress < 100)) {
       return NextResponse.json(
         { error: '任务正在处理中，请稍后再试' },
         { status: 202 }
       );
     }
 
-    if (resultData.data.status === 'failed') {
+    if (taskResult.status === 'failed') {
       return NextResponse.json(
-        { error: '任务生成失败' },
+        { error: `任务生成失败${taskResult.failure_reason ? ': ' + taskResult.failure_reason : ''}` },
+        { status: 400 }
+      );
+    }
+
+    if (taskResult.status === 'violation') {
+      return NextResponse.json(
+        { error: '任务内容违规' },
+        { status: 400 }
+      );
+    }
+
+    if (taskResult.status !== 'succeeded') {
+      return NextResponse.json(
+        { error: `任务状态异常: ${taskResult.status}` },
         { status: 400 }
       );
     }
 
     // Extract metadata from GrsAI response
-    const grsaiPrompt = resultData.data.prompt || '';
-    const grsaiRatio = resultData.data.aspectRatio || '1:1';
-    const grsaiModel = resultData.data.model || 'grsai';
+    const grsaiPrompt = taskResult.prompt || taskResult.content || '';
+    const grsaiRatio = taskResult.aspectRatio || taskResult.ratio || '1:1';
+    const grsaiModel = taskResult.model || 'grsai';
 
     // GrsAI returns results array with url field
-    const imageUrls = (resultData.data.results || []).map(img => img.url).filter(Boolean);
+    const imageUrls = (taskResult.results || []).map((img: { url: string }) => img.url).filter(Boolean);
     console.log('Found', imageUrls.length, 'images from GrsAI API, prompt:', grsaiPrompt, 'ratio:', grsaiRatio);
 
     if (imageUrls.length === 0) {

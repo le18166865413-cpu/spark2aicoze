@@ -72,9 +72,9 @@ export default function AdminImportPage() {
           const data = await res.json();
           setAutoSyncStatus({
             enabled: data.enabled ?? false,
-            lastSyncAt: data.lastSyncAt ?? null,
-            lastSyncCount: data.lastSyncCount ?? 0,
-            nextSyncAt: data.nextSyncAt ?? null,
+            lastSyncAt: data.lastSync ?? null,
+            lastSyncCount: 0,
+            nextSyncAt: data.nextSync ?? null,
           });
         }
       } catch {
@@ -101,12 +101,13 @@ export default function AdminImportPage() {
     try {
       const res = await fetch('/api/admin/sync-auto', { method: 'POST', credentials: 'include' });
       const data = await res.json();
-      if (data.success && data.imported > 0) {
+      const syncedCount = data.synced ?? data.imported ?? 0;
+      if (syncedCount > 0) {
         setImports((prev) => [
           {
-            taskId: `自动同步 - ${data.imported} 张`,
+            taskId: `自动同步 - ${syncedCount} 张`,
             status: 'success',
-            result: { success: true, count: data.imported },
+            result: { success: true, count: syncedCount },
             timestamp: new Date().toLocaleString(),
             auto: true,
           },
@@ -116,7 +117,7 @@ export default function AdminImportPage() {
       setAutoSyncStatus((prev) => ({
         ...prev,
         lastSyncAt: new Date().toISOString(),
-        lastSyncCount: data.imported ?? 0,
+        lastSyncCount: syncedCount,
       }));
     } catch {
       // ignore

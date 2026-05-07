@@ -62,8 +62,18 @@ async function queryTaskResult(taskId: string, apiKey: string, baseUrl: string):
 
     if (!response.ok) return null;
     const data = await response.json();
-    if (data.code === 0 && data.data) return data.data;
-    if (data.id) return data; // Direct format
+    
+    // Handle error response
+    if (data.error) {
+      console.log(`[AutoSync] Task ${taskId} error: ${data.error}`);
+      return null;
+    }
+    
+    // Support both { code: 0, data: {...} } and direct { id, status, ... } format
+    const taskData = data.data || data;
+    if (taskData && (taskData.id || taskData.status)) {
+      return taskData;
+    }
     return null;
   } catch (e) {
     console.error(`[AutoSync] Failed to query task ${taskId}:`, e);
@@ -237,6 +247,15 @@ export async function POST(request: Request) {
   }
 
   console.log(`[AutoSync] Complete: synced=${synced}, failed=${failed}`);
+
+  // Save last sync time
+  try {
+    await supabase
+      .from("admin_settings")
+      .upsert({ key: "auto_sync_last_sync", value: new Date().toISOString() }, { onConflict: "key" });
+  } catch {
+    // ignore
+  }
 
   return NextResponse.json({
     synced,
