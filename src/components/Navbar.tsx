@@ -1,110 +1,154 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Plus, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from './AuthProvider';
+import { Sparkles, House, Plus, User, LogOut, Palette } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
-const items = [
-  {
-    title: "海报广场",
-    href: "/",
-    icon: Home,
-  },
-  {
-    title: "创作中心",
-    href: "/create",
-    icon: Plus,
-  },
-];
-
-export function Navbar() {
+export default function Navbar() {
   const pathname = usePathname();
-  const [siteName, setSiteName] = useState("SparkAI");
+  const { user, loading, logout } = useAuth();
+  const [siteName, setSiteName] = useState('SparkAI');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/config")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.siteName) setSiteName(data.siteName);
-      })
-      .catch(() => {});
+    fetch('/api/config').then(r => r.json()).then(d => setSiteName(d.siteName || 'SparkAI')).catch(() => {});
+  }, []);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    await logout();
+  };
+
+  const displayName = siteName || 'SparkAI';
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-[72px] items-center px-4 md:px-6 mx-auto">
-        {/* Logo + Site Name */}
+        {/* Logo */}
         <Link href="/" className="mr-4 sm:mr-8 flex items-center space-x-2 shrink-0">
           <div className="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-bold text-lg">{siteName}</span>
+          <span className="font-bold text-lg">{displayName}</span>
         </Link>
 
-        {/* Desktop nav links */}
+        {/* Desktop Nav */}
         <nav className="hidden sm:flex items-center space-x-2 text-sm font-medium flex-1">
-          {items.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-full transition-all px-4 py-2",
-                  isActive
-                    ? "bg-primary/15 text-primary font-semibold ring-1 ring-primary/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </Link>
-            );
-          })}
+          <Link
+            href="/"
+            className={`flex items-center gap-2 rounded-full transition-all px-4 py-2 ${
+              pathname === '/'
+                ? 'bg-primary/15 text-primary font-semibold ring-1 ring-primary/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+            }`}
+          >
+            <House className="h-4 w-4" />
+            <span>海报广场</span>
+          </Link>
+          <Link
+            href="/create"
+            className={`flex items-center gap-2 rounded-full transition-all px-4 py-2 ${
+              pathname === '/create'
+                ? 'bg-primary/15 text-primary font-semibold ring-1 ring-primary/30'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+            }`}
+          >
+            <Plus className="h-4 w-4" />
+            <span>创作中心</span>
+          </Link>
+          {user && (
+            <Link
+              href="/my-works"
+              className={`flex items-center gap-2 rounded-full transition-all px-4 py-2 ${
+                pathname === '/my-works'
+                  ? 'bg-primary/15 text-primary font-semibold ring-1 ring-primary/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+              }`}
+            >
+              <Palette className="h-4 w-4" />
+              <span>我的作品</span>
+            </Link>
+          )}
         </nav>
 
         {/* Right side */}
         <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
-          {/* Mobile: 广场 button */}
-          <Button
-            asChild
-            variant={pathname === "/" ? "default" : "outline"}
-            size="sm"
-            className={cn(
-              "sm:hidden rounded-md text-xs font-semibold h-8",
-              pathname === "/"
-                ? ""
-                : "border-primary/30 text-primary hover:bg-primary/10"
-            )}
+          {/* Mobile: 广场 */}
+          <Link
+            href="/"
+            className="sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 border border-primary/30 text-primary hover:bg-primary/10 transition-all"
           >
-            <Link href="/">
-              <Home className="h-3.5 w-3.5 mr-1" />
-              广场
-            </Link>
-          </Button>
+            <House className="h-3.5 w-3.5 mr-1" />广场
+          </Link>
+          {/* Mobile: 创作中心 */}
+          <Link
+            href="/create"
+            className="sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_12px_rgba(34,197,94,0.2)] transition-all"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />创作
+          </Link>
 
-          {/* Mobile: 开始创作 button */}
-          <Button
-            asChild
-            size="sm"
-            className="sm:hidden rounded-md text-xs font-semibold h-8 shadow-[0_0_12px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.35)] transition-all"
-          >
-            <Link href="/create">
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              开始创作
-            </Link>
-          </Button>
+          {/* User menu */}
+          {loading ? (
+            <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+          ) : user ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-secondary/60 transition-all"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-1 ring-primary/30">
+                  {user.nickname.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden md:inline text-sm font-medium">{user.nickname}</span>
+              </button>
 
-          {/* Desktop: 开始创作 button */}
-          <Button
-            asChild
-            className="hidden sm:inline-flex font-bold rounded-full px-6 shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all"
-          >
-            <Link href="/create">开始创作</Link>
-          </Button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-sm font-semibold">{user.nickname}</p>
+                    <p className="text-xs text-muted-foreground">@{user.username}</p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      href="/my-works"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors sm:hidden"
+                    >
+                      <Palette className="w-4 h-4" />我的作品
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors w-full text-left"
+                    >
+                      <LogOut className="w-4 h-4" />退出登录
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 rounded-md text-sm font-semibold h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+            >
+              <User className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">登录</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>

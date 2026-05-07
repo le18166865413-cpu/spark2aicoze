@@ -163,6 +163,21 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: "请输入提示词" }), { status: 400 });
     }
 
+    // Get user info from session cookie
+    let userId: string | null = null;
+    let creatorName: string | null = null;
+    const sessionId = request.cookies.get('user_session')?.value;
+    if (sessionId) {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: session } = await supabase.from('user_sessions').select('user_id, users(nickname)').eq('id', sessionId).gt('expires_at', new Date().toISOString()).single();
+        if (session) {
+          userId = session.user_id;
+          creatorName = (session.users as unknown as { nickname: string })?.nickname || null;
+        }
+      } catch { /* ignore session errors */ }
+    }
+
     // Check prompt max length from settings
     try {
       const supabase = getSupabaseClient();
@@ -454,6 +469,8 @@ export async function POST(request: NextRequest) {
                 model: model,
                 ratio: ratio,
                 task_id: taskId,
+                user_id: userId,
+                creator_name: creatorName,
                 created_at: now,
               });
 

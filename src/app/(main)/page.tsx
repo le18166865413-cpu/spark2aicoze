@@ -29,6 +29,7 @@ interface GalleryImage {
   downloads: number;
   imageKey?: string;
   taskId?: string;
+  creatorName?: string;
 }
 
 export default function Home() {

@@ -45,12 +45,18 @@ export async function GET(request: NextRequest) {
   const sortOrder = searchParams.get("sortOrder") || "desc";
   const period = searchParams.get("period") as string | null;
   const search = searchParams.get("search") || undefined;
+  const userId = searchParams.get("userId") || undefined;
 
   try {
     const supabase = getSupabaseClient();
 
     // Build query
     let query = supabase.from("gallery_images").select("*");
+
+    // Filter by user
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
 
     // Filter by search
     if (search) {

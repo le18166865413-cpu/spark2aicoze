@@ -19,6 +19,7 @@ interface GalleryImage {
   imageKey?: string;
   taskId?: string;
   createdAt?: string;
+  creatorName?: string;
 }
 
 export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?: (id: string) => void }) {
@@ -228,15 +229,12 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
 
           <div className="flex items-center gap-4 py-4 border-t border-dashed">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
-              AI
+              {(image.creatorName || 'AI')[0]}
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-sm">SparkAI Studio</p>
-              <p className="text-xs text-muted-foreground">智能海报设计师</p>
+              <p className="font-semibold text-sm">{image.creatorName || '匿名创作者'}</p>
+              <p className="text-xs text-muted-foreground">海报创作者</p>
             </div>
-            <Button variant="secondary" className="rounded-full font-semibold text-sm">
-              关注
-            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-2 py-1">
