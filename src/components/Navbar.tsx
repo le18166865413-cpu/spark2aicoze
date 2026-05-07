@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
-import { Sparkles, House, Plus, User, LogOut, Palette } from 'lucide-react';
+import { Sparkles, House, Plus, User, LogOut, Palette, BarChart3 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
@@ -82,6 +82,19 @@ export default function Navbar() {
               <span>我的作品</span>
             </Link>
           )}
+          {user && (
+            <Link
+              href="/stats"
+              className={`flex items-center gap-2 rounded-full transition-all px-4 py-2 ${
+                pathname === '/stats'
+                  ? 'bg-primary/15 text-primary font-semibold ring-1 ring-primary/30'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>使用统计</span>
+            </Link>
+          )}
         </nav>
 
         {/* Right side */}
@@ -129,6 +142,13 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors sm:hidden"
                     >
                       <Palette className="w-4 h-4" />我的作品
+                    </Link>
+                    <Link
+                      href="/stats"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />使用统计
                     </Link>
                     <button
                       onClick={handleLogout}

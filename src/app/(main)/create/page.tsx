@@ -4,10 +4,13 @@ import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
 
 // Default fallback values (used before config loads)
 const defaultTemplates = [
@@ -66,6 +69,14 @@ interface GenerationResult {
 function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, login, loading: authLoading } = useAuth();
+  
+  // Login dialog state
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
   
   // Get params from URL (for "制作同款")
   const initialPrompt = searchParams.get("prompt") || "";
@@ -227,8 +238,35 @@ function CreatePageInner() {
     });
   }, []);
 
+  // Login submit handler (in-dialog login)
+  const handleLoginSubmit = useCallback(async () => {
+    if (!loginUsername.trim() || !loginPassword.trim()) {
+      setLoginError("请输入账号和密码");
+      return;
+    }
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      await login(loginUsername, loginPassword);
+      setShowLoginDialog(false);
+      setLoginUsername("");
+      setLoginPassword("");
+      toast.success("登录成功");
+    } catch (err: unknown) {
+      setLoginError(err instanceof Error ? err.message : "登录失败");
+    } finally {
+      setLoginLoading(false);
+    }
+  }, [loginUsername, loginPassword, login]);
+
   // Generate handler - supports multiple images
   const handleGenerate = useCallback(async () => {
+    // Check login status first
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+
     if (!prompt.trim()) {
       toast.error("请输入海报描述");
       return;
@@ -304,6 +342,9 @@ function CreatePageInner() {
 
         if (!response.ok) {
           const error = await response.json();
+          if (response.status === 401) {
+            setShowLoginDialog(true);
+          }
           throw new Error((error as Record<string, string>).error || "Generation failed");
         }
 
@@ -385,7 +426,7 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration]);
+  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, user]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
@@ -865,6 +906,55 @@ function CreatePageInner() {
             </div>
           </div>
         </div>
+
+        {/* Login Dialog */}
+        <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <LogIn className="w-5 h-5" />
+                登录后即可创作
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              {loginError && (
+                <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{loginError}</div>
+              )}
+              <div>
+                <Label className="text-sm mb-1.5 block">账号</Label>
+                <Input
+                  placeholder="请输入账号"
+                  value={loginUsername}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLoginUsername(e.target.value)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && document.getElementById("login-pwd-input")?.focus()}
+                />
+              </div>
+              <div>
+                <Label className="text-sm mb-1.5 block">密码</Label>
+                <Input
+                  id="login-pwd-input"
+                  type="password"
+                  placeholder="请输入密码"
+                  value={loginPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLoginPassword(e.target.value)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleLoginSubmit()}
+                />
+              </div>
+              <Button
+                className="w-full"
+                onClick={handleLoginSubmit}
+                disabled={loginLoading}
+              >
+                {loginLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                登录
+              </Button>
+              <div className="text-center text-sm text-muted-foreground">
+                还没有账号？
+                <a href="/login" className="text-primary hover:underline ml-1">去注册</a>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
