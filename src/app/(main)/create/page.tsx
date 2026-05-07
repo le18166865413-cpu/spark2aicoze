@@ -675,7 +675,7 @@ function CreatePageInner() {
 
               {/* Image Size - only for VIP/Pro models */}
               {["image2-vip", "nano-banana-2", "nano-banana-pro-vip"].includes(model) && (
-                <div>
+                <div className="mt-6">
                   <Label className="text-sm text-muted-foreground mb-3 block">输出分辨率</Label>
                   <div className="flex gap-2">
                     {[
