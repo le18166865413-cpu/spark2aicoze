@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2, RefreshCw, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
 
-// 任务 ID 提取正则：匹配类似 "13-9c2513b3-cae5-47a7-a92c-f8d91011db95" 的格式
+// 任务 ID 提取正则
 const TASK_ID_REGEX = /\b\d{1,2}-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
 
 const extractTaskIds = (text: string): string[] => {
@@ -11,20 +11,16 @@ const extractTaskIds = (text: string): string[] => {
   return matches ? [...new Set(matches)] : [];
 };
 
-// Extract a single "chunk" of text around each task ID for context
 const extractTextChunks = (text: string): Map<string, string> => {
   const chunks = new Map<string, string>();
   const ids = extractTaskIds(text);
-  
   for (const id of ids) {
     const idx = text.indexOf(id);
     if (idx === -1) continue;
-    // Extract ±500 chars around the task ID for context
     const start = Math.max(0, idx - 200);
     const end = Math.min(text.length, idx + id.length + 500);
     chunks.set(id, text.substring(start, end));
   }
-  
   return chunks;
 };
 
@@ -41,6 +37,14 @@ interface ImportEntry {
   status: 'idle' | 'loading' | 'success' | 'error';
   result?: ImportResult;
   timestamp: string;
+  auto?: boolean;
+}
+
+interface AutoSyncStatus {
+  enabled: boolean;
+  lastSyncAt: string | null;
+  lastSyncCount: number;
+  nextSyncAt: string | null;
 }
 
 export default function AdminImportPage() {
@@ -50,6 +54,91 @@ export default function AdminImportPage() {
   const [batchMode, setBatchMode] = useState(false);
   const [batchIds, setBatchIds] = useState('');
   const [extractedCount, setExtractedCount] = useState(0);
+  const [autoSyncStatus, setAutoSyncStatus] = useState<AutoSyncStatus>({
+    enabled: false,
+    lastSyncAt: null,
+    lastSyncCount: 0,
+    nextSyncAt: null,
+  });
+  const [syncingNow, setSyncingNow] = useState(false);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 加载自动同步状态
+  useEffect(() => {
+    const loadAutoSyncStatus = async () => {
+      try {
+        const res = await fetch('/api/admin/sync-auto');
+        if (res.ok) {
+          const data = await res.json();
+          setAutoSyncStatus({
+            enabled: data.enabled ?? false,
+            lastSyncAt: data.lastSyncAt ?? null,
+            lastSyncCount: data.lastSyncCount ?? 0,
+            nextSyncAt: data.nextSyncAt ?? null,
+          });
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadAutoSyncStatus();
+  }, []);
+
+  // 自动同步定时器
+  useEffect(() => {
+    if (autoSyncStatus.enabled) {
+      syncIntervalRef.current = setInterval(async () => {
+        await triggerAutoSync();
+      }, 60 * 60 * 1000); // 1小时
+    }
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    };
+  }, [autoSyncStatus.enabled]);
+
+  const triggerAutoSync = async () => {
+    setSyncingNow(true);
+    try {
+      const res = await fetch('/api/admin/sync-auto', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.imported > 0) {
+        setImports((prev) => [
+          {
+            taskId: `自动同步 - ${data.imported} 张`,
+            status: 'success',
+            result: { success: true, count: data.imported },
+            timestamp: new Date().toLocaleString(),
+            auto: true,
+          },
+          ...prev,
+        ]);
+      }
+      setAutoSyncStatus((prev) => ({
+        ...prev,
+        lastSyncAt: new Date().toISOString(),
+        lastSyncCount: data.imported ?? 0,
+      }));
+    } catch {
+      // ignore
+    }
+    setSyncingNow(false);
+  };
+
+  const toggleAutoSync = async () => {
+    const newEnabled = !autoSyncStatus.enabled;
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: [{ key: 'auto_sync_enabled', value: String(newEnabled) }],
+        }),
+      });
+      setAutoSyncStatus((prev) => ({ ...prev, enabled: newEnabled }));
+    } catch {
+      // ignore
+    }
+  };
 
   const handleBatchIdsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
@@ -59,7 +148,6 @@ export default function AdminImportPage() {
   };
 
   const handleImport = async (id: string, rawText?: string) => {
-    console.log('[Import] Starting import for:', id, rawText ? 'with raw text context' : 'without raw text');
     const entry: ImportEntry = {
       taskId: id,
       status: 'loading',
@@ -68,15 +156,12 @@ export default function AdminImportPage() {
     setImports((prev) => [entry, ...prev]);
 
     try {
-      console.log('[Import] Sending request to API');
       const res = await fetch('/api/admin/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ import: { taskId: id, rawText: rawText || '' } }),
       });
-      console.log('[Import] Response status:', res.status);
       const data: ImportResult = await res.json();
-      console.log('[Import] Response data:', data);
 
       setImports((prev) =>
         prev.map((item) =>
@@ -84,7 +169,6 @@ export default function AdminImportPage() {
         )
       );
     } catch (err) {
-      console.error('[Import] Error:', err);
       setImports((prev) =>
         prev.map((item) =>
           item.taskId === id
@@ -101,7 +185,6 @@ export default function AdminImportPage() {
     const extracted = extractTaskIds(rawInput || taskId);
     const contextText = rawInput || taskId;
     if (extracted.length > 0) {
-      // Use the first extracted ID with the full text as context
       const chunks = extractTextChunks(contextText);
       handleImport(extracted[0], chunks.get(extracted[0]) || contextText);
     } else if (taskId.trim()) {
@@ -111,19 +194,12 @@ export default function AdminImportPage() {
 
   const handleBatchImport = async () => {
     const ids = extractTaskIds(batchIds);
-    
     if (ids.length === 0) {
-      // Try splitting by newlines as fallback
-      const fallbackIds = batchIds
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      
+      const fallbackIds = batchIds.split('\n').map((s) => s.trim()).filter(Boolean);
       for (const id of fallbackIds) {
         await handleImport(id);
       }
     } else {
-      // Use extracted IDs with context
       const chunks = extractTextChunks(batchIds);
       for (const id of ids) {
         await handleImport(id, chunks.get(id) || '');
@@ -139,7 +215,50 @@ export default function AdminImportPage() {
 
   return (
     <div className="space-y-6">
-      {/* Import Form */}
+      {/* 自动监控导入 */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">自动监控导入</h3>
+          </div>
+          <button onClick={toggleAutoSync} className="flex items-center gap-2 text-sm">
+            {autoSyncStatus.enabled ? (
+              <>
+                <ToggleRight className="w-8 h-8 text-primary" />
+                <span className="text-primary font-medium">已开启</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-8 h-8 text-muted-foreground" />
+                <span className="text-muted-foreground">已关闭</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          开启后，系统将每小时自动检查并同步所有生成任务的结果，无需手动导入。
+        </p>
+
+        {autoSyncStatus.enabled && (
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {autoSyncStatus.lastSyncAt && (
+              <span>上次同步：{new Date(autoSyncStatus.lastSyncAt).toLocaleString()}（{autoSyncStatus.lastSyncCount} 张）</span>
+            )}
+            <button
+              onClick={triggerAutoSync}
+              disabled={syncingNow}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncingNow ? 'animate-spin' : ''}`} />
+              {syncingNow ? '同步中...' : '立即同步'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 手动导入 */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Download className="w-4 h-4 text-primary" />
@@ -147,7 +266,7 @@ export default function AdminImportPage() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          直接粘贴 GrsAI 任务列表的任意文字（表格、日志等），系统将自动提取任务 ID、图片 URL 和描述信息进行导入。即使 GrsAI API 查询不到结果，也能从粘贴内容中提取图片数据。
+          直接粘贴任务列表的任意文字（表格、日志等），系统将自动提取任务 ID、图片 URL 和描述信息进行导入。即使 API 查询不到结果，也能从粘贴内容中提取图片数据。
         </p>
 
         {/* Mode Toggle */}
@@ -178,7 +297,7 @@ export default function AdminImportPage() {
                 setRawInput(e.target.value);
                 setTaskId(e.target.value);
               }}
-              placeholder={'粘贴包含任务 ID 的文字，例如：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表\n{"aspectRatio":"1:1","prompt":"制作图文小店价格表",...}'}
+              placeholder={'粘贴包含任务 ID 的文字，例如：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表'}
               rows={4}
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
             />
@@ -197,7 +316,7 @@ export default function AdminImportPage() {
               <textarea
                 value={batchIds}
                 onChange={handleBatchIdsChange}
-                placeholder={'粘贴 GrsAI 任务列表的任意文字，系统自动提取任务 ID：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表\n15-f34f1e4b-9f01-4410-9f10-2f20f70a9977  gpt-image-2  成功  生成长春动物园...'}
+                placeholder={'粘贴任务列表的任意文字，系统自动提取任务 ID：\n13-9c2513b3-cae5-47a7-a92c-f8d91011db95  gpt-image-2  成功  制作图文小店价格表\n15-f34f1e4b-9f01-4410-9f10-2f20f70a9977  gpt-image-2  成功  生成长春动物园...'}
                 rows={8}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
               />
@@ -230,24 +349,22 @@ export default function AdminImportPage() {
                 key={`${entry.taskId}-${entry.timestamp}`}
                 className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
               >
-                {/* Status Icon */}
                 <div className="mt-0.5 shrink-0">
                   {entry.status === 'loading' && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
                   {entry.status === 'success' && <CheckCircle2 className="w-4 h-4 text-primary" />}
                   {entry.status === 'error' && <XCircle className="w-4 h-4 text-destructive" />}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <code className="text-xs font-mono text-foreground truncate">{entry.taskId}</code>
-                    {entry.status === 'success' && (
-                      <a
-                        href="/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:text-primary/80 shrink-0"
-                      >
+                    {entry.auto && (
+                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-medium rounded">
+                        自动
+                      </span>
+                    )}
+                    {entry.status === 'success' && !entry.auto && (
+                      <a href="/" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 shrink-0">
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
@@ -264,11 +381,7 @@ export default function AdminImportPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">{entry.timestamp}</p>
                 </div>
 
-                {/* Remove */}
-                <button
-                  onClick={() => handleRemoveEntry(entry.taskId)}
-                  className="text-muted-foreground hover:text-destructive shrink-0"
-                >
+                <button onClick={() => handleRemoveEntry(entry.taskId)} className="text-muted-foreground hover:text-destructive shrink-0">
                   <Trash2 className="w-3 h-3" />
                 </button>
               </div>
@@ -281,10 +394,11 @@ export default function AdminImportPage() {
       <div className="bg-card border border-border rounded-xl p-5 space-y-3">
         <h3 className="text-sm font-semibold text-foreground">使用说明</h3>
         <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+          <li>开启自动监控后，系统每小时自动同步所有生成任务的结果</li>
           <li>支持从任意文字中自动提取任务 ID（格式：13-9c2513b3-cae5-47a7-a92c-f8d91011db95）</li>
-          <li>直接粘贴 GrsAI 任务列表的完整文字即可，系统会自动提取图片 URL 和描述</li>
-          <li>即使 GrsAI API 查询不到结果，也能从粘贴的文字中提取图片数据导入</li>
-          <li>导入成功后，图片会自动上传到 S3 并出现在海报广场中</li>
+          <li>直接粘贴任务列表的完整文字即可，系统会自动提取图片 URL 和描述</li>
+          <li>即使 API 查询不到结果，也能从粘贴的文字中提取图片数据导入</li>
+          <li>导入成功后，图片会自动上传到存储并出现在海报广场中</li>
           <li>已导入过的任务会自动跳过，不会重复导入</li>
         </ol>
       </div>

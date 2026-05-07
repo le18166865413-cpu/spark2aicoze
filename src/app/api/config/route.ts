@@ -112,6 +112,7 @@ export async function GET() {
     config.image_count_max = Number(config.image_count_max) || 4;
     config.daily_generate_limit = Number(config.daily_generate_limit) || 0;
     config.prompt_max_length = Number(config.prompt_max_length) || 2000;
+    config.auto_sync_enabled = config.auto_sync_enabled === 'true';
 
     // Friendly aliases for frontend
     config.siteName = config.site_name;
