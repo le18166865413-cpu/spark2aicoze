@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const token = request.headers.get('cookie')?.split('user_session=')[1]?.split(';')[0];
+    const cookieStore = await cookies();
+    const token = cookieStore.get('user_session')?.value;
 
     if (!token) {
       return NextResponse.json({ user: null });

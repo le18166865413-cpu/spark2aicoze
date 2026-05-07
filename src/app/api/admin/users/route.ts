@@ -1,34 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { verifyAdmin } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 
-// Helper: verify admin session
-async function verifyAdmin(request: Request) {
-  const token = request.headers.get('cookie')?.split('user_session=')[1]?.split(';')[0];
-  if (!token) return null;
-
-  const { data: session } = await getSupabaseClient()
-    .from('user_sessions')
-    .select('user_id, expires_at')
-    .eq('id', token)
-    .single();
-
-  if (!session || new Date(session.expires_at) < new Date()) return null;
-
-  const { data: user } = await getSupabaseClient()
-    .from('users')
-    .select('id, role')
-    .eq('id', session.user_id)
-    .single();
-
-  if (!user || user.role !== 'admin') return null;
-  return user;
-}
-
 // GET: List all users
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const admin = await verifyAdmin(request);
+    const admin = await verifyAdmin();
     if (!admin) {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
@@ -51,7 +29,7 @@ export async function GET(request: Request) {
 // POST: Create a new user (admin creates, auto-approved)
 export async function POST(request: Request) {
   try {
-    const admin = await verifyAdmin(request);
+    const admin = await verifyAdmin();
     if (!admin) {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
@@ -108,7 +86,7 @@ export async function POST(request: Request) {
 // PUT: Update a user (approve/reject/edit/reset password)
 export async function PUT(request: Request) {
   try {
-    const admin = await verifyAdmin(request);
+    const admin = await verifyAdmin();
     if (!admin) {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
@@ -160,7 +138,7 @@ export async function PUT(request: Request) {
 // DELETE: Delete a user
 export async function DELETE(request: Request) {
   try {
-    const admin = await verifyAdmin(request);
+    const admin = await verifyAdmin();
     if (!admin) {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }

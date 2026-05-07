@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { verifyAdmin } from '@/lib/admin-auth';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   // Verify admin
-  const admin = await verifyAdmin(request);
+  const admin = await verifyAdmin();
   if (!admin) {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   // Verify admin
-  const admin = await verifyAdmin(request);
+  const admin = await verifyAdmin();
   if (!admin) {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }

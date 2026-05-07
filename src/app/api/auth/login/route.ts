@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
@@ -57,6 +58,17 @@ export async function POST(request: Request) {
       user: { id: user.id, username: user.username, nickname: user.nickname, role: user.role },
     });
 
+    // Set cookie via both response header and next/headers for reliability
+    const cookieStore = await cookies();
+    cookieStore.set('user_session', token, {
+      httpOnly: true,
+      secure: process.env.COZE_PROJECT_ENV === 'PROD',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    // Also set on response for client-side reading
     response.cookies.set('user_session', token, {
       httpOnly: true,
       secure: process.env.COZE_PROJECT_ENV === 'PROD',

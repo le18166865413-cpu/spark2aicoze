@@ -11,7 +11,7 @@ const storage = new S3Storage({
 });
 
 export async function DELETE(request: NextRequest) {
-  const admin = await verifyAdmin(request);
+  const admin = await verifyAdmin();
   if (!admin) {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }

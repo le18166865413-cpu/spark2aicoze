@@ -88,7 +88,7 @@ async function checkImageExists(imageKey: string): Promise<boolean> {
 // Automatically checks pending tasks and imports new ones from task IDs
 export async function POST(request: Request) {
   // Verify admin
-  const admin = await verifyAdmin(request);
+  const admin = await verifyAdmin();
   if (!admin) {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
@@ -250,7 +250,7 @@ export async function POST(request: Request) {
 // GET - check auto sync status
 export async function GET(request: Request) {
   // Verify admin
-  const admin = await verifyAdmin(request);
+  const admin = await verifyAdmin();
   if (!admin) {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
