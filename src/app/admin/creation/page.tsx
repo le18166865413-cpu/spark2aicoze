@@ -21,7 +21,7 @@ interface RatioItem {
   desc: string;
 }
 
-type TabKey = 'templates' | 'models' | 'ratios' | 'tips' | 'wait' | 'pagesize' | 'imagecount';
+type TabKey = 'templates' | 'models' | 'ratios' | 'tips' | 'wait' | 'pagesize' | 'imagecount' | 'imagesize' | 'violation' | 'limits';
 
 export default function CreationConfigPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
@@ -48,6 +48,15 @@ export default function CreationConfigPage() {
   // Image count
   const [imageCountEnabled, setImageCountEnabled] = useState(true);
   const [imageCountMax, setImageCountMax] = useState('4');
+  // Image size
+  const [imageSizes, setImageSizes] = useState<{value: string; label: string; desc: string}[]>([]);
+  const [defaultImageSize, setDefaultImageSize] = useState('1K');
+  const [hdModels, setHdModels] = useState<string[]>([]);
+  // Violation messages
+  const [violationMessages, setViolationMessages] = useState<Record<string, string>>({});
+  // Limits
+  const [dailyGenerateLimit, setDailyGenerateLimit] = useState('0');
+  const [promptMaxLength, setPromptMaxLength] = useState('2000');
 
   useEffect(() => {
     if (!loading && !initialized) {
@@ -73,6 +82,21 @@ export default function CreationConfigPage() {
       setPageSize(getSetting('gallery_page_size') || '50');
       setImageCountEnabled(getSetting('image_count_enabled') !== 'false');
       setImageCountMax(getSetting('image_count_max') || '4');
+      try {
+        const is = getSetting('available_image_sizes');
+        setImageSizes(is ? JSON.parse(is) : []);
+      } catch { setImageSizes([]); }
+      setDefaultImageSize(getSetting('default_image_size') || '1K');
+      try {
+        const hd = getSetting('hd_models');
+        setHdModels(hd ? JSON.parse(hd) : []);
+      } catch { setHdModels([]); }
+      try {
+        const vm = getSetting('violation_messages');
+        setViolationMessages(vm ? JSON.parse(vm) : {});
+      } catch { setViolationMessages({}); }
+      setDailyGenerateLimit(getSetting('daily_generate_limit') || '0');
+      setPromptMaxLength(getSetting('prompt_max_length') || '2000');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -92,6 +116,12 @@ export default function CreationConfigPage() {
         { key: 'gallery_page_size', value: pageSize },
         { key: 'image_count_enabled', value: String(imageCountEnabled) },
         { key: 'image_count_max', value: imageCountMax },
+        { key: 'available_image_sizes', value: JSON.stringify(imageSizes) },
+        { key: 'default_image_size', value: defaultImageSize },
+        { key: 'hd_models', value: JSON.stringify(hdModels) },
+        { key: 'violation_messages', value: JSON.stringify(violationMessages) },
+        { key: 'daily_generate_limit', value: dailyGenerateLimit },
+        { key: 'prompt_max_length', value: promptMaxLength },
       ]);
       setMessage({ type: 'success', text: '配置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -100,7 +130,7 @@ export default function CreationConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, saveSettings]);
+  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, imageSizes, defaultImageSize, hdModels, violationMessages, dailyGenerateLimit, promptMaxLength, saveSettings]);
 
   // Template helpers
   const addTemplate = () => setTemplates([...templates, { label: '', prompt: '' }]);
@@ -146,6 +176,9 @@ export default function CreationConfigPage() {
     { key: 'wait', label: '等待提示' },
     { key: 'pagesize', label: '广场数量' },
     { key: 'imagecount', label: '生图数量' },
+    { key: 'imagesize', label: '输出分辨率' },
+    { key: 'violation', label: '违规提示' },
+    { key: 'limits', label: '生成限制' },
   ];
 
   if (loading) {
@@ -360,6 +393,103 @@ export default function CreationConfigPage() {
               <p className="text-xs text-muted-foreground">数量越多，生成时间越长，建议不超过 4 张</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Image Size Tab */}
+      {activeTab === 'imagesize' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">输出分辨率</h3>
+          <div className="space-y-3">
+            {imageSizes.map((size, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <input value={size.value} onChange={(e) => {
+                  const next = [...imageSizes]; next[i] = { ...next[i], value: e.target.value }; setImageSizes(next);
+                }} placeholder="值 (如 1K)" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input value={size.label} onChange={(e) => {
+                  const next = [...imageSizes]; next[i] = { ...next[i], label: e.target.value }; setImageSizes(next);
+                }} placeholder="标签" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input value={size.desc} onChange={(e) => {
+                  const next = [...imageSizes]; next[i] = { ...next[i], desc: e.target.value }; setImageSizes(next);
+                }} placeholder="描述" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button onClick={() => setImageSizes(imageSizes.filter((_, idx) => idx !== i))} className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+            <button onClick={() => setImageSizes([...imageSizes, { value: '', label: '', desc: '' }])} className="flex items-center gap-1 text-sm text-primary hover:underline"><Plus className="w-4 h-4" /> 添加分辨率</button>
+          </div>
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium">默认分辨率</label>
+            <select value={defaultImageSize} onChange={(e) => setDefaultImageSize(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              {imageSizes.map((s) => <option key={s.value} value={s.value}>{s.label} - {s.desc}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium">支持高清的模型 ID</label>
+            <p className="text-xs text-muted-foreground">这些模型会显示分辨率选择器，每行一个模型 ID</p>
+            <textarea
+              value={hdModels.join('\n')}
+              onChange={(e) => setHdModels(e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+              rows={4}
+              placeholder={"image2-vip\nnano-banana-2\nnano-banana-pro-vip"}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Violation Messages Tab */}
+      {activeTab === 'violation' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">违规提示文案</h3>
+          <p className="text-xs text-muted-foreground">自定义各类违规/错误状态的提示文案</p>
+          <div className="space-y-3">
+            {[
+              { key: 'output_moderation', label: '输出违规 (output_moderation)' },
+              { key: 'input_moderation', label: '输入违规 (input_moderation)' },
+              { key: 'violation', label: '内容违规 (violation)' },
+              { key: 'error', label: '其他错误 (error)' },
+            ].map(({ key, label }) => (
+              <div key={key} className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{label}</label>
+                <input
+                  value={violationMessages[key] || ''}
+                  onChange={(e) => setViolationMessages({ ...violationMessages, [key]: e.target.value })}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Limits Tab */}
+      {activeTab === 'limits' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">生成限制</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">每日生成上限</label>
+              <p className="text-xs text-muted-foreground">每个用户每天最多生成次数，0 表示不限制</p>
+              <input
+                type="number"
+                min="0"
+                value={dailyGenerateLimit}
+                onChange={(e) => setDailyGenerateLimit(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prompt 最大长度</label>
+              <p className="text-xs text-muted-foreground">提示词最大字符数，超出将截断</p>
+              <input
+                type="number"
+                min="100"
+                value={promptMaxLength}
+                onChange={(e) => setPromptMaxLength(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          </div>
         </div>
       )}
 

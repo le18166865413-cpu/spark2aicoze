@@ -90,6 +90,21 @@ function CreatePageInner() {
   const [imageCount, setImageCount] = useState(1);
   const [imageCountMax, setImageCountMax] = useState(4);
   const [imageCountEnabled, setImageCountEnabled] = useState(true);
+  const [imageSizeOptions, setImageSizeOptions] = useState<{value:string;label:string;desc:string}[]>([
+    { value: "1K", label: "1K", desc: "标准" },
+    { value: "2K", label: "2K", desc: "高清" },
+    { value: "4K", label: "4K", desc: "超清" },
+  ]);
+  const [defaultImageSize, setDefaultImageSize] = useState("1K");
+  const [hdModels, setHdModels] = useState(["image2-vip", "nano-banana-2", "nano-banana-pro-vip"]);
+  const [violationMessages, setViolationMessages] = useState<Record<string,string>>({
+    output_moderation: "生成内容违规，请修改提示词后重试",
+    input_moderation: "输入内容违规，请修改提示词后重试",
+    violation: "生成内容违规，请修改提示词后重试",
+    error: "生成失败，请稍后重试",
+  });
+  const [dailyGenerateLimit, setDailyGenerateLimit] = useState(0);
+  const [promptMaxLength, setPromptMaxLength] = useState(2000);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
@@ -125,6 +140,12 @@ function CreatePageInner() {
         if (data.defaultModel) setModel(data.defaultModel);
         if (data.imageCountEnabled !== undefined) setImageCountEnabled(data.imageCountEnabled);
         if (data.imageCountMax) setImageCountMax(Number(data.imageCountMax));
+        if (data.imageSizes?.length) setImageSizeOptions(data.imageSizes);
+        if (data.defaultImageSize) { setDefaultImageSize(data.defaultImageSize); setImageSize(data.defaultImageSize); }
+        if (data.hdModels?.length) setHdModels(data.hdModels);
+        if (data.violationMessages) setViolationMessages(data.violationMessages);
+        if (data.dailyGenerateLimit !== undefined) setDailyGenerateLimit(Number(data.dailyGenerateLimit));
+        if (data.promptMaxLength) setPromptMaxLength(Number(data.promptMaxLength));
       })
       .catch(() => {
         // Use defaults on error
@@ -210,6 +231,11 @@ function CreatePageInner() {
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) {
       toast.error("请输入海报描述");
+      return;
+    }
+
+    if (promptMaxLength > 0 && prompt.trim().length > promptMaxLength) {
+      toast.error(`提示词超过最大长度限制 (${promptMaxLength} 字)`);
       return;
     }
     
@@ -674,15 +700,11 @@ function CreatePageInner() {
               </div>
 
               {/* Image Size - only for VIP/Pro models */}
-              {["image2-vip", "nano-banana-2", "nano-banana-pro-vip"].includes(model) && (
+              {hdModels.includes(model) && (
                 <div className="mt-6">
                   <Label className="text-sm text-muted-foreground mb-3 block">输出分辨率</Label>
                   <div className="flex gap-2">
-                    {[
-                      { value: "1K", label: "1K", desc: "标准" },
-                      { value: "2K", label: "2K", desc: "高清" },
-                      { value: "4K", label: "4K", desc: "超清" },
-                    ].map((opt) => (
+                    {imageSizeOptions.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={() => setImageSize(opt.value)}

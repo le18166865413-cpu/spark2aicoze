@@ -60,6 +60,21 @@ const DEFAULTS: Record<string, string> = {
   gallery_page_size: "50",
   image_count_enabled: "true",
   image_count_max: "4",
+  available_image_sizes: JSON.stringify([
+    { value: "1K", label: "1K", desc: "标准" },
+    { value: "2K", label: "2K", desc: "高清" },
+    { value: "4K", label: "4K", desc: "超清" },
+  ]),
+  default_image_size: "1K",
+  hd_models: JSON.stringify(["image2-vip", "nano-banana-2", "nano-banana-pro-vip"]),
+  violation_messages: JSON.stringify({
+    output_moderation: "生成内容违规，请修改提示词后重试",
+    input_moderation: "输入内容违规，请修改提示词后重试",
+    violation: "生成内容违规，请修改提示词后重试",
+    error: "生成失败，请稍后重试",
+  }),
+  daily_generate_limit: "0",
+  prompt_max_length: "2000",
 };
 
 export async function GET() {
@@ -81,7 +96,7 @@ export async function GET() {
     }
 
     // Parse JSON fields
-    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content"];
+    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "available_image_sizes", "hd_models", "violation_messages"];
     for (const field of jsonFields) {
       try {
         config[field] = JSON.parse(config[field] as string);
@@ -95,6 +110,8 @@ export async function GET() {
     config.gallery_page_size = Number(config.gallery_page_size) || 50;
     config.image_count_enabled = config.image_count_enabled === 'true';
     config.image_count_max = Number(config.image_count_max) || 4;
+    config.daily_generate_limit = Number(config.daily_generate_limit) || 0;
+    config.prompt_max_length = Number(config.prompt_max_length) || 2000;
 
     // Friendly aliases for frontend
     config.siteName = config.site_name;
@@ -105,6 +122,12 @@ export async function GET() {
     config.galleryPageSize = config.gallery_page_size;
     config.imageCountEnabled = config.image_count_enabled;
     config.imageCountMax = config.image_count_max;
+    config.imageSizes = config.available_image_sizes;
+    config.defaultImageSize = config.default_image_size;
+    config.hdModels = config.hd_models;
+    config.violationMessages = config.violation_messages;
+    config.dailyGenerateLimit = config.daily_generate_limit;
+    config.promptMaxLength = config.prompt_max_length;
     config.templates = config.prompt_templates;
     config.models = config.available_models;
     config.ratios = config.available_ratios;

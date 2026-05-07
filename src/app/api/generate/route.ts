@@ -163,6 +163,33 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: "请输入提示词" }), { status: 400 });
     }
 
+    // Check prompt max length from settings
+    try {
+      const supabase = getSupabaseClient();
+      const { data: maxLenData } = await supabase.from("admin_settings").select("value").eq("key", "prompt_max_length").single();
+      const maxLen = maxLenData?.value ? Number(maxLenData.value) : 0;
+      if (maxLen > 0 && prompt.length > maxLen) {
+        return new Response(JSON.stringify({ error: `提示词超过最大长度限制 (${maxLen} 字)` }), { status: 400 });
+      }
+    } catch { /* skip check on error */ }
+
+    // Check daily generate limit from settings
+    try {
+      const supabase = getSupabaseClient();
+      const { data: limitData } = await supabase.from("admin_settings").select("value").eq("key", "daily_generate_limit").single();
+      const dailyLimit = limitData?.value ? Number(limitData.value) : 0;
+      if (dailyLimit > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const { count: todayCount } = await supabase
+          .from("gallery_images")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", today);
+        if (todayCount && todayCount >= dailyLimit) {
+          return new Response(JSON.stringify({ error: `今日生成次数已达上限 (${dailyLimit} 次)，请明天再试` }), { status: 429 });
+        }
+      }
+    } catch { /* skip check on error */ }
+
     const modelConfig = MODEL_CONFIG[model];
     if (!modelConfig) {
       return new Response(JSON.stringify({ error: `Unknown model: ${model}` }), { status: 400 });
