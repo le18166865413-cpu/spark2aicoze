@@ -11,23 +11,19 @@ export async function DELETE() {
       await getSupabaseClient().from('user_sessions').delete().eq('id', token);
     }
 
-    // Clear cookie via both APIs for reliability
-    cookieStore.set('user_session', '', {
+    const clearOptions = {
       httpOnly: true,
-      secure: process.env.COZE_PROJECT_ENV === 'PROD',
-      sameSite: 'lax',
+      secure: false,
+      sameSite: 'lax' as const,
       path: '/',
       maxAge: 0,
-    });
+    };
+
+    // Clear cookie via both APIs for reliability
+    cookieStore.set('user_session', '', clearOptions);
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set('user_session', '', {
-      httpOnly: true,
-      secure: process.env.COZE_PROJECT_ENV === 'PROD',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-    });
+    response.cookies.set('user_session', '', clearOptions);
 
     return response;
   } catch (error) {

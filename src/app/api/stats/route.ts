@@ -1,34 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { cookies } from 'next/headers';
+import { verifyUser } from '@/lib/admin-auth';
 
 export async function GET() {
   try {
     // Get current user from session
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get('user_session')?.value;
-    if (!sessionId) {
+    const userInfo = await verifyUser();
+    if (!userInfo) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 });
     }
 
     const supabase = getSupabaseClient();
-    const { data: session } = await supabase
-      .from('user_sessions')
-      .select('user_id, users(nickname, status)')
-      .eq('id', sessionId)
-      .gt('expires_at', new Date().toISOString())
-      .single();
-
-    if (!session) {
-      return NextResponse.json({ error: '登录已过期' }, { status: 401 });
-    }
-
-    const userData = session.users as unknown as { nickname: string; status: string };
-    if (userData?.status !== 'approved') {
-      return NextResponse.json({ error: '账号未通过审批' }, { status: 403 });
-    }
-
-    const userId = session.user_id;
+    const userId = userInfo.id;
     const now = new Date();
 
     // Time boundaries
@@ -109,13 +92,13 @@ export async function GET() {
     }
 
     // Account age
-    const { data: userInfo } = await supabase
+    const { data: userInfoData } = await supabase
       .from('users')
       .select('created_at')
       .eq('id', userId)
       .single();
 
-    const accountAge = userInfo ? Math.max(1, Math.ceil((now.getTime() - new Date(userInfo.created_at).getTime()) / (1000 * 60 * 60 * 24))) : 1;
+    const accountAge = userInfoData ? Math.max(1, Math.ceil((now.getTime() - new Date(userInfoData.created_at).getTime()) / (1000 * 60 * 60 * 24))) : 1;
 
     return NextResponse.json({
       user: {

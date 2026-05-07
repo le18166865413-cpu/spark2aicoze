@@ -54,28 +54,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
     }
 
+    const isProd = process.env.COZE_PROJECT_ENV === 'PROD';
+
     const response = NextResponse.json({
-      user: { id: user.id, username: user.username, nickname: user.nickname, role: user.role },
+      user: { id: user.id, username: user.username, nickname: user.nickname, role: user.role, status: user.status },
     });
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: false, // Disable secure to work with proxy/gateway
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    };
 
     // Set cookie via both response header and next/headers for reliability
     const cookieStore = await cookies();
-    cookieStore.set('user_session', token, {
-      httpOnly: true,
-      secure: process.env.COZE_PROJECT_ENV === 'PROD',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    cookieStore.set('user_session', token, cookieOptions);
 
     // Also set on response for client-side reading
-    response.cookies.set('user_session', token, {
-      httpOnly: true,
-      secure: process.env.COZE_PROJECT_ENV === 'PROD',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    response.cookies.set('user_session', token, cookieOptions);
+
+    console.log(`[Login] Set cookie user_session=${token} for user=${user.username} role=${user.role}`);
 
     return response;
   } catch (error) {

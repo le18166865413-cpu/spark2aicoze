@@ -43,12 +43,17 @@ export default function AdminDashboardPage() {
   const [topCreators, setTopCreators] = useState<TopCreator[]>([]);
   const [modelDistribution, setModelDistribution] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const res = await fetch('/api/admin/stats', { credentials: 'include' });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          setError(errData.error || `请求失败 (${res.status})`);
+          return;
+        }
         const data = await res.json();
         setOverview(data.overview);
         setDailyTrend(data.dailyTrend || []);
@@ -56,6 +61,7 @@ export default function AdminDashboardPage() {
         setModelDistribution(data.modelDistribution || {});
       } catch (err) {
         console.error('Failed to fetch stats:', err);
+        setError('无法连接服务器');
       } finally {
         setLoading(false);
       }
@@ -89,6 +95,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error */}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-destructive">{error}</p>
+            <p className="text-xs text-muted-foreground mt-1">请确认已使用管理员账号登录后刷新页面</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (

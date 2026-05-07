@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '登录失败');
-    setUser(data.user);
+    // Refresh to ensure cookie is properly set and user data is consistent
+    await refresh();
   };
 
   const register = async (username: string, password: string, nickname: string) => {
