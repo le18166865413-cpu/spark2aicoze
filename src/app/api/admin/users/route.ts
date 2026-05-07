@@ -2,13 +2,40 @@ import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import bcrypt from 'bcryptjs';
 
+// Helper: verify admin session
+async function verifyAdmin(request: Request) {
+  const token = request.headers.get('cookie')?.split('user_session=')[1]?.split(';')[0];
+  if (!token) return null;
+
+  const { data: session } = await getSupabaseClient()
+    .from('user_sessions')
+    .select('user_id, expires_at')
+    .eq('id', token)
+    .single();
+
+  if (!session || new Date(session.expires_at) < new Date()) return null;
+
+  const { data: user } = await getSupabaseClient()
+    .from('users')
+    .select('id, role')
+    .eq('id', session.user_id)
+    .single();
+
+  if (!user || user.role !== 'admin') return null;
+  return user;
+}
+
 // GET: List all users
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = getSupabaseClient();
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+    }
+
     const { data, error } = await getSupabaseClient()
       .from('users')
-      .select('id, username, nickname, role, created_at, updated_at')
+      .select('id, username, nickname, role, status, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -21,9 +48,14 @@ export async function GET() {
   }
 }
 
-// POST: Create a new user
+// POST: Create a new user (admin creates, auto-approved)
 export async function POST(request: Request) {
   try {
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { username, password, nickname, role } = body;
 
@@ -39,9 +71,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '密码至少6个字符' }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
-
-    // Check if username already exists
     const { data: existing } = await getSupabaseClient()
       .from('users')
       .select('id')
@@ -61,8 +90,9 @@ export async function POST(request: Request) {
         password: hashedPassword,
         nickname,
         role: role || 'user',
+        status: 'approved',
       })
-      .select('id, username, nickname, role, created_at, updated_at')
+      .select('id, username, nickname, role, status, created_at, updated_at')
       .single();
 
     if (error) {
@@ -75,33 +105,46 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: Update a user
+// PUT: Update a user (approve/reject/edit/reset password)
 export async function PUT(request: Request) {
   try {
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+    }
+
     const body = await request.json();
-    const { id, nickname, role, password } = body;
+    const { id, nickname, role, password, status } = body;
 
     if (!id) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    const supabase = getSupabaseClient();
     const updates: Record<string, string> = { updated_at: new Date().toISOString() };
 
     if (nickname) updates.nickname = nickname;
     if (role) updates.role = role;
+    if (status && ['approved', 'rejected', 'pending'].includes(status)) {
+      updates.status = status;
+      // If rejected, delete all sessions to force logout
+      if (status === 'rejected') {
+        await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);
+      }
+    }
     if (password) {
       if (password.length < 6) {
         return NextResponse.json({ error: '密码至少6个字符' }, { status: 400 });
       }
       updates.password = await bcrypt.hash(password, 10);
+      // Delete sessions to force re-login with new password
+      await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);
     }
 
     const { data, error } = await getSupabaseClient()
       .from('users')
       .update(updates)
       .eq('id', id)
-      .select('id, username, nickname, role, created_at, updated_at')
+      .select('id, username, nickname, role, status, created_at, updated_at')
       .single();
 
     if (error) {
@@ -117,14 +160,17 @@ export async function PUT(request: Request) {
 // DELETE: Delete a user
 export async function DELETE(request: Request) {
   try {
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
-
-    const supabase = getSupabaseClient();
 
     // Delete user sessions first
     await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);

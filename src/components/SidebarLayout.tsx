@@ -3,10 +3,11 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2, Users } from 'lucide-react';
+import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import { useAuth } from './AuthProvider';
 
 const menuItems = [
   { href: '/admin', icon: LayoutDashboard, label: '仪表盘' },
@@ -32,6 +33,12 @@ export default function SidebarLayout({
 }) {
   const pathname = usePathname();
   const [siteName, setSiteName] = useState('SparkAI');
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = '/admin/login';
+  };
 
   useEffect(() => {
     fetch('/api/config')
@@ -74,10 +81,16 @@ export default function SidebarLayout({
             );
           })}
         </nav>
-        <div className="border-t border-border p-4">
-          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+        <div className="border-t border-border p-4 space-y-2">
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground block">
             ← 返回首页
           </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />退出登录
+          </button>
         </div>
       </aside>
 

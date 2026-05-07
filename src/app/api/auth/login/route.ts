@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     // Find user
     const { data: user, error } = await getSupabaseClient()
       .from('users')
-      .select('id, username, password, nickname, role')
+      .select('id, username, password, nickname, role, status')
       .eq('username', username)
       .single();
 
@@ -25,6 +25,15 @@ export async function POST(request: Request) {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
+    }
+
+    // Check approval status
+    if (user.status === 'pending') {
+      return NextResponse.json({ error: '账号待审批，请等待管理员审核' }, { status: 403 });
+    }
+
+    if (user.status === 'rejected') {
+      return NextResponse.json({ error: '账号已被拒绝，请联系管理员' }, { status: 403 });
     }
 
     // Create session token

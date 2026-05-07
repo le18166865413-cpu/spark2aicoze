@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Eye, EyeOff, Clock, CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [registered, setRegistered] = useState(false);
   const { login, register } = useAuth();
   const router = useRouter();
 
@@ -24,6 +25,7 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         await login(username, password);
+        router.push('/');
       } else {
         if (!nickname.trim()) {
           setError('请输入昵称');
@@ -31,8 +33,8 @@ export default function LoginPage() {
           return;
         }
         await register(username, password, nickname);
+        setRegistered(true);
       }
-      router.push('/');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '操作失败';
       setError(message);
@@ -40,6 +42,39 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Registration success - pending approval
+  if (registered) {
+    return (
+      <div className="min-h-[calc(100vh-72px)] flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-yellow-500/15 ring-1 ring-yellow-500/30 mb-4">
+            <Clock className="w-8 h-8 text-yellow-500" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">注册成功</h1>
+          <p className="text-muted-foreground mb-6">
+            你的账号已提交，请等待管理员审批后即可登录使用
+          </p>
+          <div className="bg-muted/50 border border-border rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3 justify-center">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <span className="text-sm">账号信息已提交，审批通过后将收到通知</span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setRegistered(false);
+              setIsLogin(true);
+              setError('');
+            }}
+            className="text-primary font-semibold hover:underline text-sm"
+          >
+            返回登录
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-72px)] flex items-center justify-center p-4">

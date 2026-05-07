@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with pending status (requires admin approval)
     const { data: user, error } = await getSupabaseClient()
       .from('users')
       .insert({
@@ -40,8 +40,9 @@ export async function POST(request: Request) {
         password: hashedPassword,
         nickname,
         role: 'user',
+        status: 'pending',
       })
-      .select('id, username, nickname, role, created_at')
+      .select('id, username, nickname, role, status, created_at')
       .single();
 
     if (error) {
@@ -49,36 +50,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '注册失败，请重试' }, { status: 500 });
     }
 
-    // Create session token
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    const { error: sessionError } = await getSupabaseClient()
-      .from('user_sessions')
-      .insert({
-        id: token,
-        user_id: user.id,
-        expires_at: expiresAt.toISOString(),
-      });
-
-    if (sessionError) {
-      console.error('Create session error:', sessionError);
-      return NextResponse.json({ error: '注册失败，请重试' }, { status: 500 });
-    }
-
-    const response = NextResponse.json({
-      user: { id: user.id, username: user.username, nickname: user.nickname, role: user.role },
+    // Return success with pending status message - no auto-login
+    return NextResponse.json({
+      message: '注册成功，请等待管理员审批后即可登录',
+      status: 'pending',
     });
-
-    response.cookies.set('user_session', token, {
-      httpOnly: true,
-      secure: process.env.COZE_PROJECT_ENV === 'PROD',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60,
-    });
-
-    return response;
   } catch (error) {
     console.error('Register error:', error);
     return NextResponse.json({ error: '注册失败，请重试' }, { status: 500 });

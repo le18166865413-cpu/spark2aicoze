@@ -7,6 +7,7 @@ interface User {
   username: string;
   nickname: string;
   role: 'user' | 'admin';
+  status: 'pending' | 'approved' | 'rejected';
 }
 
 interface AuthContextType {
