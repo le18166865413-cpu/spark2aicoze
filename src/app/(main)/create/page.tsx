@@ -649,7 +649,7 @@ function CreatePageInner() {
               {/* Ratio */}
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {ratioOptions.map((r) => (
                     <button
                       key={r.value}
