@@ -87,6 +87,8 @@ function CreatePageInner() {
   const [ratio, setRatio] = useState("auto");
   const [model, setModel] = useState("image2");
   const [imageCount, setImageCount] = useState(1);
+  const [imageCountMax, setImageCountMax] = useState(4);
+  const [imageCountEnabled, setImageCountEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
@@ -120,6 +122,8 @@ function CreatePageInner() {
           setRatio(data.defaultRatio);
         }
         if (data.defaultModel) setModel(data.defaultModel);
+        if (data.imageCountEnabled !== undefined) setImageCountEnabled(data.imageCountEnabled);
+        if (data.imageCountMax) setImageCountMax(Number(data.imageCountMax));
       })
       .catch(() => {
         // Use defaults on error
@@ -213,6 +217,7 @@ function CreatePageInner() {
       return;
     }
 
+    const effectiveCount = imageCountEnabled ? imageCount : 1;
     setLoading(true);
     setProgress(0);
     setProgressStatus("正在提交任务...");
@@ -222,10 +227,10 @@ function CreatePageInner() {
     try {
       const allResults: GenerationResult[] = [];
 
-      for (let i = 0; i < imageCount; i++) {
-        if (imageCount > 1) {
-          setProgressStatus(`正在生成第 ${i + 1}/${imageCount} 张...`);
-          setProgress(Math.round((i / imageCount) * 100));
+      for (let i = 0; i < effectiveCount; i++) {
+        if (effectiveCount > 1) {
+          setProgressStatus(`正在生成第 ${i + 1}/${effectiveCount} 张...`);
+          setProgress(Math.round((i / effectiveCount) * 100));
         }
 
         const body: Record<string, unknown> = {
@@ -299,7 +304,7 @@ function CreatePageInner() {
               const data = JSON.parse(jsonStr);
 
               if (data.type === "progress") {
-                if (imageCount <= 1) {
+                if (effectiveCount <= 1) {
                   setProgress(data.progress || 0);
                   setProgressStatus(
                     data.status === "submitted" ? "等待处理..." : 
@@ -309,10 +314,10 @@ function CreatePageInner() {
                   );
                 } else {
                   // Multi-image: show combined progress
-                  const baseProgress = Math.round((i / imageCount) * 100);
-                  const stepProgress = Math.round(((data.progress || 0) / 100) * (100 / imageCount));
+                  const baseProgress = Math.round((i / effectiveCount) * 100);
+                  const stepProgress = Math.round(((data.progress || 0) / 100) * (100 / effectiveCount));
                   setProgress(Math.min(baseProgress + stepProgress, 99));
-                  setProgressStatus(`第 ${i + 1}/${imageCount} 张 - ${
+                  setProgressStatus(`第 ${i + 1}/${effectiveCount} 张 - ${
                     data.status === "submitted" ? "等待处理..." : 
                     data.status === "running" ? "正在生成..." : 
                     data.status === "uploading" ? "上传中..." : 
@@ -351,7 +356,7 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, mode, refImages, ratio, model, imageCount, waitMessage, waitDuration]);
+  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
@@ -582,6 +587,7 @@ function CreatePageInner() {
               <h3 className="font-semibold mb-4">生成选项</h3>
               
               {/* Image Count */}
+              {imageCountEnabled && (
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">生成数量</Label>
                 <div className="flex items-center gap-3">
@@ -595,8 +601,8 @@ function CreatePageInner() {
                     </button>
                     <span className="w-12 text-center font-bold text-lg">{imageCount}</span>
                     <button
-                      onClick={() => setImageCount(Math.min(4, imageCount + 1))}
-                      disabled={imageCount >= 4 || loading}
+                      onClick={() => setImageCount(Math.min(imageCountMax, imageCount + 1))}
+                      disabled={imageCount >= imageCountMax || loading}
                       className="w-10 h-10 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
                     >
                       <Plus className="w-4 h-4" />
@@ -610,6 +616,7 @@ function CreatePageInner() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Ratio */}
               <div className="mb-6">
@@ -685,7 +692,7 @@ function CreatePageInner() {
                 <div className="flex items-center gap-3">
                   <Wand2 className="w-6 h-6" />
                   {mode === "img2img" ? "基于参考图生成" : "立即生成"}
-                  {imageCount > 1 && ` (${imageCount}张)`}
+                  {imageCountEnabled && imageCount > 1 && ` (${imageCount}张)`}
                 </div>
               )}
             </Button>

@@ -48,6 +48,8 @@ const DEFAULTS: Record<string, string> = {
   wait_message: "请等待30-120秒，不要切换页面",
   wait_duration: "5000",
   gallery_page_size: "50",
+  image_count_enabled: "true",
+  image_count_max: "4",
 };
 
 export async function GET() {
@@ -81,6 +83,8 @@ export async function GET() {
     // Numeric fields
     config.wait_duration = Number(config.wait_duration) || 5000;
     config.gallery_page_size = Number(config.gallery_page_size) || 50;
+    config.image_count_enabled = config.image_count_enabled === 'true';
+    config.image_count_max = Number(config.image_count_max) || 4;
 
     // Friendly aliases for frontend
     config.siteName = config.site_name;
@@ -89,6 +93,8 @@ export async function GET() {
     config.waitMessage = config.wait_message;
     config.waitDuration = config.wait_duration;
     config.galleryPageSize = config.gallery_page_size;
+    config.imageCountEnabled = config.image_count_enabled;
+    config.imageCountMax = config.image_count_max;
     config.templates = config.prompt_templates;
     config.models = config.available_models;
     config.ratios = config.available_ratios;
@@ -110,6 +116,7 @@ export async function GET() {
     }
     config.wait_duration = Number(config.wait_duration) || 5000;
     config.gallery_page_size = Number(config.gallery_page_size) || 50;
-    return NextResponse.json(config);
+    config.image_count_enabled = config.image_count_enabled === 'true';
+    config.image_count_max = Number(config.image_count_max) || 4;
   }
 }

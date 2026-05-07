@@ -21,7 +21,7 @@ interface RatioItem {
   desc: string;
 }
 
-type TabKey = 'templates' | 'models' | 'ratios' | 'tips' | 'wait' | 'pagesize';
+type TabKey = 'templates' | 'models' | 'ratios' | 'tips' | 'wait' | 'pagesize' | 'imagecount';
 
 export default function CreationConfigPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
@@ -45,6 +45,9 @@ export default function CreationConfigPage() {
   const [waitDuration, setWaitDuration] = useState('5000');
   // Page size
   const [pageSize, setPageSize] = useState('50');
+  // Image count
+  const [imageCountEnabled, setImageCountEnabled] = useState(true);
+  const [imageCountMax, setImageCountMax] = useState('4');
 
   useEffect(() => {
     if (!loading && !initialized) {
@@ -68,6 +71,8 @@ export default function CreationConfigPage() {
       setWaitMessage(getSetting('wait_message') || '请等待30-120秒，不要切换页面');
       setWaitDuration(getSetting('wait_duration') || '5000');
       setPageSize(getSetting('gallery_page_size') || '50');
+      setImageCountEnabled(getSetting('image_count_enabled') !== 'false');
+      setImageCountMax(getSetting('image_count_max') || '4');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -85,6 +90,8 @@ export default function CreationConfigPage() {
         { key: 'wait_message', value: waitMessage },
         { key: 'wait_duration', value: waitDuration },
         { key: 'gallery_page_size', value: pageSize },
+        { key: 'image_count_enabled', value: String(imageCountEnabled) },
+        { key: 'image_count_max', value: imageCountMax },
       ]);
       setMessage({ type: 'success', text: '配置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -93,7 +100,7 @@ export default function CreationConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, saveSettings]);
+  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, saveSettings]);
 
   // Template helpers
   const addTemplate = () => setTemplates([...templates, { label: '', prompt: '' }]);
@@ -138,6 +145,7 @@ export default function CreationConfigPage() {
     { key: 'tips', label: '创作小贴士' },
     { key: 'wait', label: '等待提示' },
     { key: 'pagesize', label: '广场数量' },
+    { key: 'imagecount', label: '生图数量' },
   ];
 
   if (loading) {
@@ -318,6 +326,40 @@ export default function CreationConfigPage() {
             <input type="number" value={pageSize} onChange={(e) => setPageSize(e.target.value)} min="10" max="200" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <p className="text-xs text-muted-foreground">建议 20-100，数量过多会影响加载速度</p>
           </div>
+        </div>
+      )}
+
+      {/* Image Count Tab */}
+      {activeTab === 'imagecount' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">生图数量</h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">启用批量生图</label>
+                <p className="text-xs text-muted-foreground">开启后用户可选择一次生成多张图片</p>
+              </div>
+              <button
+                onClick={() => setImageCountEnabled(!imageCountEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${imageCountEnabled ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${imageCountEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </div>
+          {imageCountEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">最大生成数量</label>
+              <select value={imageCountMax} onChange={(e) => setImageCountMax(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="2">2 张</option>
+                <option value="3">3 张</option>
+                <option value="4">4 张</option>
+                <option value="6">6 张</option>
+                <option value="8">8 张</option>
+              </select>
+              <p className="text-xs text-muted-foreground">数量越多，生成时间越长，建议不超过 4 张</p>
+            </div>
+          )}
         </div>
       )}
 
