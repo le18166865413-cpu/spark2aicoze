@@ -7,6 +7,7 @@ import { Save, Globe, ToggleLeft, ToggleRight } from 'lucide-react';
 export default function AdminSettingsPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
   const [siteName, setSiteName] = useState('');
+  const [siteTitle, setSiteTitle] = useState('');
   const [siteDescription, setSiteDescription] = useState('');
   const [siteEnabled, setSiteEnabled] = useState(true);
   const [registerEnabled, setRegisterEnabled] = useState(true);
@@ -17,6 +18,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (!loading && !initialized) {
       setSiteName(getSetting('site_name') || 'SparkAI');
+      setSiteTitle(getSetting('site_title') || 'SparkAI - 智能海报生成器');
       setSiteDescription(getSetting('site_description') || 'AI 驱动的海报生成与展示平台');
       setSiteEnabled(getSetting('site_enabled') !== 'false');
       setRegisterEnabled(getSetting('register_enabled') !== 'false');
@@ -30,6 +32,7 @@ export default function AdminSettingsPage() {
     try {
       await saveSettings([
         { key: 'site_name', value: siteName },
+        { key: 'site_title', value: siteTitle },
         { key: 'site_description', value: siteDescription },
         { key: 'site_enabled', value: siteEnabled ? 'true' : 'false' },
         { key: 'register_enabled', value: registerEnabled ? 'true' : 'false' },
@@ -67,6 +70,12 @@ export default function AdminSettingsPage() {
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">站点名称</label>
           <input type="text" value={siteName} onChange={(e) => setSiteName(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="SparkAI" />
+          <p className="text-xs text-muted-foreground">显示在导航栏和侧边栏</p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">网站标题</label>
+          <input type="text" value={siteTitle} onChange={(e) => setSiteTitle(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="SparkAI - 智能海报生成器" />
+          <p className="text-xs text-muted-foreground">显示在浏览器标签页上</p>
         </div>
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">站点描述</label>

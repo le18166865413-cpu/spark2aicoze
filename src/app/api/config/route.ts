@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/storage/database/supabase-client";
 // Default configs (used when DB has no saved values)
 const DEFAULTS: Record<string, string> = {
   site_name: "SparkAI",
+  site_title: "SparkAI - 智能海报生成器",
   site_description: "AI 驱动的海报生成与展示平台",
   prompt_templates: JSON.stringify([
     { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出" },
@@ -118,6 +119,7 @@ export async function GET() {
 
     // Friendly aliases for frontend
     config.siteName = config.site_name;
+    config.siteTitle = config.site_title;
     config.defaultModel = config.default_model;
     config.defaultRatio = config.default_ratio;
     config.waitMessage = config.wait_message;
