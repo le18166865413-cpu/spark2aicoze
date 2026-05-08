@@ -4,11 +4,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/components/AuthProvider';
 import { DynamicTitle } from '@/components/DynamicTitle';
+import { getSiteConfig } from '@/lib/site-config';
 
-export const metadata: Metadata = {
-  title: 'SparkAI - 智能海报生成器',
-  description: 'AI 驱动的海报生成与展示平台',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig();
+  return {
+    title: {
+      default: config.siteTitle,
+      template: `%s - ${config.siteName}`,
+    },
+    description: config.siteDescription,
+  };
+}
 
 export default function RootLayout({
   children,
