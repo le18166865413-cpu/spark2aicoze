@@ -19,10 +19,10 @@ importers:
         version: 5.2.2(react-hook-form@7.71.1(react@19.2.3))
       '@langchain/core':
         specifier: ^1.1.42
-        version: 1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
+        version: 1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)
       '@langchain/openai':
         specifier: ^1.4.5
-        version: 1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
+        version: 1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0))(ws@8.19.0)
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -121,7 +121,7 @@ importers:
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       coze-coding-dev-sdk:
         specifier: ^0.7.21
-        version: 0.7.21(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
+        version: 0.7.21(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -136,7 +136,7 @@ importers:
         version: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)
       drizzle-zod:
         specifier: ^0.8.3
-        version: 0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@3.25.76)
+        version: 0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@4.4.3)
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.3)
@@ -186,8 +186,8 @@ importers:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.10))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: '4'
+        version: 4.4.3
     devDependencies:
       '@react-dev-inspector/babel-plugin':
         specifier: ^2.0.1
@@ -6092,8 +6092,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -7352,7 +7352,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)':
+  '@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
@@ -7360,10 +7360,10 @@ snapshots:
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.6.0(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
+      langsmith: 0.6.0(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)
       mustache: 4.2.0
       p-queue: 6.6.2
-      zod: 4.3.6
+      zod: 4.4.3
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -7371,12 +7371,12 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/openai@1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)':
+  '@langchain/openai@1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0))(ws@8.19.0)':
     dependencies:
-      '@langchain/core': 1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
+      '@langchain/core': 1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)
       js-tiktoken: 1.0.21
-      openai: 6.35.0(ws@8.19.0)(zod@4.3.6)
-      zod: 4.3.6
+      openai: 6.35.0(ws@8.19.0)(zod@4.4.3)
+      zod: 4.4.3
     transitivePeerDependencies:
       - ws
 
@@ -9473,10 +9473,10 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  coze-coding-dev-sdk@0.7.21(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0):
+  coze-coding-dev-sdk@0.7.21(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0):
     dependencies:
-      '@langchain/core': 1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/openai': 1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
+      '@langchain/core': 1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0)
+      '@langchain/openai': 1.4.5(@langchain/core@1.1.42(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0))(ws@8.19.0)
       '@supabase/supabase-js': 2.95.3
       axios: 1.15.2
       pg: 8.17.2
@@ -9656,10 +9656,10 @@ snapshots:
       '@types/pg': 8.16.0
       pg: 8.17.2
 
-  drizzle-zod@0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@3.25.76):
+  drizzle-zod@0.8.3(drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.17.2))(zod@4.4.3):
     dependencies:
       drizzle-orm: 0.45.1(@types/pg@8.16.0)(pg@8.17.2)
-      zod: 3.25.76
+      zod: 4.4.3
 
   dunder-proto@1.0.1:
     dependencies:
@@ -10025,8 +10025,8 @@ snapshots:
       '@babel/parser': 7.28.6
       eslint: 9.39.2(jiti@2.6.1)
       hermes-parser: 0.25.1
-      zod: 4.3.6
-      zod-validation-error: 4.0.2(zod@4.3.6)
+      zod: 4.4.3
+      zod-validation-error: 4.0.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -10820,11 +10820,11 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  langsmith@0.6.0(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0):
+  langsmith@0.6.0(openai@6.35.0(ws@8.19.0)(zod@4.4.3))(ws@8.19.0):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
+      openai: 6.35.0(ws@8.19.0)(zod@4.4.3)
       ws: 8.19.0
 
   language-subtag-registry@0.3.23: {}
@@ -11167,16 +11167,10 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@6.35.0(ws@8.19.0)(zod@3.25.76):
+  openai@6.35.0(ws@8.19.0)(zod@4.4.3):
     optionalDependencies:
       ws: 8.19.0
-      zod: 3.25.76
-    optional: true
-
-  openai@6.35.0(ws@8.19.0)(zod@4.3.6):
-    optionalDependencies:
-      ws: 8.19.0
-      zod: 4.3.6
+      zod: 4.4.3
 
   optionator@0.9.4:
     dependencies:
@@ -12495,10 +12489,10 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  zod-validation-error@4.0.2(zod@4.3.6):
+  zod-validation-error@4.0.2(zod@4.4.3):
     dependencies:
-      zod: 4.3.6
+      zod: 4.4.3
 
   zod@3.25.76: {}
 
-  zod@4.3.6: {}
+  zod@4.4.3: {}
