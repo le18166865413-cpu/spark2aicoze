@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { Sparkles, Eye, EyeOff, Clock, CheckCircle2 } from 'lucide-react';
 
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [registered, setRegistered] = useState(false);
   const { login, register } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +26,8 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         await login(username, password);
-        router.push('/');
+        const redirect = searchParams.get('redirect') || '/';
+        router.push(redirect);
       } else {
         if (!nickname.trim()) {
           setError('请输入昵称');

@@ -55,28 +55,27 @@ export default function StatsPage() {
     try {
       const res = await fetch('/api/stats', { credentials: 'include' });
       if (res.status === 401) {
-        router.push('/login');
+        router.replace('/login?redirect=/stats');
         return;
       }
       if (!res.ok) return;
       const data = await res.json();
       setUserStats(data.user);
       setGlobalStats(data.global);
-    } catch (e) {
-      console.error('Failed to fetch stats:', e);
+    } catch {
+      // Silently fail - stats are non-critical
     } finally {
       setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login?redirect=/stats');
       return;
     }
-    if (user) {
-      fetchStats();
-    }
+    fetchStats();
   }, [user, authLoading, router, fetchStats]);
 
   if (authLoading || loading) {

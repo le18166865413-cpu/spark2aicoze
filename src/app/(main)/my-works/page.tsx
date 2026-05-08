@@ -46,7 +46,7 @@ export default function MyWorksPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.replace('/login?redirect=/my-works');
       return;
     }
     if (user) {
