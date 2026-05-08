@@ -247,9 +247,17 @@ export default function Home() {
         <div className="flex justify-center gap-4">
           {columns.map((colImages, colIndex) => (
             <div key={colIndex} className="flex flex-col gap-4 flex-1 min-w-0 max-w-[360px]">
-              {colImages.map((img) => (
-                <ImageCard key={img.id} image={img} onDelete={handleDeleteImage} />
-              ))}
+              {colImages.map((img, imgIndex) => {
+                const globalIndex = colIndex * Math.ceil(images.length / columns.length) + imgIndex;
+                return (
+                  <ImageCard
+                    key={img.id}
+                    image={img}
+                    onDelete={handleDeleteImage}
+                    priority={globalIndex < 4}
+                  />
+                );
+              })}
             </div>
           ))}
         </div>

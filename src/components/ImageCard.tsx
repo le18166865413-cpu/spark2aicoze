@@ -22,7 +22,7 @@ interface GalleryImage {
   creatorName?: string;
 }
 
-export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?: (id: string) => void }) {
+export function ImageCard({ image, onDelete, priority = false }: { image: GalleryImage; onDelete?: (id: string) => void; priority?: boolean }) {
   const [imgError, setImgError] = useState(false);
   const [detailImgError, setDetailImgError] = useState(false);
   const [liked, setLiked] = useState(image.liked || false);
@@ -123,7 +123,8 @@ export function ImageCard({ image, onDelete }: { image: GalleryImage; onDelete?:
                 width={image.width || 300}
                 height={image.height || 400}
                 className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-                loading="lazy"
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
                 unoptimized={true}
                 onError={() => setImgError(true)}
               />
