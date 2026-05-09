@@ -27,9 +27,11 @@ const defaultTemplates = [
 ];
 
 const defaultModels = [
-  { value: "image2-vip", label: "Spark2 VIP", desc: "最高画质，细节极致" },
+  { value: "image2-vip", label: "Spark2 VIP", desc: "最高画质，支持2K/4K" },
   { value: "image2", label: "Spark2", desc: "高画质，性价比之选" },
   { value: "nano-banana-fast", label: "Spark Lite", desc: "适合纯图，无文字" },
+  { value: "nano-banana-2", label: "Spark2 Nano", desc: "新一代模型，支持超长比例" },
+  { value: "nano-banana-pro-vip", label: "Spark Pro VIP", desc: "专业画质，支持2K/4K" },
 ];
 
 const defaultRatios = [
