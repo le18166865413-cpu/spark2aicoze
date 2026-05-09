@@ -397,6 +397,36 @@ export default function AdminImportPage() {
 
         <div className="space-y-3">
           <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">一键粘贴请求代码（自动识别）</label>
+            <textarea
+              value=""
+              onChange={(e) => {
+                const text = e.target.value;
+                if (!text.trim()) return;
+                // Auto extract authorization and xtx
+                const authMatch = text.match(/authorization[:\s]+(eyJ[\w-]*\.eyJ[\w-]*\.[\w-]*)/i);
+                const xtxMatch = text.match(/xtx[:\s]+([a-f0-9]+)/i);
+                let extracted = false;
+                if (authMatch) {
+                  setGrsaiToken(authMatch[1]);
+                  extracted = true;
+                }
+                if (xtxMatch) {
+                  setGrsaiXtx(xtxMatch[1]);
+                  extracted = true;
+                }
+                if (extracted) {
+                  setTimeout(() => handleSaveGrsaiConfig(), 0);
+                }
+                // Clear the textarea after extraction
+                e.target.value = "";
+              }}
+              placeholder="直接把浏览器开发者工具里复制的整个请求代码（或 curl 命令）粘贴到这里，系统会自动识别并填写 Token 和 xtx"
+              rows={3}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            />
+          </div>
+          <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground">Dashboard Token (authorization)</label>
             <textarea
               value={grsaiToken}
