@@ -97,10 +97,10 @@ export default function RecycleBinPage() {
     setActionLoading(true);
     try {
       const res = await fetch("/api/admin/recycle", {
-        method: "DELETE",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        body: JSON.stringify({ ids: Array.from(selectedIds), action: "permanent_delete" }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: "删除失败" }));

@@ -98,12 +98,55 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { ids } = await request.json();
+    const body = await request.json();
+    const { ids, action } = body;
     if (!Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: "缺少作品ID" }, { status: 400 });
     }
 
     const supabase = getSupabaseClient();
+
+    if (action === "permanent_delete") {
+      // 彻底删除：先查图片key，删除S3文件，再删数据库记录
+      const { data: images, error: imgErr } = await supabase
+        .from("gallery_images")
+        .select("image_key")
+        .in("id", ids)
+        .not("deleted_at", "is", null);
+
+      if (imgErr) throw imgErr;
+
+      if (images && images.length > 0) {
+        try {
+          const { S3Storage } = await import("coze-coding-dev-sdk");
+          const storage = new S3Storage();
+          for (const img of images) {
+            if (img.image_key) {
+              try {
+                // @ts-expect-error S3Storage delete method not in types
+                await storage.delete(img.image_key);
+              } catch {
+                // 忽略 S3 删除错误
+              }
+            }
+          }
+        } catch {
+          // 忽略 S3 删除错误
+        }
+      }
+
+      const { error: delErr } = await supabase
+        .from("gallery_images")
+        .delete()
+        .in("id", ids)
+        .not("deleted_at", "is", null);
+
+      if (delErr) throw delErr;
+
+      return NextResponse.json({ success: true, deleted: ids.length });
+    }
+
+    // 默认恢复
     const { error } = await supabase
       .from("gallery_images")
       .update({ deleted_at: null })
@@ -113,8 +156,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, restored: ids.length });
   } catch (err) {
-    console.error("Restore error:", err);
-    return NextResponse.json({ error: "恢复失败" }, { status: 500 });
+    console.error("Recycle POST error:", err);
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "操作失败", detail }, { status: 500 });
   }
 }
 
