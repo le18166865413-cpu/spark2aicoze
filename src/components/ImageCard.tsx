@@ -235,12 +235,12 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
           </div>
 
           <div className="flex items-center gap-3 py-1">
-            <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
+            <div className="flex-1 flex items-center justify-center gap-1.5 text-sm rounded-lg border border-border bg-card px-4 py-2">
               <Eye className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">浏览量</span>
               <span className="font-bold">{image.views}</span>
             </div>
-            <div className="flex-1 flex items-center justify-center gap-1.5 text-sm">
+            <div className="flex-1 flex items-center justify-center gap-1.5 text-sm rounded-lg border border-border bg-card px-4 py-2">
               <Download className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">下载量</span>
               <span className="font-bold">{image.downloads}</span>
