@@ -6,6 +6,17 @@ import { AuthProvider } from '@/components/AuthProvider';
 import { DynamicTitle } from '@/components/DynamicTitle';
 import { getSiteConfig } from '@/lib/site-config';
 
+// Start GrsAI dashboard auto sync cron (server-side only)
+if (typeof globalThis !== 'undefined' && typeof window === 'undefined') {
+  if (!(globalThis as Record<string, unknown>).__grsaiCronStarted) {
+    (globalThis as Record<string, unknown>).__grsaiCronStarted = true;
+    // Dynamic import to avoid bundling issues
+    import('@/lib/grsai-cron').then(({ startGrsaiCron }) => {
+      startGrsaiCron();
+    }).catch(console.error);
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig();
   return {

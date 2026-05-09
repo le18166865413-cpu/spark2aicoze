@@ -69,6 +69,7 @@ export default function AdminImportPage() {
   const [grsaiSyncing, setGrsaiSyncing] = useState(false);
   const [grsaiSyncResult, setGrsaiSyncResult] = useState<{total: number; imported: number; skipped: number; failed: number} | null>(null);
   const [grsaiTasks, setGrsaiTasks] = useState<{taskId: string; prompt: string; status: string; model: string; url?: string; createdAt: string}[]>([]);
+  const [grsaiAutoSync, setGrsaiAutoSync] = useState(false);
 
   // 加载 GrsAI 配置
   useEffect(() => {
@@ -80,8 +81,10 @@ export default function AdminImportPage() {
           const settings = data.settings || [];
           const tokenSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_token');
           const xtxSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_xtx');
+          const autoSyncSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_auto_sync_enabled');
           if (tokenSetting) setGrsaiToken(tokenSetting.value);
           if (xtxSetting) setGrsaiXtx(xtxSetting.value);
+          if (autoSyncSetting) setGrsaiAutoSync(autoSyncSetting.value === 'true');
         }
       } catch {
         // ignore
@@ -147,6 +150,24 @@ export default function AdminImportPage() {
       // ignore
     }
     setGrsaiSyncing(false);
+  };
+
+  const handleToggleAutoSync = async (checked: boolean) => {
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          settings: [{ key: 'grsai_auto_sync_enabled', value: String(checked), category: 'grsai' }],
+        }),
+      });
+      if (res.ok) {
+        setGrsaiAutoSync(checked);
+      }
+    } catch {
+      // ignore
+    }
   };
 
   // 加载自动同步状态
@@ -358,6 +379,21 @@ export default function AdminImportPage() {
         <p className="text-xs text-muted-foreground">
           从你的 GrsAI 网站控制台自动抓取历史生成任务并导入到海报广场。配置 Dashboard Token 后，点击抓取即可自动导入所有未入库的任务。
         </p>
+
+        <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${grsaiAutoSync ? 'bg-green-500' : 'bg-muted-foreground/40'}`} />
+            <span className="text-xs font-medium">自动同步（每小时）</span>
+          </div>
+          <button
+            onClick={() => handleToggleAutoSync(!grsaiAutoSync)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${grsaiAutoSync ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${grsaiAutoSync ? 'translate-x-4.5' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
