@@ -234,37 +234,33 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 py-1">
-            <div className="flex flex-col gap-0.5 p-2 rounded-xl bg-muted/50">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                浏览量
-              </span>
-              <span className="text-base font-bold">{image.views}</span>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <div className="flex items-center gap-1.5 text-sm">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">浏览</span>
+              <span className="font-bold">{image.views}</span>
             </div>
-            <div className="flex flex-col gap-0.5 p-2 rounded-xl bg-muted/50">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Download className="w-3 h-3" />
-                下载量
-              </span>
-              <span className="text-base font-bold">{image.downloads}</span>
+            <div className="flex items-center gap-1.5 text-sm">
+              <Download className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">下载</span>
+              <span className="font-bold">{image.downloads}</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="flex items-center gap-2 pt-1">
             <Button 
-              className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6 text-base shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all"
+              className="flex-1 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-5 text-sm shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all"
               onClick={handleMakeSame}
             >
-              <Copy className="w-5 h-5 mr-2" />
+              <Copy className="w-4 h-4 mr-1.5" />
               制作同款
             </Button>
             <Button 
               variant="outline" 
-              className="w-full rounded-xl font-semibold py-6 text-base border-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 transition-all"
+              className="flex-1 rounded-xl font-semibold py-5 text-sm border-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 transition-all"
               onClick={handleDownload}
             >
-              <Download className="w-5 h-5 mr-2" />
+              <Download className="w-4 h-4 mr-1.5" />
               下载图片
             </Button>
           </div>
