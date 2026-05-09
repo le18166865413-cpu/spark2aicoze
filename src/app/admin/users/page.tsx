@@ -39,6 +39,9 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({ username: '', password: '', nickname: '', role: 'user' });
   const [editForm, setEditForm] = useState({ nickname: '', role: '' });
   const [newPassword, setNewPassword] = useState('');
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const [batchPreview, setBatchPreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean}[]>([]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -76,6 +79,53 @@ export default function AdminUsersPage() {
       }
     } catch {
       alert('添加失败');
+    }
+  };
+
+  const parseBatchText = (text: string) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsed = lines.map(line => {
+      const parts = line.split('--').map(p => p.trim());
+      const [username = '', password = '', nickname = '', roleText = ''] = parts;
+      const role = roleText.includes('管理') ? 'admin' : 'user';
+      const valid = username.length > 0 && password.length > 0;
+      return { username, password, nickname: nickname || username, role, valid };
+    });
+    setBatchPreview(parsed);
+    return parsed;
+  };
+
+  const handleBatchAdd = async () => {
+    const users = parseBatchText(batchText).filter(u => u.valid);
+    if (users.length === 0) {
+      alert('没有有效的用户数据，请检查格式：用户名--密码--昵称--角色');
+      return;
+    }
+    let success = 0;
+    let failed = 0;
+    for (const user of users) {
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(user),
+        });
+        if (res.ok) {
+          success++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+    alert(`批量添加完成：成功 ${success} 条，失败 ${failed} 条`);
+    if (success > 0) {
+      setShowAddDialog(false);
+      setBatchText('');
+      setBatchPreview([]);
+      fetchUsers();
     }
   };
 
@@ -296,6 +346,39 @@ export default function AdminUsersPage() {
                   </Select>
                 </div>
                 <Button onClick={handleAddUser} className="w-full">创建用户</Button>
+                <div className="border-t pt-4 mt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-muted-foreground">批量添加</p>
+                    <p className="text-xs text-muted-foreground">格式：用户名--密码--昵称--角色</p>
+                  </div>
+                  <textarea
+                    className="w-full min-h-[100px] p-3 rounded-md border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder={`user1--123456--张三--普通用户\nadmin1--abcdef--李四--管理员`}
+                    value={batchText}
+                    onChange={e => { setBatchText(e.target.value); parseBatchText(e.target.value); }}
+                  />
+                  {batchPreview.length > 0 && (
+                    <div className="mt-2 space-y-1 max-h-[120px] overflow-y-auto">
+                      {batchPreview.map((u, i) => (
+                        <div key={i} className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${u.valid ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
+                          <span className="font-mono">{i + 1}.</span>
+                          <span>{u.username}</span>
+                          <span className="text-muted-foreground">{u.nickname}</span>
+                          <span className="ml-auto">{u.role === 'admin' ? '管理员' : '普通用户'}</span>
+                          {!u.valid && <span className="text-red-500">(信息不完整)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleBatchAdd}
+                    disabled={batchPreview.filter(u => u.valid).length === 0}
+                    variant="outline"
+                    className="w-full mt-2"
+                  >
+                    批量创建 {batchPreview.filter(u => u.valid).length > 0 ? `(${batchPreview.filter(u => u.valid).length} 人)` : ''}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
