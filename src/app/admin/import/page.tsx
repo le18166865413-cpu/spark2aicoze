@@ -78,7 +78,7 @@ export default function AdminImportPage() {
         const res = await fetch('/api/admin/settings', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          const settings = data.settings || [];
+          const settings = Array.isArray(data) ? data : (data.settings || []);
           const tokenSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_token');
           const xtxSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_xtx');
           const autoSyncSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_auto_sync_enabled');
