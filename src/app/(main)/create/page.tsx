@@ -121,6 +121,7 @@ function CreatePageInner() {
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
   const [results, setResults] = useState<GenerationResult[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Image-to-image state - support multiple images
   const [refImages, setRefImages] = useState<RefImage[]>([]);
@@ -875,16 +876,17 @@ function CreatePageInner() {
                     <img
                       src={results[0].url as string}
                       alt="Generated"
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain cursor-zoom-in"
+                      onClick={() => setPreviewImage(results[0].url as string)}
                     />
                   )}
                 </div>
               ) : (
                 <div className={cn(
                   "grid gap-3",
-                  results.length === 2 ? "grid-cols-2" :
-                  results.length === 3 ? "grid-cols-3" :
-                  "grid-cols-2"
+                  results.length === 2 ? "grid-cols-1 sm:grid-cols-2" :
+                  results.length === 3 ? "grid-cols-1 sm:grid-cols-3" :
+                  "grid-cols-1 sm:grid-cols-2"
                 )}>
                   {results.map((result, index) => (
                     <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square flex items-center justify-center">
@@ -901,7 +903,8 @@ function CreatePageInner() {
                           <img
                             src={result.url as string}
                             alt={`Generated ${index + 1}`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover cursor-zoom-in"
+                            onClick={() => setPreviewImage(result.url as string)}
                           />
                           {/* Desktop hover actions */}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors hidden sm:flex flex-col items-center justify-center gap-2">
@@ -936,7 +939,7 @@ function CreatePageInner() {
                             </Button>
                           </div>
                           {/* Mobile always-visible actions */}
-                          <div className="absolute bottom-0 inset-x-0 flex sm:hidden gap-1 p-1.5 bg-gradient-to-t from-black/70 to-transparent">
+                          <div className="absolute bottom-0 inset-x-0 flex sm:hidden gap-1 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1015,6 +1018,20 @@ function CreatePageInner() {
             </div>
           </div>
         </div>
+
+        {/* Image Preview Dialog */}
+        <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+          <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none">
+            {previewImage && (
+              <img
+                src={previewImage}
+                alt="Preview"
+                className="w-full h-full object-contain max-h-[85vh] rounded-lg"
+                onClick={() => setPreviewImage(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Login Dialog */}
         <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
