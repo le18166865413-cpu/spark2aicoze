@@ -3,12 +3,25 @@
 import { useEffect, useState } from 'react';
 
 const THEME_COLORS: Record<string, string> = {
-  green: '#22C55E', // emerald-500
-  blue: '#3B82F6', // blue-500
-  purple: '#A855F7', // purple-500
-  orange: '#F97316', // orange-500
-  red: '#EF4444', // red-500
-  neutral: '#71717A', // zinc-500
+  green: '#22C55E',
+  teal: '#14B8A6',
+  cyan: '#06B6D4',
+  sky: '#0EA5E9',
+  blue: '#3B82F6',
+  indigo: '#6366F1',
+  violet: '#8B5CF6',
+  purple: '#A855F7',
+  fuchsia: '#D946EF',
+  pink: '#EC4899',
+  rose: '#F43F5E',
+  red: '#EF4444',
+  orange: '#F97316',
+  amber: '#F59E0B',
+  yellow: '#EAB308',
+  lime: '#84CC16',
+  neutral: '#71717A',
+  stone: '#78716C',
+  slate: '#64748B',
 };
 
 function isLightColor(color: string): boolean {
@@ -75,10 +88,13 @@ async function applyTheme() {
 
     // 获取主题颜色和模式
     const themeColor = config.themeColor || config.theme_color || 'green';
+    const themeCustomHex = config.themeCustomHex || config.theme_custom_hex;
     const themeMode = config.themeMode || config.theme_mode || 'dark';
 
-    // 应用主题颜色
-    const primaryColor = THEME_COLORS[themeColor] || THEME_COLORS.green;
+    // 应用主题颜色（支持自定义颜色）
+    const primaryColor = themeColor === 'custom' && themeCustomHex
+      ? themeCustomHex
+      : (THEME_COLORS[themeColor] || THEME_COLORS.green);
     document.documentElement.style.setProperty('--primary', primaryColor);
     document.documentElement.style.setProperty('--ring', primaryColor);
     document.documentElement.style.setProperty('--sidebar-primary', primaryColor);

@@ -78,6 +78,7 @@ const DEFAULTS: Record<string, string> = {
   prompt_max_length: "2000",
   theme_color: "green",
   theme_mode: "dark",
+  theme_custom_hex: "#22C55E",
 };
 
 export async function GET() {
@@ -139,6 +140,7 @@ export async function GET() {
     config.tips = config.tips_content;
     config.themeColor = config.theme_color;
     config.themeMode = config.theme_mode;
+    config.themeCustomHex = config.theme_custom_hex;
 
     return NextResponse.json(config);
   } catch (error) {
