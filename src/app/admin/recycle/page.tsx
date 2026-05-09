@@ -102,7 +102,10 @@ export default function RecycleBinPage() {
         credentials: "include",
         body: JSON.stringify({ ids: Array.from(selectedIds) }),
       });
-      if (!res.ok) throw new Error("删除失败");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "删除失败" }));
+        throw new Error(errData.detail || errData.error || "删除失败");
+      }
       toast.success(`成功彻底删除 ${selectedIds.size} 个作品`);
       setSelectedIds(new Set());
       await fetchImages();

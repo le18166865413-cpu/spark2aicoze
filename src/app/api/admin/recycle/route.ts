@@ -171,6 +171,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true, deleted: ids.length });
   } catch (err) {
     console.error("Permanent delete error:", err);
-    return NextResponse.json({ error: "删除失败" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "删除失败", detail: message }, { status: 500 });
   }
 }
