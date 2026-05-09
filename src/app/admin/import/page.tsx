@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2, RefreshCw, Clock, ToggleLeft, ToggleRight, CloudDownload, ImageIcon, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2, RefreshCw, Clock, ToggleLeft, ToggleRight, CloudDownload } from 'lucide-react';
 
 // 任务 ID 提取正则
 const TASK_ID_REGEX = /\b\d{1,2}-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
@@ -70,21 +70,6 @@ export default function AdminImportPage() {
   const [grsaiSyncResult, setGrsaiSyncResult] = useState<{total: number; imported: number; skipped: number; failed: number} | null>(null);
   const [grsaiTasks, setGrsaiTasks] = useState<{taskId: string; prompt: string; status: string; model: string; url?: string; createdAt: string}[]>([]);
   const [grsaiAutoSync, setGrsaiAutoSync] = useState(false);
-
-  // 图片健康检测
-  interface HealthItem {
-    id: string;
-    prompt: string;
-    taskId: string | null;
-    exists: boolean;
-    reason: string;
-  }
-  const [healthChecking, setHealthChecking] = useState(false);
-  const [healthResults, setHealthResults] = useState<HealthItem[]>([]);
-  const [healthPage, setHealthPage] = useState(1);
-  const [healthTotal, setHealthTotal] = useState(0);
-  const [healthBrokenCount, setHealthBrokenCount] = useState(0);
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // 加载 GrsAI 配置
   useEffect(() => {
@@ -336,53 +321,6 @@ export default function AdminImportPage() {
 
   const handleRemoveEntry = (taskId: string) => {
     setImports((prev) => prev.filter((item) => item.taskId !== taskId));
-  };
-
-  // 图片健康检测
-  const handleHealthCheck = async (pageNum = 1) => {
-    setHealthChecking(true);
-    try {
-      const res = await fetch('/api/admin/images/health-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ page: pageNum, pageSize: 20 }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setHealthResults(data.results || []);
-        setHealthTotal(data.total || 0);
-        setHealthBrokenCount(data.brokenCount || 0);
-        setHealthPage(pageNum);
-      }
-    } catch {
-      // ignore
-    }
-    setHealthChecking(false);
-  };
-
-  const handleDeleteBroken = async (ids: string[]) => {
-    setDeletingIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => next.add(id));
-      return next;
-    });
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/images/${id}`, { method: 'DELETE', credentials: 'include' })
-        )
-      );
-      setHealthResults((prev) => prev.filter((r) => !ids.includes(r.id)));
-      setHealthBrokenCount((prev) => Math.max(0, prev - ids.length));
-    } catch {
-      // ignore
-    }
-    setDeletingIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => next.delete(id));
-      return next;
-    });
   };
 
   return (
@@ -690,124 +628,6 @@ export default function AdminImportPage() {
           </div>
         </div>
       )}
-
-      {/* 图片健康检测 */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">图片健康检测</h3>
-          </div>
-          <button
-            onClick={() => handleHealthCheck(1)}
-            disabled={healthChecking}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
-          >
-            {healthChecking ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-            {healthChecking ? '检测中...' : '开始检测'}
-          </button>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          检测海报广场中的图片是否在当前 S3 存储中真实可访问。部署到新环境后，之前环境上传的图片可能因存储桶不同而失效，可在此批量检测并清理失效记录。
-        </p>
-
-        {healthResults.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-muted-foreground">共检测 {healthTotal} 张</span>
-              {healthBrokenCount > 0 && (
-                <span className="flex items-center gap-1 text-red-500">
-                  <AlertTriangle className="w-3 h-3" />
-                  失效 {healthBrokenCount} 张
-                </span>
-              )}
-              {healthBrokenCount === 0 && (
-                <span className="flex items-center gap-1 text-green-500">
-                  <CheckCircle2 className="w-3 h-3" />
-                  全部正常
-                </span>
-              )}
-            </div>
-
-            {healthBrokenCount > 0 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const brokenIds = healthResults.filter((r) => !r.exists).map((r) => r.id);
-                    if (brokenIds.length > 0 && confirm(`确定删除 ${brokenIds.length} 张失效图片记录吗？`)) {
-                      handleDeleteBroken(brokenIds);
-                    }
-                  }}
-                  disabled={deletingIds.size > 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 text-destructive rounded-lg text-xs font-medium hover:bg-destructive/20 disabled:opacity-50 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  批量删除失效图片
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-2 max-h-80 overflow-y-auto border border-border rounded-lg">
-              {healthResults.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 bg-background border-b border-border last:border-b-0">
-                  <div className="shrink-0">
-                    {item.exists ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-red-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">{item.prompt || '无描述'}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <code className="text-[10px] font-mono text-muted-foreground">{item.taskId || item.id}</code>
-                      <span className={`text-[10px] px-1 rounded ${item.exists ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                        {item.exists ? '正常' : item.reason}
-                      </span>
-                    </div>
-                  </div>
-                  {!item.exists && (
-                    <button
-                      onClick={() => {
-                        if (confirm('确定删除这张失效图片记录吗？')) {
-                          handleDeleteBroken([item.id]);
-                        }
-                      }}
-                      disabled={deletingIds.has(item.id)}
-                      className="text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-50"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {healthTotal >= 20 && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">第 {healthPage} 页</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleHealthCheck(healthPage - 1)}
-                    disabled={healthPage <= 1 || healthChecking}
-                    className="px-2 py-1 bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-50"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    onClick={() => handleHealthCheck(healthPage + 1)}
-                    disabled={healthResults.length < 20 || healthChecking}
-                    className="px-2 py-1 bg-muted rounded text-muted-foreground hover:text-foreground disabled:opacity-50"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* Guide */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-3">
