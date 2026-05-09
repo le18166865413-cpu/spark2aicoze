@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { verifyAdmin } from '@/lib/admin-auth';
+import { verifyUser } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 
 // GET: List all users
 export async function GET() {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const user = await verifyUser();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
 
@@ -29,8 +29,8 @@ export async function GET() {
 // POST: Create a new user (admin creates, auto-approved)
 export async function POST(request: Request) {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const user = await verifyUser();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
 
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
 // PUT: Update a user (approve/reject/edit/reset password)
 export async function PUT(request: Request) {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const user = await verifyUser();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
 
@@ -138,8 +138,8 @@ export async function PUT(request: Request) {
 // DELETE: Delete a user
 export async function DELETE(request: Request) {
   try {
-    const admin = await verifyAdmin();
-    if (!admin) {
+    const user = await verifyUser();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
 

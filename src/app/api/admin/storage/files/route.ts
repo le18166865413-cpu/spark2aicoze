@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Storage } from 'coze-coding-dev-sdk';
-import { verifyAdmin } from '@/lib/admin-auth';
+import { verifyUser } from '@/lib/admin-auth';
 
 const storage = new S3Storage({
   endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
@@ -11,8 +11,8 @@ const storage = new S3Storage({
 });
 
 export async function DELETE(request: NextRequest) {
-  const admin = await verifyAdmin();
-  if (!admin) {
+  const user = await verifyUser();
+  if (!user || user.role !== 'admin') {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
 

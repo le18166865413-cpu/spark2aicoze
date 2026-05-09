@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { storage } from "@/utils/storage";
 import { getStorageErrorMessage } from "@/utils/storage-error";
-import { verifyAdmin } from "@/lib/admin-auth";
+import { verifyUser } from "@/lib/admin-auth";
 
 interface GalleryImage {
   id: string;
@@ -98,8 +98,8 @@ async function checkImageExists(imageKey: string): Promise<boolean> {
 // Automatically checks pending tasks and imports new ones from task IDs
 export async function POST(request: Request) {
   // Verify admin
-  const admin = await verifyAdmin();
-  if (!admin) {
+  const admin = await verifyUser();
+  if (!admin || admin.role !== 'admin') {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
 
@@ -269,8 +269,8 @@ export async function POST(request: Request) {
 // GET - check auto sync status
 export async function GET(request: Request) {
   // Verify admin
-  const admin = await verifyAdmin();
-  if (!admin) {
+  const admin = await verifyUser();
+  if (!admin || admin.role !== 'admin') {
     return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
   }
 

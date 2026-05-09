@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { verifyAdmin } from '@/lib/admin-auth';
+import { verifyUser } from '@/lib/admin-auth';
 
 export async function GET() {
   try {
-    const adminCheck = await verifyAdmin();
-    if (!adminCheck) {
+    const user = await verifyUser();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: '无管理员权限' }, { status: 403 });
     }
 
