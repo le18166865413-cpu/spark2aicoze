@@ -385,10 +385,14 @@ export async function POST(request: NextRequest) {
 
               for (const line of lines) {
                 const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith("data: ")) continue;
+                if (!trimmed) continue;
 
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") continue;
+                let jsonStr = trimmed;
+                // SSE format: data: {...}
+                if (trimmed.startsWith("data: ")) {
+                  jsonStr = trimmed.slice(6);
+                  if (jsonStr === "[DONE]") continue;
+                }
 
                 try {
                   const data = JSON.parse(jsonStr);

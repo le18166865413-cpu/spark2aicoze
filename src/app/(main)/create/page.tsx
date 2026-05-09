@@ -357,8 +357,9 @@ function CreatePageInner() {
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let streamError = false;
 
-        while (true) {
+        readStream: while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
@@ -380,9 +381,9 @@ function CreatePageInner() {
                 if (effectiveCount <= 1) {
                   setProgress(data.progress || 0);
                   setProgressStatus(
-                    data.status === "submitted" ? "等待处理..." : 
-                    data.status === "running" ? "正在生成..." : 
-                    data.status === "uploading" ? "上传中..." : 
+                    data.status === "submitted" ? "等待处理..." :
+                    data.status === "running" ? "正在生成..." :
+                    data.status === "uploading" ? "上传中..." :
                     data.status || "处理中..."
                   );
                 } else {
@@ -391,9 +392,9 @@ function CreatePageInner() {
                   const stepProgress = Math.round(((data.progress || 0) / 100) * (100 / effectiveCount));
                   setProgress(Math.min(baseProgress + stepProgress, 99));
                   setProgressStatus(`第 ${i + 1}/${effectiveCount} 张 - ${
-                    data.status === "submitted" ? "等待处理..." : 
-                    data.status === "running" ? "正在生成..." : 
-                    data.status === "uploading" ? "上传中..." : 
+                    data.status === "submitted" ? "等待处理..." :
+                    data.status === "running" ? "正在生成..." :
+                    data.status === "uploading" ? "上传中..." :
                     data.status || "处理中..."
                   }`);
                 }
@@ -402,7 +403,8 @@ function CreatePageInner() {
               if (data.type === "error") {
                 allResults.push({ url: "", error: data.error });
                 setResults([...allResults]);
-                break;
+                streamError = true;
+                break readStream;
               }
 
               if (data.type === "complete") {
@@ -417,12 +419,27 @@ function CreatePageInner() {
             }
           }
         }
+
+        if (streamError) {
+          setProgressStatus(`第 ${i + 1} 张生成失败`);
+          // Continue to next image if multi-image, otherwise loop ends naturally
+          continue;
+        }
       }
 
+      const successCount = allResults.filter((r) => r.url && !r.error).length;
+      const errorCount = allResults.filter((r) => r.error).length;
       setProgress(100);
-      setProgressStatus(`完成！共生成 ${allResults.length} 张`);
-      if (allResults.length > 0) {
-        toast.success(`海报生成成功！共 ${allResults.length} 张`);
+      if (successCount > 0 && errorCount === 0) {
+        setProgressStatus(`完成！共生成 ${successCount} 张`);
+        toast.success(`海报生成成功！共 ${successCount} 张`);
+      } else if (successCount > 0 && errorCount > 0) {
+        setProgressStatus(`完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
+        toast.success(`生成完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
+      } else if (errorCount > 0) {
+        setProgressStatus(`生成失败，共 ${errorCount} 张`);
+      } else {
+        setProgressStatus("未获取到结果");
       }
     } catch (error: unknown) {
       console.error("Generation error:", error);
