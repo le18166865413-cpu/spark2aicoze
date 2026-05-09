@@ -79,6 +79,8 @@ const DEFAULTS: Record<string, string> = {
   theme_color: "green",
   theme_mode: "dark",
   theme_custom_hex: "#22C55E",
+  gallery_title: "海报生成记录",
+  gallery_subtitle: "查看通过 SparkAI 生成的所有海报作品",
 };
 
 export async function GET() {
@@ -126,6 +128,8 @@ export async function GET() {
     config.waitMessage = config.wait_message;
     config.waitDuration = config.wait_duration;
     config.galleryPageSize = config.gallery_page_size;
+    config.galleryTitle = config.gallery_title;
+    config.gallerySubtitle = config.gallery_subtitle;
     config.imageCountEnabled = config.image_count_enabled;
     config.imageCountMax = config.image_count_max;
     config.imageSizes = config.available_image_sizes;

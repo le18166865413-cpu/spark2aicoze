@@ -42,13 +42,17 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [columnCount, setColumnCount] = useState(2);
   const [pageSize, setPageSize] = useState(50);
+  const [galleryTitle, setGalleryTitle] = useState("海报生成记录");
+  const [gallerySubtitle, setGallerySubtitle] = useState("查看通过 SparkAI 生成的所有海报作品");
 
-  // Load page size from config
+  // Load config
   useEffect(() => {
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
         if (data.galleryPageSize) setPageSize(Number(data.galleryPageSize));
+        if (data.galleryTitle) setGalleryTitle(data.galleryTitle);
+        if (data.gallerySubtitle) setGallerySubtitle(data.gallerySubtitle);
       })
       .catch(() => {});
   }, []);
@@ -139,10 +143,10 @@ export default function Home() {
       {/* Hero Section */}
       <div className="text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-          海报生成记录
+          {galleryTitle}
         </h1>
         <p className="text-muted-foreground text-lg">
-          查看通过 SparkAI 生成的所有海报作品
+          {gallerySubtitle}
         </p>
       </div>
 

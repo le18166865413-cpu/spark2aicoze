@@ -11,6 +11,8 @@ export default function AdminSettingsPage() {
   const [siteDescription, setSiteDescription] = useState('');
   const [siteEnabled, setSiteEnabled] = useState(true);
   const [registerEnabled, setRegisterEnabled] = useState(true);
+  const [galleryTitle, setGalleryTitle] = useState('');
+  const [gallerySubtitle, setGallerySubtitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -22,6 +24,8 @@ export default function AdminSettingsPage() {
       setSiteDescription(getSetting('site_description') || 'AI 驱动的海报生成与展示平台');
       setSiteEnabled(getSetting('site_enabled') !== 'false');
       setRegisterEnabled(getSetting('register_enabled') !== 'false');
+      setGalleryTitle(getSetting('gallery_title') || '海报生成记录');
+      setGallerySubtitle(getSetting('gallery_subtitle') || '查看通过 SparkAI 生成的所有海报作品');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -36,6 +40,8 @@ export default function AdminSettingsPage() {
         { key: 'site_description', value: siteDescription },
         { key: 'site_enabled', value: siteEnabled ? 'true' : 'false' },
         { key: 'register_enabled', value: registerEnabled ? 'true' : 'false' },
+        { key: 'gallery_title', value: galleryTitle },
+        { key: 'gallery_subtitle', value: gallerySubtitle },
       ]);
       setMessage({ type: 'success', text: '设置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -80,6 +86,16 @@ export default function AdminSettingsPage() {
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">站点描述</label>
           <textarea value={siteDescription} onChange={(e) => setSiteDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" placeholder="AI 驱动的海报生成与展示平台" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">广场标题</label>
+          <input type="text" value={galleryTitle} onChange={(e) => setGalleryTitle(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="海报生成记录" />
+          <p className="text-xs text-muted-foreground">显示在海报广场首页顶部</p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">广场副标题</label>
+          <input type="text" value={gallerySubtitle} onChange={(e) => setGallerySubtitle(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="查看通过 SparkAI 生成的所有海报作品" />
+          <p className="text-xs text-muted-foreground">显示在海报广场首页标题下方</p>
         </div>
       </div>
 
