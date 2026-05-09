@@ -101,6 +101,34 @@ async function getSignedUrl(key: string): Promise<string> {
   }
 }
 
+// Translate GrsAI English error messages to Chinese
+function translateGrsaiError(message: string): string {
+  if (!message) return "生成失败，请重试";
+  const lower = message.toLowerCase();
+  if (lower.includes("violated our relevant policies") || lower.includes("violation")) {
+    return "生成内容违规，请修改提示词后重试";
+  }
+  if (lower.includes("input_moderation") || lower.includes("input moderation")) {
+    return "输入内容违规，请修改提示词后重试";
+  }
+  if (lower.includes("output_moderation") || lower.includes("output moderation")) {
+    return "生成内容违规，请修改提示词后重试";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many requests")) {
+    return "请求过于频繁，请稍后再试";
+  }
+  if (lower.includes("invalid api key") || lower.includes("unauthorized")) {
+    return "API 密钥无效，请联系管理员";
+  }
+  if (lower.includes("timeout")) {
+    return "生成超时，请重试";
+  }
+  if (lower.includes("busy") || lower.includes("overload")) {
+    return "服务繁忙，请稍后再试";
+  }
+  return message;
+}
+
 // Unified endpoint: both gpt-image-2 and nano-banana use /v1/api/generate
 const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean }> = {
   "image2-vip": { apiModel: "gpt-image-2-vip", supportsImageSize: true },
@@ -388,15 +416,17 @@ export async function POST(request: NextRequest) {
                     imageUrl = data.results[0]?.url || data.url || "";
                   }
 
-                  if (data.status === "failed" || data.status === "violation") {
-                    const rawReason = data.failure_reason || data.error || data.status === "violation" ? "violation" : "";
-                    const friendlyErrors: Record<string, string> = {
-                      output_moderation: "生成内容违规，请修改提示词后重试",
-                      input_moderation: "输入内容违规，请修改提示词后重试",
-                      violation: "生成内容违规，请修改提示词后重试",
-                      error: "生成失败，请重试",
-                    };
-                    const reason = friendlyErrors[rawReason] || rawReason || "生成失败，请重试";
+                  if (data.status === "failed" || data.status === "violation" || data.status === "error" || data.error) {
+                    let reason: string;
+                    if (data.error && typeof data.error === "string") {
+                      reason = translateGrsaiError(data.error);
+                    } else if (data.failure_reason && typeof data.failure_reason === "string") {
+                      reason = translateGrsaiError(data.failure_reason);
+                    } else if (data.status === "violation") {
+                      reason = "生成内容违规，请修改提示词后重试";
+                    } else {
+                      reason = "生成失败，请重试";
+                    }
                     sendSSE({ type: "error", error: reason });
                     controller.close();
                     return;
@@ -408,7 +438,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (!imageUrl) {
-              sendSSE({ type: "error", error: `第 ${imgIndex + 1} 张未获取到图片，请重试` });
+              sendSSE({ type: "error", error: `第 ${imgIndex + 1} 张生成失败，未获取到图片结果，请重试` });
               controller.close();
               return;
             }
