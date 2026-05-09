@@ -1,7 +1,9 @@
-const DEFAULTS = {
-  siteName: "SparkAI",
-  siteTitle: "SparkAI - 智能海报生成器",
-  siteDescription: "AI 驱动的海报生成与展示平台",
+import { getSupabaseClient } from "@/storage/database/supabase-client";
+
+const DEFAULTS: Record<string, string> = {
+  site_name: "SparkAI",
+  site_title: "SparkAI - 智能海报生成器",
+  site_description: "AI 驱动的海报生成与展示平台",
 };
 
 let cachedConfig: { siteName: string; siteTitle: string; siteDescription: string } | null = null;
@@ -15,18 +17,31 @@ export async function getSiteConfig() {
   }
 
   try {
-    const port = process.env.DEPLOY_RUN_PORT || "5000";
-    const res = await fetch(`http://localhost:${port}/api/config`);
-    const data = await res.json();
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("key, value")
+      .in("key", ["site_name", "site_title", "site_description"]);
+
+    const settings: Record<string, string> = {};
+    if (data) {
+      for (const item of data) {
+        settings[item.key] = item.value;
+      }
+    }
 
     cachedConfig = {
-      siteName: data.siteName || DEFAULTS.siteName,
-      siteTitle: data.siteTitle || DEFAULTS.siteTitle,
-      siteDescription: data.siteDescription || DEFAULTS.siteDescription,
+      siteName: settings.site_name || DEFAULTS.site_name,
+      siteTitle: settings.site_title || DEFAULTS.site_title,
+      siteDescription: settings.site_description || DEFAULTS.site_description,
     };
     cacheTime = now;
     return cachedConfig;
   } catch {
-    return { ...DEFAULTS };
+    return {
+      siteName: DEFAULTS.site_name,
+      siteTitle: DEFAULTS.site_title,
+      siteDescription: DEFAULTS.site_description,
+    };
   }
 }
