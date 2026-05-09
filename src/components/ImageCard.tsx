@@ -28,6 +28,7 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
   const [liked, setLiked] = useState(image.liked || false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [showMakeSameDialog, setShowMakeSameDialog] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const router = useRouter();
 
   const handleLike = async (e?: React.MouseEvent) => {
@@ -193,8 +194,9 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
               <img
                 src={image.url}
                 alt={image.prompt}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-xl cursor-zoom-in"
                 onError={() => setDetailImgError(true)}
+                onClick={() => setPreviewOpen(true)}
               />
             )}
           </div>
@@ -282,6 +284,19 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
           </div>
         </div>
       </DialogContent>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none" onInteractOutside={() => setPreviewOpen(false)}>
+          <DialogTitle className="sr-only">图片预览</DialogTitle>
+          <img
+            src={image.url}
+            alt={image.prompt}
+            className="w-full h-full object-contain max-h-[85vh] rounded-lg"
+            onClick={() => setPreviewOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Make Same Choice Dialog */}
       <Dialog open={showMakeSameDialog} onOpenChange={setShowMakeSameDialog}>
