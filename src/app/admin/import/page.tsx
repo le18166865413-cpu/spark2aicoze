@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2, RefreshCw, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Download, Plus, CheckCircle2, XCircle, Loader2, ExternalLink, Trash2, Wand2, RefreshCw, Clock, ToggleLeft, ToggleRight, CloudDownload } from 'lucide-react';
 
 // 任务 ID 提取正则
 const TASK_ID_REGEX = /\b\d{1,2}-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
@@ -62,6 +62,92 @@ export default function AdminImportPage() {
   });
   const [syncingNow, setSyncingNow] = useState(false);
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // GrsAI Dashboard 配置
+  const [grsaiToken, setGrsaiToken] = useState('');
+  const [grsaiXtx, setGrsaiXtx] = useState('');
+  const [grsaiSyncing, setGrsaiSyncing] = useState(false);
+  const [grsaiSyncResult, setGrsaiSyncResult] = useState<{total: number; imported: number; skipped: number; failed: number} | null>(null);
+  const [grsaiTasks, setGrsaiTasks] = useState<{taskId: string; prompt: string; status: string; model: string; url?: string; createdAt: string}[]>([]);
+
+  // 加载 GrsAI 配置
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const res = await fetch('/api/admin/settings', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const settings = data.settings || [];
+          const tokenSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_token');
+          const xtxSetting = settings.find((s: {key: string; value: string}) => s.key === 'grsai_dashboard_xtx');
+          if (tokenSetting) setGrsaiToken(tokenSetting.value);
+          if (xtxSetting) setGrsaiXtx(xtxSetting.value);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadConfig();
+  }, []);
+
+  const handleSaveGrsaiConfig = async () => {
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          settings: [
+            { key: 'grsai_dashboard_token', value: grsaiToken },
+            { key: 'grsai_dashboard_xtx', value: grsaiXtx },
+          ],
+        }),
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGrsaiSync = async () => {
+    setGrsaiSyncing(true);
+    setGrsaiSyncResult(null);
+    try {
+      const res = await fetch('/api/admin/grsai/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ token: grsaiToken, xtx: grsaiXtx }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGrsaiSyncResult({
+          total: data.total ?? 0,
+          imported: data.imported ?? 0,
+          skipped: data.skipped ?? 0,
+          failed: data.failed ?? 0,
+        });
+        if (data.tasks && data.tasks.length > 0) {
+          setGrsaiTasks(data.tasks);
+        }
+        // 刷新导入记录
+        if (data.imported && data.imported > 0) {
+          setImports((prev) => [
+            {
+              taskId: `GrsAI抓取 - ${data.imported} 张`,
+              status: 'success',
+              result: { success: true, count: data.imported },
+              timestamp: new Date().toLocaleString(),
+              auto: true,
+            },
+            ...prev,
+          ]);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setGrsaiSyncing(false);
+  };
 
   // 加载自动同步状态
   useEffect(() => {
@@ -257,6 +343,90 @@ export default function AdminImportPage() {
               <RefreshCw className={`w-3 h-3 ${syncingNow ? 'animate-spin' : ''}`} />
               {syncingNow ? '同步中...' : '立即同步'}
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* GrsAI Dashboard 任务抓取 */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CloudDownload className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">GrsAI Dashboard 任务抓取</h3>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          从你的 GrsAI 网站控制台自动抓取历史生成任务并导入到海报广场。配置 Dashboard Token 后，点击抓取即可自动导入所有未入库的任务。
+        </p>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">Dashboard Token (authorization)</label>
+            <textarea
+              value={grsaiToken}
+              onChange={(e) => {
+                setGrsaiToken(e.target.value);
+                handleSaveGrsaiConfig();
+              }}
+              placeholder="登录 grsai.ai 后，在浏览器开发者工具 Network 面板中找到 getCreditsLogList 请求，复制 authorization header 的 JWT token"
+              rows={2}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">xtx Header</label>
+            <input
+              type="text"
+              value={grsaiXtx}
+              onChange={(e) => {
+                setGrsaiXtx(e.target.value);
+                handleSaveGrsaiConfig();
+              }}
+              placeholder="复制同一请求中的 xtx header 值"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleGrsaiSync}
+              disabled={grsaiSyncing || !grsaiToken.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {grsaiSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+              抓取并导入
+            </button>
+            {grsaiSyncResult && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">共 {grsaiSyncResult.total} 条</span>
+                <span className="text-primary">导入 {grsaiSyncResult.imported}</span>
+                <span className="text-yellow-500">跳过 {grsaiSyncResult.skipped}</span>
+                <span className="text-red-500">失败 {grsaiSyncResult.failed}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {grsaiTasks.length > 0 && (
+          <div className="space-y-2 max-h-64 overflow-y-auto border border-border rounded-lg">
+            {grsaiTasks.map((task) => (
+              <div key={task.taskId} className="flex items-center gap-3 p-3 bg-background border-b border-border last:border-b-0">
+                {task.url ? (
+                  <img src={task.url} alt="" className="w-12 h-12 object-cover rounded shrink-0" loading="lazy" />
+                ) : (
+                  <div className="w-12 h-12 bg-muted rounded shrink-0 flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground">无图</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{task.prompt}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <code className="text-[10px] font-mono text-muted-foreground">{task.taskId}</code>
+                    <span className="text-[10px] text-muted-foreground">{task.model}</span>
+                    <span className={`text-[10px] px-1 rounded ${task.status === 'succeeded' ? 'bg-primary/10 text-primary' : 'bg-yellow-500/10 text-yellow-500'}`}>{task.status}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
