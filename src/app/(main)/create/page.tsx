@@ -945,6 +945,18 @@ function CreatePageInner() {
                   >
                     复制链接
                   </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setMode("img2img");
+                      setRefImages([{ url: results[0].url as string, preview: results[0].url as string }]);
+                      toast.success("已切换为参考图生图模式，当前图片已设为参考图");
+                    }}
+                  >
+                    <ImagePlus className="w-4 h-4 mr-2" />
+                    基于本图修改
+                  </Button>
                 </div>
               )}
             </div>
