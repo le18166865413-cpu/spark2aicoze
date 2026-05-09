@@ -51,6 +51,43 @@ async function getBaseUrl(): Promise<string> {
   return (await getSetting("grsai_base_url")) || "https://grsai.dakka.com.cn";
 }
 
+async function getSignedUrl(key: string): Promise<string> {
+  try {
+    const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+    const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+    const bucketName = process.env.COZE_BUCKET_NAME || "";
+
+    const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
+
+    const response = await fetch(signUrlEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-storage-token": token,
+      },
+      body: JSON.stringify({
+        bucket_name: bucketName,
+        path: key,
+        expire_time: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate signed URL: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.code !== 0 || !result.data?.url) {
+      throw new Error(`Sign URL error: ${result.msg || "unknown error"}`);
+    }
+
+    return result.data.url;
+  } catch (error) {
+    console.error("[AutoSync] Failed to get signed URL:", error);
+    return key;
+  }
+}
+
 async function queryTaskResult(taskId: string, apiKey: string, baseUrl: string): Promise<GrsAIResult | null> {
   try {
     const response = await fetch(`${baseUrl}/v1/api/result?id=${encodeURIComponent(taskId)}`, {
@@ -60,15 +97,18 @@ async function queryTaskResult(taskId: string, apiKey: string, baseUrl: string):
       },
     });
 
-    if (!response.ok) return null;
     const data = await response.json();
-    
-    // Handle error response
-    if (data.error) {
-      console.log(`[AutoSync] Task ${taskId} error: ${data.error}`);
+
+    // Handle error response - if task does not exist (expired), mark as not_found
+    if (data.error || !response.ok) {
+      const errMsg = data.error || `HTTP ${response.status}`;
+      console.log(`[AutoSync] Task ${taskId} error: ${errMsg}`);
+      if (String(errMsg).toLowerCase().includes('not exist')) {
+        return { id: taskId, status: 'not_found', error: errMsg };
+      }
       return null;
     }
-    
+
     // Support both { code: 0, data: {...} } and direct { id, status, ... } format
     const taskData = data.data || data;
     if (taskData && (taskData.id || taskData.status)) {
@@ -148,6 +188,24 @@ export async function POST(request: Request) {
   for (const img of (incompleteImages || []) as GalleryImage[]) {
     if (!img.task_id) continue;
 
+    // If image already has image_key but missing url, just regenerate signed URL
+    if (img.image_key) {
+      try {
+        const signedUrl = await getSignedUrl(img.image_key);
+        await supabase
+          .from("gallery_images")
+          .update({ url: signedUrl })
+          .eq("id", img.id);
+        synced++;
+        results.push({ taskId: img.task_id, status: "synced", message: "签名URL已补全" });
+      } catch (e) {
+        failed++;
+        results.push({ taskId: img.task_id, status: "failed", message: getStorageErrorMessage(e) });
+      }
+      continue;
+    }
+
+    // No image_key, query GrsAI for result
     const result = await queryTaskResult(img.task_id, apiKey, baseUrl);
     if (!result) {
       results.push({ taskId: img.task_id, status: "skipped", message: "查询无结果" });
@@ -159,17 +217,19 @@ export async function POST(request: Request) {
       try {
         const key = await storage.uploadFromUrl({ url: imageUrl, timeout: 120000 });
         if (key && !(await checkImageExists(key))) {
+          const signedUrl = await getSignedUrl(key);
           await supabase
             .from("gallery_images")
-            .update({ url: "", image_key: key })
+            .update({ url: signedUrl, image_key: key })
             .eq("id", img.id);
           synced++;
           results.push({ taskId: img.task_id, status: "synced", message: "补全成功" });
         } else if (key) {
           // Already exists, just update
+          const signedUrl = await getSignedUrl(key);
           await supabase
             .from("gallery_images")
-            .update({ image_key: key })
+            .update({ url: signedUrl, image_key: key })
             .eq("id", img.id);
           synced++;
           results.push({ taskId: img.task_id, status: "updated", message: "更新成功" });
@@ -183,6 +243,11 @@ export async function POST(request: Request) {
       await supabase.from("gallery_images").delete().eq("id", img.id);
       failed++;
       results.push({ taskId: img.task_id, status: "removed", message: "任务已失败，已清理" });
+    } else if (result.status === "not_found") {
+      // Task expired or does not exist in GrsAI anymore
+      await supabase.from("gallery_images").delete().eq("id", img.id);
+      failed++;
+      results.push({ taskId: img.task_id, status: "removed", message: "任务已过期，已清理" });
     } else {
       results.push({ taskId: img.task_id, status: "pending", message: `状态: ${result.status}, 进度: ${result.progress || 0}%` });
     }
@@ -241,6 +306,10 @@ export async function POST(request: Request) {
     } else if (result.status === "failed" || result.status === "violation") {
       await supabase.from("auto_sync_tasks").update({ status: "failed" }).eq("task_id", taskId);
       results.push({ taskId, status: "failed", message: "原任务已失败" });
+    } else if (result.status === "not_found") {
+      await supabase.from("auto_sync_tasks").update({ status: "failed" }).eq("task_id", taskId);
+      failed++;
+      results.push({ taskId, status: "failed", message: "任务已过期或不存在" });
     } else {
       results.push({ taskId, status: "pending", message: `状态: ${result.status}` });
     }

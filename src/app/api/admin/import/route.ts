@@ -297,10 +297,23 @@ export async function POST(request: Request) {
     }
 
     if (taskResult.status === 'processing' || taskResult.status === 'submitted' || (taskResult.progress !== undefined && taskResult.progress < 100)) {
-      return NextResponse.json(
-        { error: '任务正在处理中，请稍后再试' },
-        { status: 202 }
-      );
+      // Add to auto-sync queue for background monitoring
+      await supabase.from('auto_sync_tasks').upsert({
+        task_id: taskId,
+        status: 'pending',
+        model: taskResult.model || 'image2',
+        prompt: taskResult.prompt || 'GrsAI imported image',
+        ratio: taskResult.aspectRatio || taskResult.ratio || '1:1',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'task_id' });
+
+      return NextResponse.json({
+        status: taskResult.status,
+        message: '任务正在处理中，已添加到自动监控队列',
+        queued: true,
+        taskId,
+      });
     }
 
     if (taskResult.status === 'failed') {

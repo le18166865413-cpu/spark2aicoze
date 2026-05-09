@@ -39,45 +39,91 @@ async function getSignedUrl(key: string): Promise<string> {
   return result.data.url;
 }
 
-// Generate UUID
-function generateId(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+// Add task to auto-sync monitoring queue
+async function addToAutoSyncQueue(
+  taskId: string,
+  model: string,
+  prompt: string,
+  ratio: string
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  await supabase.from("auto_sync_tasks").upsert(
+    {
+      task_id: taskId,
+      status: "pending",
+      model,
+      prompt,
+      ratio,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "task_id" }
+  );
 }
 
-// POST: Sync a GrsAI task result to gallery
+// Query task result from GrsAI (new unified endpoint)
+async function queryTaskResult(taskId: string) {
+  const response = await fetch(`${GRSAI_BASE_URL}/v1/api/result?id=${taskId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${GRSAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`GrsAI API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Extract image URL from result (compatible with old and new formats)
+function extractImageUrl(data: Record<string, unknown>): string | null {
+  // New format: data.results[0].url
+  const results = data.results as Array<Record<string, unknown>> | undefined;
+  if (results && results.length > 0 && results[0]?.url) {
+    return results[0].url as string;
+  }
+  // Old format: data.url
+  if (data.url) {
+    return data.url as string;
+  }
+  // Alternative: data.image
+  if (data.image) {
+    return data.image as string;
+  }
+  return null;
+}
+
+function extractTaskStatus(data: Record<string, unknown>): string {
+  return (data.status as string) || "unknown";
+}
+
+function extractFailureReason(data: Record<string, unknown>): string | undefined {
+  return data.failure_reason as string | undefined;
+}
+
+function extractPrompt(data: Record<string, unknown>): string {
+  return (data.prompt as string) || "GrsAI synced image";
+}
+
+// POST: Sync a GrsAI task to gallery
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { taskId } = body;
+    const taskId = body.taskId as string;
+    const model = (body.model as string) || "image2";
+    const ratio = (body.ratio as string) || "3:4";
 
     if (!taskId) {
-      return NextResponse.json({ error: "taskId is required" }, { status: 400 });
+      return NextResponse.json({ error: "Task ID is required" }, { status: 400 });
     }
 
-    console.log("Syncing task", taskId, "from GrsAI...");
+    // Query task result from GrsAI
+    const result = await queryTaskResult(taskId);
 
-    // Query GrsAI for task result
-    const response = await fetch(`${GRSAI_BASE_URL}/v1/draw/result`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GRSAI_API_KEY}`,
-      },
-      body: JSON.stringify({ id: taskId }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("GrsAI result error:", errorText);
-      return NextResponse.json({ error: "Failed to query GrsAI" }, { status: 500 });
-    }
-
-    const result = await response.json();
-
+    // Handle API error
     if (result.code !== 0) {
       return NextResponse.json(
         { error: result.msg || "Task not found", code: result.code },
@@ -85,16 +131,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check task status
-    if (result.data?.status !== "succeeded") {
+    const data = result.data as Record<string, unknown>;
+    const status = extractTaskStatus(data);
+    const prompt = extractPrompt(data);
+
+    // If task is not completed, add to auto-sync queue
+    if (status !== "succeeded") {
+      await addToAutoSyncQueue(taskId, model, prompt, ratio);
       return NextResponse.json({
-        status: result.data?.status || "unknown",
-        message: result.data?.failure_reason || "Task not completed",
+        status,
+        message: result.msg || "Task not completed, added to auto-sync queue",
+        queued: true,
+        taskId,
       });
     }
 
     // Get image URL from result
-    const imageUrl = result.data?.results?.[0]?.url || result.data?.url;
+    const imageUrl = extractImageUrl(data);
     if (!imageUrl) {
       return NextResponse.json({ error: "No image in result" }, { status: 400 });
     }
@@ -111,31 +164,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: getStorageErrorMessage(uploadError) }, { status: 500 });
     }
 
-    const prompt = (result.data?.prompt as string) || "GrsAI synced image";
-    const imageId = generateId();
+    const imageId = crypto.randomUUID();
     const now = new Date().toISOString();
-
-    // Save to Supabase
-    const supabase = getSupabaseClient();
-    const { error: dbError } = await supabase.from("gallery_images").insert({
-      id: imageId,
-      prompt: prompt,
-      url: "",
-      image_key: key,
-      width: 1024,
-      height: 1365,
-      views: 0,
-      downloads: 0,
-      model: "synced",
-      ratio: "3:4",
-      task_id: taskId,
-      created_at: now,
-    });
-
-    if (dbError) {
-      console.error("Supabase insert error:", dbError);
-      return NextResponse.json({ error: "Failed to save image" }, { status: 500 });
-    }
 
     // Get signed URL
     let signedUrl = "";
@@ -143,6 +173,28 @@ export async function POST(request: NextRequest) {
       signedUrl = await getSignedUrl(key);
     } catch {
       signedUrl = key;
+    }
+
+    // Save to Supabase
+    const supabase = getSupabaseClient();
+    const { error: dbError } = await supabase.from("gallery_images").insert({
+      id: imageId,
+      prompt: prompt,
+      url: signedUrl,
+      image_key: key,
+      width: 1024,
+      height: 1365,
+      views: 0,
+      downloads: 0,
+      model: model || "synced",
+      ratio: ratio || "3:4",
+      task_id: taskId,
+      created_at: now,
+    });
+
+    if (dbError) {
+      console.error("Supabase insert error:", dbError);
+      return NextResponse.json({ error: "Failed to save image" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -167,6 +219,7 @@ export async function GET() {
     const { data: images, error } = await supabase
       .from("gallery_images")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -195,24 +248,24 @@ export async function GET() {
 
         return {
           id: img.id,
-          imageKey: imageKey,
           prompt: img.prompt,
-          url: url,
+          url: url || imageKey,
+          image_key: imageKey,
+          created_at: img.created_at,
           width: img.width,
           height: img.height,
-          views: img.views || 0,
-          downloads: img.downloads || 0,
+          views: img.views,
+          downloads: img.downloads,
           model: img.model,
           ratio: img.ratio,
-          taskId: img.task_id,
-          createdAt: img.created_at,
+          task_id: img.task_id,
         };
       })
     );
 
     return NextResponse.json(imagesWithUrls);
   } catch (error) {
-    console.error("Sync GET error:", error);
+    console.error("Get synced images error:", error);
     return NextResponse.json([]);
   }
 }
