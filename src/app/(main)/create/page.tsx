@@ -793,22 +793,6 @@ function CreatePageInner() {
                 </div>
               )}
             </Button>
-
-            {/* Progress */}
-            {loading && (
-              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">{progressStatus}</span>
-                  <span className="text-sm font-medium text-primary">{progress}%</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-300 rounded-full"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right: Preview Panel */}
@@ -828,6 +812,22 @@ function CreatePageInner() {
                 ))}
               </ul>
             </div>
+
+            {/* Progress */}
+            {loading && (
+              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{progressStatus}</span>
+                  <span className="text-sm font-medium text-primary">{progress}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300 rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Preview Card */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
