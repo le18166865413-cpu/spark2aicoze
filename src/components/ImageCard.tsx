@@ -224,12 +224,6 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
             </Button>
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-xl md:text-2xl font-semibold leading-tight line-clamp-3 md:line-clamp-none">
-              {image.prompt}
-            </h1>
-          </div>
-
           <div className="flex items-center gap-4 py-4 border-t border-dashed">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
               {(image.creatorName || 'AI')[0]}
