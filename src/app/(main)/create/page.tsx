@@ -903,7 +903,8 @@ function CreatePageInner() {
                             alt={`Generated ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center gap-2">
+                          {/* Desktop hover actions */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors hidden sm:flex flex-col items-center justify-center gap-2">
                             <Button
                               variant="secondary"
                               size="sm"
@@ -932,6 +933,38 @@ function CreatePageInner() {
                             >
                               <ImagePlus className="w-4 h-4 mr-1" />
                               基于本图修改
+                            </Button>
+                          </div>
+                          {/* Mobile always-visible actions */}
+                          <div className="absolute bottom-0 inset-x-0 flex sm:hidden gap-1 p-1.5 bg-gradient-to-t from-black/70 to-transparent">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
+                              onClick={() => handleDownload(result.url as string)}
+                            >
+                              <Download className="w-3.5 h-3.5 mr-1" />
+                              下载
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
+                              onClick={() => {
+                                setMode("img2img");
+                                setRefImages((prev) => {
+                                  const alreadyAdded = prev.some((img) => img.url === result.url);
+                                  if (alreadyAdded) {
+                                    toast.success("该图片已在参考图中");
+                                    return prev;
+                                  }
+                                  toast.success(`已将第 ${index + 1} 张图添加为参考图`);
+                                  return [...prev, { url: result.url as string, preview: result.url as string }];
+                                });
+                              }}
+                            >
+                              <ImagePlus className="w-3.5 h-3.5 mr-1" />
+                              修改
                             </Button>
                           </div>
                         </>
