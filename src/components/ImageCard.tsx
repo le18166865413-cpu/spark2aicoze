@@ -82,7 +82,7 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
   const handleDelete = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     
-    if (!confirm("确定要删除这张海报吗？")) {
+    if (!confirm("确定要删除这张海报吗？删除后可在后台回收站恢复。")) {
       return;
     }
 

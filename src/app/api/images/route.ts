@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
 
-    // Build query
-    let query = supabase.from("gallery_images").select("*");
+    // Build query (exclude soft-deleted)
+    let query = supabase.from("gallery_images").select("*").is("deleted_at", null);
 
     // Filter by user
     if (userId) {

@@ -22,25 +22,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    // Delete from Supabase
-    const { error: deleteError } = await supabase
+    // Soft delete - set deleted_at timestamp
+    const { error: updateError } = await supabase
       .from("gallery_images")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
 
-    if (deleteError) {
-      console.error("Supabase delete error:", deleteError);
+    if (updateError) {
+      console.error("Supabase soft delete error:", updateError);
       return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
-    }
-
-    // Try to delete from S3 (non-blocking)
-    const imageKey = image.image_key as string;
-    if (imageKey) {
-      try {
-        await storage.deleteFile({ fileKey: imageKey });
-      } catch (s3Error) {
-        console.error("Failed to delete from S3 (non-critical):", s3Error);
-      }
     }
 
     return NextResponse.json({ success: true });

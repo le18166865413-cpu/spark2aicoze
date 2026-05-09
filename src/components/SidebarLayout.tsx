@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -18,6 +18,7 @@ const menuItems = [
   { href: '/admin/storage', icon: HardDrive, label: '图片存储' },
   { href: '/admin/import', icon: Upload, label: '任务导入' },
   { href: '/admin/users', icon: Users, label: '用户管理' },
+  { href: '/admin/recycle', icon: Trash2, label: '回收站' },
 ];
 
 export default function SidebarLayout({
