@@ -96,5 +96,10 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "get-intrinsic": "1.2.6"
+    }
   }
 }
