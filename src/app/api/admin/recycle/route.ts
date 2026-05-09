@@ -4,6 +4,44 @@ import { getSupabaseClient } from "@/storage/database/supabase-client";
 
 export const dynamic = "force-dynamic";
 
+// Get permanent signed URL via sign-url endpoint
+async function getSignedUrl(key: string): Promise<string> {
+  try {
+    const token = process.env.COZE_WORKLOAD_IDENTITY_API_KEY || "";
+    const endpoint = process.env.COZE_BUCKET_ENDPOINT_URL || "";
+    const bucketName = process.env.COZE_BUCKET_NAME || "";
+
+    const signUrlEndpoint = endpoint.replace(/\/$/, "") + "/sign-url";
+
+    const response = await fetch(signUrlEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-storage-token": token,
+      },
+      body: JSON.stringify({
+        bucket_name: bucketName,
+        path: key,
+        expire_time: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate signed URL: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0 || !data.data?.url) {
+      throw new Error(`Sign URL error: ${data.msg || "unknown error"}`);
+    }
+
+    return data.data.url;
+  } catch (error) {
+    console.error("Failed to get signed URL for key:", key, error);
+    return key;
+  }
+}
+
 export async function GET() {
   const user = await verifyUser();
   if (!user || user.role !== "admin") {
@@ -20,23 +58,31 @@ export async function GET() {
 
     if (error) throw error;
 
-    const images = (data || []).map((img: Record<string, unknown>) => ({
-      id: img.id,
-      prompt: img.prompt,
-      url: img.url,
-      imageKey: img.image_key,
-      width: img.width,
-      height: img.height,
-      views: img.views,
-      downloads: img.downloads,
-      model: img.model,
-      ratio: img.ratio,
-      taskId: img.task_id,
-      userId: img.user_id,
-      creatorName: img.creator_name,
-      createdAt: img.created_at,
-      deletedAt: img.deleted_at,
-    }));
+    const images = await Promise.all(
+      (data || []).map(async (img: Record<string, unknown>) => {
+        const rawUrl = (img.url as string) || "";
+        const imageKey = (img.image_key as string) || "";
+        const imageUrl = rawUrl || (imageKey ? await getSignedUrl(imageKey) : "");
+
+        return {
+          id: img.id,
+          prompt: img.prompt,
+          url: imageUrl,
+          imageKey: img.image_key,
+          width: img.width,
+          height: img.height,
+          views: img.views,
+          downloads: img.downloads,
+          model: img.model,
+          ratio: img.ratio,
+          taskId: img.task_id,
+          userId: img.user_id,
+          creatorName: img.creator_name,
+          createdAt: img.created_at,
+          deletedAt: img.deleted_at,
+        };
+      })
+    );
 
     return NextResponse.json({ images });
   } catch (err) {
