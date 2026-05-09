@@ -155,8 +155,12 @@ export async function DELETE(request: Request) {
         const storage = new S3Storage();
         for (const img of images) {
           if (img.image_key) {
-            // @ts-expect-error S3Storage delete method may not be in types
-            await storage.delete?.(img.image_key).catch(() => {});
+            try {
+              // @ts-expect-error S3Storage delete method not in types
+              await storage.delete(img.image_key);
+            } catch {
+              // 忽略 S3 删除错误
+            }
           }
         }
       } catch {
