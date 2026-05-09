@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ interface RefImage {
 
 interface GenerationResult {
   url: string;
+  error?: string;
   [key: string]: unknown;
 }
 
@@ -345,7 +346,9 @@ function CreatePageInner() {
           if (response.status === 401) {
             setShowLoginDialog(true);
           }
-          throw new Error((error as Record<string, string>).error || "Generation failed");
+          allResults.push({ url: "", error: (error as Record<string, string>).error || "Generation failed" });
+          setResults([...allResults]);
+          continue;
         }
 
         // Handle SSE stream
@@ -397,7 +400,9 @@ function CreatePageInner() {
               }
 
               if (data.type === "error") {
-                throw new Error(data.error);
+                allResults.push({ url: "", error: data.error });
+                setResults([...allResults]);
+                break;
               }
 
               if (data.type === "complete") {
@@ -841,11 +846,21 @@ function CreatePageInner() {
                 </div>
               ) : results.length === 1 ? (
                 <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
-                  <img
-                    src={results[0].url as string}
-                    alt="Generated"
-                    className="w-full h-full object-contain"
-                  />
+                  {results[0].error ? (
+                    <div className="text-center text-destructive p-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
+                        <AlertTriangle className="w-8 h-8" />
+                      </div>
+                      <p className="font-semibold mb-1">生成失败</p>
+                      <p className="text-sm text-destructive/80">{results[0].error}</p>
+                    </div>
+                  ) : (
+                    <img
+                      src={results[0].url as string}
+                      alt="Generated"
+                      className="w-full h-full object-contain"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className={cn(
@@ -855,23 +870,35 @@ function CreatePageInner() {
                   "grid-cols-2"
                 )}>
                   {results.map((result, index) => (
-                    <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square">
-                      <img
-                        src={result.url as string}
-                        alt={`Generated ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDownload(result.url as string)}
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          下载
-                        </Button>
-                      </div>
+                    <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square flex items-center justify-center">
+                      {result.error ? (
+                        <div className="text-center text-destructive p-4">
+                          <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-destructive/20 flex items-center justify-center">
+                            <AlertTriangle className="w-6 h-6" />
+                          </div>
+                          <p className="text-xs font-semibold mb-0.5">生成失败</p>
+                          <p className="text-xs text-destructive/80 line-clamp-2">{result.error}</p>
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={result.url as string}
+                            alt={`Generated ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDownload(result.url as string)}
+                            >
+                              <Download className="w-4 h-4 mr-1" />
+                              下载
+                            </Button>
+                          </div>
+                        </>
+                      )}
                       <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                         {index + 1}
                       </div>
@@ -881,7 +908,7 @@ function CreatePageInner() {
               )}
 
               {/* Actions for single result */}
-              {results.length === 1 && (
+              {results.length === 1 && !results[0].error && (
                 <div className="flex gap-3 mt-4">
                   <Button
                     variant="outline"
