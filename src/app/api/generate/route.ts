@@ -101,6 +101,35 @@ async function getSignedUrl(key: string): Promise<string> {
   }
 }
 
+interface GrsaiStreamData {
+  id?: string;
+  status?: string;
+  progress?: number;
+  results?: Array<{ url?: string }>;
+  url?: string;
+  error?: string;
+  failure_reason?: string;
+  [key: string]: unknown;
+}
+
+// Parse a single line from GrsAI stream (supports both SSE data: prefix and plain JSON)
+function parseStreamLine(line: string): GrsaiStreamData | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  let jsonStr = trimmed;
+  if (trimmed.startsWith("data: ")) {
+    jsonStr = trimmed.slice(6);
+    if (jsonStr === "[DONE]") return null;
+  }
+
+  try {
+    return JSON.parse(jsonStr) as GrsaiStreamData;
+  } catch {
+    return null;
+  }
+}
+
 // Translate GrsAI English error messages to Chinese
 function translateGrsaiError(message: string): string {
   if (!message) return "生成失败，请重试";
@@ -384,59 +413,73 @@ export async function POST(request: NextRequest) {
               buffer = lines.pop() || "";
 
               for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
+                const result = parseStreamLine(line);
+                if (!result) continue;
 
-                let jsonStr = trimmed;
-                // SSE format: data: {...}
-                if (trimmed.startsWith("data: ")) {
-                  jsonStr = trimmed.slice(6);
-                  if (jsonStr === "[DONE]") continue;
+                // Capture task ID
+                if (result.id && !taskId) {
+                  taskId = result.id;
                 }
 
-                try {
-                  const data = JSON.parse(jsonStr);
-                  console.log("GrsAI SSE data:", JSON.stringify(data).substring(0, 200));
+                // Forward progress
+                if (result.progress !== undefined) {
+                  const baseProgress = imageCount > 1 ? Math.round((imgIndex / imageCount) * 100) : 0;
+                  const stepProgress = imageCount > 1
+                    ? Math.round((result.progress / 100) * (100 / imageCount))
+                    : result.progress;
+                  const statusText = imageCount > 1
+                    ? `第 ${imgIndex + 1}/${imageCount} 张 - ${result.status === "submitted" ? "等待处理" : result.status === "running" ? "正在生成" : result.status === "uploading" ? "上传中" : result.status || "处理中"}`
+                    : (result.status === "submitted" ? "等待处理" : result.status === "running" ? "正在生成" : result.status === "uploading" ? "上传中" : result.status || "处理中");
+                  sendSSE({ type: "progress", progress: Math.min(baseProgress + stepProgress, 99), status: statusText, total: imageCount, current: imgIndex });
+                }
 
-                  // Capture task ID
-                  if (data.id && !taskId) {
-                    taskId = data.id;
-                  }
+                // Capture final result
+                if (result.status === "succeeded" && result.results) {
+                  imageUrl = result.results[0]?.url || result.url || "";
+                }
 
-                  // Forward progress
-                  if (data.progress !== undefined) {
-                    const baseProgress = imageCount > 1 ? Math.round((imgIndex / imageCount) * 100) : 0;
-                    const stepProgress = imageCount > 1
-                      ? Math.round((data.progress / 100) * (100 / imageCount))
-                      : data.progress;
-                    const statusText = imageCount > 1
-                      ? `第 ${imgIndex + 1}/${imageCount} 张 - ${data.status === "submitted" ? "等待处理" : data.status === "running" ? "正在生成" : data.status === "uploading" ? "上传中" : data.status || "处理中"}`
-                      : (data.status === "submitted" ? "等待处理" : data.status === "running" ? "正在生成" : data.status === "uploading" ? "上传中" : data.status || "处理中");
-                    sendSSE({ type: "progress", progress: Math.min(baseProgress + stepProgress, 99), status: statusText, total: imageCount, current: imgIndex });
+                if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
+                  let reason: string;
+                  if (result.error && typeof result.error === "string") {
+                    reason = translateGrsaiError(result.error);
+                  } else if (result.failure_reason && typeof result.failure_reason === "string") {
+                    reason = translateGrsaiError(result.failure_reason);
+                  } else if (result.status === "violation") {
+                    reason = "生成内容违规，请修改提示词后重试";
+                  } else {
+                    reason = "生成失败，请重试";
                   }
+                  sendSSE({ type: "error", error: reason });
+                  controller.close();
+                  return;
+                }
+              }
+            }
 
-                  // Capture final result
-                  if (data.status === "succeeded" && data.results) {
-                    imageUrl = data.results[0]?.url || data.url || "";
+            // Process remaining buffer (for non-SSE JSON responses without trailing newline)
+            if (buffer.trim()) {
+              const result = parseStreamLine(buffer);
+              if (result) {
+                if (result.id && !taskId) {
+                  taskId = result.id;
+                }
+                if (result.status === "succeeded" && result.results) {
+                  imageUrl = result.results[0]?.url || result.url || "";
+                }
+                if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
+                  let reason: string;
+                  if (result.error && typeof result.error === "string") {
+                    reason = translateGrsaiError(result.error);
+                  } else if (result.failure_reason && typeof result.failure_reason === "string") {
+                    reason = translateGrsaiError(result.failure_reason);
+                  } else if (result.status === "violation") {
+                    reason = "生成内容违规，请修改提示词后重试";
+                  } else {
+                    reason = "生成失败，请重试";
                   }
-
-                  if (data.status === "failed" || data.status === "violation" || data.status === "error" || data.error) {
-                    let reason: string;
-                    if (data.error && typeof data.error === "string") {
-                      reason = translateGrsaiError(data.error);
-                    } else if (data.failure_reason && typeof data.failure_reason === "string") {
-                      reason = translateGrsaiError(data.failure_reason);
-                    } else if (data.status === "violation") {
-                      reason = "生成内容违规，请修改提示词后重试";
-                    } else {
-                      reason = "生成失败，请重试";
-                    }
-                    sendSSE({ type: "error", error: reason });
-                    controller.close();
-                    return;
-                  }
-                } catch {
-                  // Skip malformed JSON lines
+                  sendSSE({ type: "error", error: reason });
+                  controller.close();
+                  return;
                 }
               }
             }
