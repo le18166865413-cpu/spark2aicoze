@@ -903,7 +903,7 @@ function CreatePageInner() {
                             alt={`Generated ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center gap-2">
                             <Button
                               variant="secondary"
                               size="sm"
@@ -912,6 +912,26 @@ function CreatePageInner() {
                             >
                               <Download className="w-4 h-4 mr-1" />
                               下载
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                setMode("img2img");
+                                setRefImages((prev) => {
+                                  const alreadyAdded = prev.some((img) => img.url === result.url);
+                                  if (alreadyAdded) {
+                                    toast.success("该图片已在参考图中");
+                                    return prev;
+                                  }
+                                  toast.success(`已将第 ${index + 1} 张图添加为参考图`);
+                                  return [...prev, { url: result.url as string, preview: result.url as string }];
+                                });
+                              }}
+                            >
+                              <ImagePlus className="w-4 h-4 mr-1" />
+                              基于本图修改
                             </Button>
                           </div>
                         </>
