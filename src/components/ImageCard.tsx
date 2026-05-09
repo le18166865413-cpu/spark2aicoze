@@ -224,7 +224,7 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
             </Button>
           </div>
 
-          <div className="flex items-center gap-4 py-4 border-t border-dashed">
+          <div className="flex items-center gap-4 py-4">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
               {(image.creatorName || 'AI')[0]}
             </div>
