@@ -144,6 +144,7 @@ export async function runGrsaiSync(maxPages = 3, pageSize = 20): Promise<GrsaiSy
         break;
       }
 
+      let pageHasOldTask = false;
       for (const item of logs.list) {
         // Parse JSON strings in taskData
         let taskData = item.taskData || {};
@@ -157,11 +158,25 @@ export async function runGrsaiSync(maxPages = 3, pageSize = 20): Promise<GrsaiSy
         const taskId = item.taskId || taskData.result?.id;
         if (!taskId) continue;
 
-        // Check if already imported
+        // Only sync tasks finished within last 2 hours
+        const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+        const finishTimeStr = item.finishTime || item.createTime;
+        if (finishTimeStr) {
+          const finishTime = new Date(finishTimeStr.replace(" ", "T")).getTime();
+          if (Date.now() - finishTime > TWO_HOURS_MS) {
+            skipped++;
+            results.push({ taskId, status: "skipped", message: "超过2小时" });
+            pageHasOldTask = true;
+            continue;
+          }
+        }
+
+        // Check if already imported (not soft-deleted)
         const { count: existingCount } = await supabase
           .from("gallery_images")
           .select("*", { count: "exact", head: true })
-          .eq("task_id", taskId);
+          .eq("task_id", taskId)
+          .is("deleted_at", null);
 
         if ((existingCount ?? 0) > 0) {
           skipped++;
@@ -229,6 +244,12 @@ export async function runGrsaiSync(maxPages = 3, pageSize = 20): Promise<GrsaiSy
           skipped++;
           results.push({ taskId, status: "skipped", message: `状态: ${taskStatus}` });
         }
+      }
+
+      // Stop if we encountered old tasks in this page (data is time-descending)
+      if (pageHasOldTask) {
+        console.log(`[GrsAI Cron] Stopping pagination: encountered tasks older than 2 hours on page ${page}`);
+        break;
       }
 
       if (page >= logs.totalPage) {

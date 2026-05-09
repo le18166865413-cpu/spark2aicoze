@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 
 export default function DebugPage() {
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
