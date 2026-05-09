@@ -17,8 +17,13 @@ app.prepare().then(() => {
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('Internal server error');
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal server error', detail: String(err) }));
+      } else {
+        res.end();
+      }
     }
   });
   server.once('error', err => {
