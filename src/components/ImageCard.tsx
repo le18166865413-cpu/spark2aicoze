@@ -302,71 +302,11 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
       </DialogTrigger>
 
       {/* Detail Modal - Modern SaaS Style */}
-      <DialogContent className="w-[95vw] sm:max-w-[95vw] md:max-w-[1400px] h-[90vh] md:h-[85vh] overflow-hidden bg-background rounded-2xl p-0 flex flex-col md:flex-row focus:outline-none border border-border shadow-2xl">
+      <DialogContent className="w-[95vw] sm:max-w-[95vw] md:max-w-[1400px] h-[90vh] md:h-[85vh] overflow-y-auto md:overflow-hidden bg-background rounded-2xl p-0 flex flex-col md:flex-row focus:outline-none border border-border shadow-2xl">
         <DialogTitle className="sr-only">海报详情</DialogTitle>
 
         {/* Left Image Side */}
         <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%]">
-          {/* Top Action Bar - overlay on image (mobile only) */}
-          <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between md:hidden">
-            <div className="flex gap-2">
-              {isAdmin && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className={cn("rounded-full bg-background/60 backdrop-blur-sm hover:bg-background/80", pinned && "text-yellow-600")}
-                  onClick={handlePin}
-                >
-                  <Pin className={cn("w-4 h-4", pinned && "fill-current")} />
-                </Button>
-              )}
-              <Button size="icon" variant="ghost" className="rounded-full bg-background/60 backdrop-blur-sm hover:bg-background/80">
-                <Share2 className="w-4 h-4" />
-              </Button>
-              {onDelete && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full bg-background/60 backdrop-blur-sm hover:bg-background/80"
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
-              )}
-              {onHide && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full bg-background/60 backdrop-blur-sm hover:bg-background/80"
-                  onClick={handleHideClick}
-                  title="隐藏"
-                >
-                  <EyeOff className="w-4 h-4 text-amber-500" />
-                </Button>
-              )}
-              {onUnhide && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full bg-background/60 backdrop-blur-sm hover:bg-background/80"
-                  onClick={handleUnhideClick}
-                  title="恢复显示"
-                >
-                  <RotateCcw className="w-4 h-4 text-primary" />
-                </Button>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={handleLike}
-              disabled={likeLoading}
-              className={cn("rounded-full font-bold px-3 transition-all text-xs", liked ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 shadow-none" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(34,197,94,0.15)]")}
-            >
-              <Heart className={cn("w-3.5 h-3.5 mr-1", liked && "fill-current")} />
-              {liked ? "已收藏" : "收藏"}
-            </Button>
-          </div>
-
           <div className="relative w-full h-full p-2 md:p-6 flex items-center justify-center">
             {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
@@ -387,7 +327,67 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
         </div>
 
         {/* Right Info Side */}
-        <div className="w-full md:w-[400px] flex-shrink-0 p-4 md:p-6 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full overflow-y-auto flex-1 md:flex-none">
+        <div className="w-full md:w-[400px] flex-shrink-0 p-4 md:p-6 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full md:overflow-y-auto flex-1 md:flex-none">
+          {/* Top Action Bar - mobile */}
+          <div className="flex md:hidden items-center justify-center gap-2 py-3 border-b flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              {isAdmin && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={cn("rounded-full hover:bg-secondary", pinned && "text-yellow-600")}
+                  onClick={handlePin}
+                >
+                  <Pin className={cn("w-4 h-4", pinned && "fill-current")} />
+                </Button>
+              )}
+              <Button size="icon" variant="ghost" className="rounded-full hover:bg-secondary">
+                <Share2 className="w-4 h-4" />
+              </Button>
+              {onDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              )}
+              {onHide && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleHideClick}
+                  title="隐藏"
+                >
+                  <EyeOff className="w-4 h-4 text-amber-500" />
+                </Button>
+              )}
+              {onUnhide && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleUnhideClick}
+                  title="恢复显示"
+                >
+                  <RotateCcw className="w-4 h-4 text-primary" />
+                </Button>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={handleLike}
+              disabled={likeLoading}
+              className={cn("rounded-full font-bold px-3 text-xs transition-all", liked ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 shadow-none" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(34,197,94,0.15)]")}
+            >
+              <Heart className={cn("w-3.5 h-3.5 mr-1", liked && "fill-current")} />
+              {liked ? "已收藏" : "收藏"}
+            </Button>
+          </div>
+
           {/* Top Action Bar - desktop only */}
           <div className="hidden md:flex items-center justify-between sticky top-0 bg-background z-10 pb-4 border-b">
             <div className="flex gap-2">
