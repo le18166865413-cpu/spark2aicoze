@@ -139,7 +139,7 @@ export async function GET() {
     config.dailyGenerateLimit = config.daily_generate_limit;
     config.promptMaxLength = config.prompt_max_length;
     config.templates = config.prompt_templates;
-    config.models = config.available_models;
+    config.models = Array.isArray(config.available_models) ? config.available_models.filter((m: Record<string, unknown>) => m.enabled !== false) : [];
     config.ratios = config.available_ratios;
     config.tips = config.tips_content;
     config.themeColor = config.theme_color;

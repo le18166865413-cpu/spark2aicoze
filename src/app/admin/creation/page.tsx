@@ -13,6 +13,7 @@ interface ModelItem {
   value: string;
   label: string;
   desc: string;
+  enabled?: boolean;
 }
 
 interface RatioItem {
@@ -144,7 +145,7 @@ export default function CreationConfigPage() {
   // Model helpers
   const addModel = () => setModels([...models, { value: '', label: '', desc: '' }]);
   const removeModel = (i: number) => setModels(models.filter((_, idx) => idx !== i));
-  const updateModel = (i: number, field: keyof ModelItem, val: string) => {
+  const updateModel = (i: number, field: keyof ModelItem, val: string | boolean) => {
     const next = [...models];
     next[i] = { ...next[i], [field]: val };
     setModels(next);
@@ -262,6 +263,15 @@ export default function CreationConfigPage() {
                   <input type="text" value={m.label} onChange={(e) => updateModel(i, 'label', e.target.value)} placeholder="显示名称" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                   <input type="text" value={m.desc} onChange={(e) => updateModel(i, 'desc', e.target.value)} placeholder="描述" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 </div>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs whitespace-nowrap" title={m.enabled !== false ? "点击停用" : "点击启用"}>
+                  <span className={m.enabled !== false ? "text-emerald-500" : "text-muted-foreground"}>{m.enabled !== false ? "已启用" : "已停用"}</span>
+                  <div
+                    onClick={() => updateModel(i, 'enabled', m.enabled === false ? true : false)}
+                    className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${m.enabled !== false ? "bg-primary" : "bg-muted-foreground/30"}`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${m.enabled !== false ? "translate-x-4" : "translate-x-0"}`} />
+                  </div>
+                </label>
                 <button onClick={() => removeModel(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
