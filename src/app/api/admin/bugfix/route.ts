@@ -15,7 +15,25 @@ export async function POST(request: NextRequest) {
 
     // Action 1: 一键修复匿名创作者
     if (action === "fixAnonymousCreators") {
-      const { data, error } = await supabase
+      // 先查询本次需要修复的数量
+      const { count: needFixCount, error: countError } = await supabase
+        .from("gallery_images")
+        .select("*", { count: "exact", head: true })
+        .is("creator_name", null);
+
+      if (countError) {
+        return NextResponse.json({ error: countError.message }, { status: 500 });
+      }
+
+      if (!needFixCount || needFixCount === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "没有需要修复的匿名创作者记录",
+          fixedCount: 0,
+        });
+      }
+
+      const { error } = await supabase
         .from("gallery_images")
         .update({ creator_name: "系统导入" })
         .is("creator_name", null);
@@ -24,15 +42,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      const { count } = await supabase
-        .from("gallery_images")
-        .select("*", { count: "exact", head: true })
-        .eq("creator_name", "系统导入");
-
       return NextResponse.json({
         success: true,
-        message: `已将 ${count || 0} 条匿名创作者记录修复为「系统导入」`,
-        fixedCount: count || 0,
+        message: `已将 ${needFixCount} 条匿名创作者记录修复为「系统导入」`,
+        fixedCount: needFixCount,
       });
     }
 
