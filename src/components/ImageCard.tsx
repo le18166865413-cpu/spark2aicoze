@@ -219,7 +219,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                   )}
                   onClick={handlePin}
                 >
-                  <Pin className={cn("w-3 h-3 mr-1 transition-all", pinned && "fill-current")} />
+                  <Pin className={cn("w-3 h-3 mr-0.5 transition-all", pinned && "fill-current")} />
                   {pinned ? "已置顶" : "置顶"}
                 </Button>
               )}
@@ -234,7 +234,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                   )}
                   onClick={handleLike}
                 >
-                  <Heart className={cn("w-3 h-3 mr-1 transition-all", liked && "fill-current")} />
+                  <Heart className={cn("w-3 h-3 mr-0.5 transition-all", liked && "fill-current")} />
                   {liked ? "已收藏" : "收藏"}
                 </Button>
               </div>
@@ -244,21 +244,21 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
               <p className="text-white text-sm line-clamp-2 font-medium drop-shadow-lg">{image.prompt}</p>
               <div className="flex justify-end gap-2">
                 <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleMakeSame}>
-                  <Copy className="w-3 h-3 mr-1" />做同款
+                  <Copy className="w-3 h-3 mr-0.5" />做同款
                 </Button>
                 {onDelete && (
                   <Button size="sm" className="rounded-full bg-red-500 hover:bg-red-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleDelete}>
-                    <Trash2 className="w-3 h-3 mr-1" />删除
+                    <Trash2 className="w-3 h-3 mr-0.5" />删除
                   </Button>
                 )}
                 {onHide && (
                   <Button size="sm" className="rounded-full bg-amber-500 hover:bg-amber-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleHideClick}>
-                    <EyeOff className="w-3 h-3 mr-1" />隐藏
+                    <EyeOff className="w-3 h-3 mr-0.5" />隐藏
                   </Button>
                 )}
                 {onUnhide && (
                   <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleUnhideClick}>
-                    <RotateCcw className="w-3 h-3 mr-1" />恢复
+                    <RotateCcw className="w-3 h-3 mr-0.5" />恢复
                   </Button>
                 )}
               </div>
