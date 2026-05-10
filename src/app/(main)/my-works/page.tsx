@@ -31,10 +31,10 @@ interface GalleryImage {
   isPinned?: boolean;
 }
 
-const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'works', label: '我的作品', icon: Images },
-  { key: 'favorites', label: '灵感库收藏', icon: FolderHeart },
-  { key: 'hidden', label: '已隐藏作品', icon: EyeOff },
+const tabs: { key: TabKey; label: string; shortLabel: string; icon: React.ElementType }[] = [
+  { key: 'works', label: '我的作品', shortLabel: '作品', icon: Images },
+  { key: 'favorites', label: '灵感库收藏', shortLabel: '收藏', icon: FolderHeart },
+  { key: 'hidden', label: '已隐藏作品', shortLabel: '隐藏', icon: EyeOff },
 ];
 
 export default function MyWorksPage() {
@@ -48,33 +48,49 @@ export default function MyWorksPage() {
   const fetchCounts = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=1000&userId=${user.id}`, { credentials: 'include' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const rawList = Array.isArray(data) ? data : (data.images || []);
-      const allImages: GalleryImage[] = rawList.map((item: Record<string, unknown>) => ({
-        id: item.id as string,
-        url: item.url as string,
-        prompt: item.prompt as string,
-        width: item.width as number,
-        height: item.height as number,
-        views: item.views as number,
-        downloads: item.downloads as number,
-        likes: item.likes as number,
-        referenceCount: item.referenceCount as number,
-        model: item.model as string,
-        ratio: item.ratio as string,
-        liked: item.liked as boolean,
-        creatorName: item.creatorName as string,
-        userId: item.userId as string | null,
-        createdAt: item.createdAt as string,
-        isHidden: item.isHidden as boolean,
-        isPinned: item.isPinned as boolean,
-      }));
+      // Fetch user's own works
+      const worksRes = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=1000&userId=${user.id}`, { credentials: 'include' });
+      let worksCount = 0;
+      let hiddenCount = 0;
+      if (worksRes.ok) {
+        const data = await worksRes.json();
+        const rawList = Array.isArray(data) ? data : (data.images || []);
+        const allImages: GalleryImage[] = rawList.map((item: Record<string, unknown>) => ({
+          id: item.id as string,
+          url: item.url as string,
+          prompt: item.prompt as string,
+          width: item.width as number,
+          height: item.height as number,
+          views: item.views as number,
+          downloads: item.downloads as number,
+          likes: item.likes as number,
+          referenceCount: item.referenceCount as number,
+          model: item.model as string,
+          ratio: item.ratio as string,
+          liked: item.liked as boolean,
+          creatorName: item.creatorName as string,
+          userId: item.userId as string | null,
+          createdAt: item.createdAt as string,
+          isHidden: item.isHidden as boolean,
+          isPinned: item.isPinned as boolean,
+        }));
+        worksCount = allImages.filter((img) => !img.isHidden).length;
+        hiddenCount = allImages.filter((img) => img.isHidden).length;
+      }
+
+      // Fetch favorites count separately
+      const favRes = await fetch('/api/images?sortBy=created_at&sortOrder=desc&limit=1000&favorites=1', { credentials: 'include' });
+      let favoritesCount = 0;
+      if (favRes.ok) {
+        const favData = await favRes.json();
+        const favList = Array.isArray(favData) ? favData : (favData.images || []);
+        favoritesCount = favList.length;
+      }
+
       setCounts({
-        works: allImages.filter((img) => !img.isHidden).length,
-        favorites: allImages.filter((img) => img.liked && !img.isHidden).length,
-        hidden: allImages.filter((img) => img.isHidden).length,
+        works: worksCount,
+        favorites: favoritesCount,
+        hidden: hiddenCount,
       });
     } catch (e) {
       console.error('Failed to fetch counts:', e);
@@ -215,15 +231,16 @@ export default function MyWorksPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border',
+                'flex items-center gap-1.5 px-3 py-1.5 md:gap-2 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition-all border shrink-0',
                 activeTab === tab.key
                   ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_15px_rgba(34,197,94,0.15)]'
                   : 'bg-card text-muted-foreground border-border hover:border-primary/30 hover:text-foreground'
               )}
             >
-              <Icon className="w-4 h-4" />
-              {tab.label}
-              <span className="ml-1 text-xs opacity-80">
+              <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" />
+              <span className="hidden md:inline">{tab.label}</span>
+              <span className="md:hidden">{tab.shortLabel}</span>
+              <span className="ml-0.5 text-[10px] md:text-xs opacity-80">
                 ({counts[tab.key as keyof typeof counts]})
               </span>
             </button>
