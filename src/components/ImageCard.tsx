@@ -177,18 +177,18 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
                   <Copy className="w-3 h-3 mr-1" />制作同款
                 </Button>
                 {onDelete && (
-                  <Button size="icon" className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-9 h-9" onClick={handleDelete}>
-                    <Trash2 className="w-4 h-4" />
+                  <Button size="sm" className="rounded-full bg-red-500 hover:bg-red-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleDelete}>
+                    <Trash2 className="w-3 h-3 mr-1" />删除
                   </Button>
                 )}
                 {onHide && (
-                  <Button size="icon" className="rounded-full bg-amber-500/80 hover:bg-amber-500 text-white w-9 h-9" onClick={handleHideClick}>
-                    <EyeOff className="w-4 h-4" />
+                  <Button size="sm" className="rounded-full bg-amber-500 hover:bg-amber-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleHideClick}>
+                    <EyeOff className="w-3 h-3 mr-1" />隐藏
                   </Button>
                 )}
                 {onUnhide && (
-                  <Button size="icon" className="rounded-full bg-primary/80 hover:bg-primary text-white w-9 h-9" onClick={handleUnhideClick}>
-                    <RotateCcw className="w-4 h-4" />
+                  <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleUnhideClick}>
+                    <RotateCcw className="w-3 h-3 mr-1" />恢复
                   </Button>
                 )}
               </div>
@@ -199,25 +199,25 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
           <div className="flex md:hidden items-center justify-between px-2 py-1.5">
             <p className="text-xs text-muted-foreground line-clamp-1 flex-1 mr-2">{image.prompt}</p>
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full" onClick={handleLike}>
+              <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full" onClick={handleLike}>
                 <Heart className={cn("w-4 h-4 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
               </Button>
-              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-primary" onClick={handleMakeSame}>
-                <Copy className="w-3.5 h-3.5" />
+              <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full text-primary" onClick={handleMakeSame}>
+                <Copy className="w-4 h-4" />
               </Button>
               {onHide && (
-                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-amber-500" onClick={handleHideClick}>
-                  <EyeOff className="w-3.5 h-3.5" />
+                <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full text-amber-500" onClick={handleHideClick}>
+                  <EyeOff className="w-4 h-4" />
                 </Button>
               )}
               {onUnhide && (
-                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-primary" onClick={handleUnhideClick}>
-                  <RotateCcw className="w-3.5 h-3.5" />
+                <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full text-primary" onClick={handleUnhideClick}>
+                  <RotateCcw className="w-4 h-4" />
                 </Button>
               )}
               {onDelete && (
-                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-destructive" onClick={handleDelete}>
-                  <Trash2 className="w-3.5 h-3.5" />
+                <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full text-destructive" onClick={handleDelete}>
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>
