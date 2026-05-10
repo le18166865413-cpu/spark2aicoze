@@ -24,6 +24,7 @@ import { Download } from 'lucide-react';
 interface User {
   id: string;
   username: string;
+  password: string;
   nickname: string;
   role: string;
   status: string;
@@ -232,9 +233,10 @@ export default function AdminUsersPage() {
       alert('暂无用户数据可导出');
       return;
     }
-    const headers = ['用户名', '昵称', '角色', '状态', '创建时间', '更新时间'];
+    const headers = ['用户名', '密码', '昵称', '角色', '状态', '创建时间', '更新时间'];
     const rows = users.map(u => [
       u.username,
+      u.password || '',
       u.nickname,
       u.role === 'admin' ? '管理员' : '普通用户',
       u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',
