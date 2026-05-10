@@ -155,6 +155,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
+    // Update user's gallery images to system import before deleting
+    await getSupabaseClient()
+      .from('gallery_images')
+      .update({ user_id: null, creator_name: '系统导入' })
+      .eq('user_id', id);
+
     // Delete user sessions first
     await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);
 
