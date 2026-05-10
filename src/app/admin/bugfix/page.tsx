@@ -141,7 +141,7 @@ export default function BugfixPage() {
             修复匿名创作者
           </CardTitle>
           <CardDescription>
-            一键将所有创作者名称为空或"匿名创作者"的作品，修改为"系统导入"
+            一键将所有创作者名称为空或&ldquo;匿名创作者&rdquo;的作品，修改为&ldquo;系统导入&rdquo;
           </CardDescription>
         </CardHeader>
         <CardContent>

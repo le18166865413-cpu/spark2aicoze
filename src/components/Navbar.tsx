@@ -10,10 +10,14 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const [siteName, setSiteName] = useState('SparkAI');
+  const [siteLabel, setSiteLabel] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(d => setSiteName(d.siteName || 'SparkAI')).catch(() => {});
+    fetch('/api/config').then(r => r.json()).then(d => {
+      setSiteName(d.siteName || 'SparkAI');
+      setSiteLabel(d.siteLabel || '');
+    }).catch(() => {});
   }, []);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +46,14 @@ export default function Navbar() {
           <div className="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-bold text-lg">{displayName}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-lg">{displayName}</span>
+            {siteLabel && (
+              <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                {siteLabel}
+              </span>
+            )}
+          </div>
         </Link>
 
         {/* Desktop Nav */}

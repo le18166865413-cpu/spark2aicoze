@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { cookies } from "next/headers";
+import { getSiteFilter } from "@/lib/multi-site";
 
 async function getCurrentUserId(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -87,6 +88,12 @@ export async function GET(request: NextRequest) {
       .from("gallery_images")
       .select("*, is_pinned, users!gallery_images_user_id_fkey(nickname, username)")
       .is("deleted_at", null);
+
+    // Filter by site_id for sub-sites (optional data isolation)
+    const siteFilter = await getSiteFilter();
+    if (siteFilter) {
+      query = query.eq(siteFilter.column, siteFilter.value);
+    }
 
     // Filter by favorites
     if (imageIds) {

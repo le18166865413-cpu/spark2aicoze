@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { getCurrentSite, isSubSite } from "@/lib/multi-site";
 
 // Default configs (used when DB has no saved values)
 const DEFAULTS: Record<string, string> = {
@@ -145,6 +146,12 @@ export async function GET() {
     config.themeColor = config.theme_color;
     config.themeMode = config.theme_mode;
     config.themeCustomHex = config.theme_custom_hex;
+
+    // Multi-site info
+    const site = getCurrentSite();
+    config.siteId = site.siteId;
+    config.isSubSite = site.isSubSite;
+    config.siteLabel = site.siteLabel;
 
     return NextResponse.json(config);
   } catch (error) {

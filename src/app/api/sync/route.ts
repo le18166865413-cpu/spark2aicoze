@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { getStorageErrorMessage } from "@/utils/storage-error";
+import { getSiteFilter, buildSiteInsertData } from "@/lib/multi-site";
 
 const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
 
     // Save to Supabase
     const supabase = getSupabaseClient();
-    const { error: dbError } = await supabase.from("gallery_images").insert({
+    const insertData = buildSiteInsertData({
       id: imageId,
       prompt: prompt,
       url: signedUrl,
@@ -191,6 +192,7 @@ export async function POST(request: NextRequest) {
       task_id: taskId,
       created_at: now,
     });
+    const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
 
     if (dbError) {
       console.error("Supabase insert error:", dbError);
@@ -216,12 +218,19 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const supabase = getSupabaseClient();
-    const { data: images, error } = await supabase
+    let query = supabase
       .from("gallery_images")
       .select("*")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(50);
+
+    const siteFilter = getSiteFilter();
+    if (siteFilter) {
+      query = query.eq("site_id", siteFilter);
+    }
+
+    const { data: images, error } = await query;
 
     if (error) {
       console.error("Supabase query error:", error);

@@ -3,6 +3,7 @@ import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { getStorageErrorMessage } from "@/utils/storage-error";
 import { verifyUser } from "@/lib/admin-auth";
+import { buildSiteInsertData } from "@/lib/multi-site";
 
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
 
@@ -529,7 +530,7 @@ export async function POST(request: NextRequest) {
             // Save to Supabase
             try {
               const supabase = getSupabaseClient();
-              const { error: dbError } = await supabase.from("gallery_images").insert({
+              const insertData = await buildSiteInsertData({
                 id: imageId,
                 prompt: prompt,
                 url: "",
@@ -545,6 +546,7 @@ export async function POST(request: NextRequest) {
                 creator_name: creatorName,
                 created_at: now,
               });
+              const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
 
               if (dbError) {
                 console.error("Failed to save to Supabase:", dbError);
