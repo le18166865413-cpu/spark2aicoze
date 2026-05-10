@@ -215,6 +215,11 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
                   <RotateCcw className="w-3.5 h-3.5" />
                 </Button>
               )}
+              {onDelete && (
+                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-destructive" onClick={handleDelete}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
             </div>
           </div>
 

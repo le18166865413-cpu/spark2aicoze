@@ -66,6 +66,10 @@ export default function MyWorksPage() {
     }
   }, [user, authLoading, router, fetchMyImages]);
 
+  const handleDelete = (id: string) => {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
   const handleHide = async (id: string) => {
     try {
       const res = await fetch(`/api/images/${id}`, {
@@ -199,6 +203,7 @@ export default function MyWorksPage() {
               image={image}
               onHide={activeTab !== 'hidden' ? handleHide : undefined}
               onUnhide={activeTab === 'hidden' ? handleUnhide : undefined}
+              onDelete={activeTab === 'hidden' ? handleDelete : undefined}
             />
           ))}
         </div>

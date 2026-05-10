@@ -30,6 +30,7 @@ interface GalleryImage {
   imageKey?: string;
   taskId?: string;
   creatorName?: string;
+  userId?: string | null;
 }
 
 export default function Home() {
@@ -44,7 +45,7 @@ export default function Home() {
   const [pageSize, setPageSize] = useState(50);
   const [galleryTitle, setGalleryTitle] = useState("海报生成记录");
   const [gallerySubtitle, setGallerySubtitle] = useState("查看通过 SparkAI 生成的所有海报作品");
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role: string; nickname?: string } | null>(null);
 
   // Load current user
   useEffect(() => {
@@ -269,6 +270,7 @@ export default function Home() {
                     key={img.id}
                     image={img}
                     onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
+                    onHide={currentUser?.id && currentUser.id === img.userId ? handleDeleteImage : undefined}
                     priority={globalIndex < 4}
                   />
                 );
