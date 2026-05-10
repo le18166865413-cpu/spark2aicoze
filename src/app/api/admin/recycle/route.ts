@@ -123,8 +123,7 @@ export async function POST(request: Request) {
           for (const img of images) {
             if (img.image_key) {
               try {
-                // @ts-expect-error S3Storage delete method not in types
-                await storage.delete(img.image_key);
+                await storage.deleteFile({ fileKey: img.image_key });
               } catch {
                 // 忽略 S3 删除错误
               }
@@ -200,8 +199,7 @@ export async function DELETE(request: Request) {
         for (const img of images) {
           if (img.image_key) {
             try {
-              // @ts-expect-error S3Storage delete method not in types
-              await storage.delete(img.image_key);
+              await storage.deleteFile({ fileKey: img.image_key });
             } catch {
               // 忽略 S3 删除错误
             }

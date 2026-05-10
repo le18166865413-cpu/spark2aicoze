@@ -62,8 +62,7 @@ export async function POST(request: NextRequest) {
           const imageKey = img.image_key as string;
           if (imageKey) {
             try {
-              // @ts-expect-error storage delete not typed
-              await storage.delete(imageKey);
+              await storage.deleteFile({ fileKey: imageKey });
               deletedStorage++;
             } catch {
               failedStorage++;
@@ -114,8 +113,7 @@ export async function POST(request: NextRequest) {
         for (const key of s3Keys) {
           if (!dbKeys.has(key)) {
             try {
-              // @ts-expect-error storage delete not typed
-              await storage.delete(key);
+              await storage.deleteFile({ fileKey: key });
               orphanDeleted++;
             } catch {
               orphanFailed++;
