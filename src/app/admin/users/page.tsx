@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Download } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 
 interface User {
   id: string;
@@ -44,7 +44,10 @@ export default function AdminUsersPage() {
   const [newPassword, setNewPassword] = useState('');
   const [batchMode, setBatchMode] = useState(false);
   const [batchText, setBatchText] = useState('');
-  const [batchPreview, setBatchPreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean}[]>([]);
+  const [batchPreview, setBatchPreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const [restoreText, setRestoreText] = useState('');
+  const [restorePreview, setRestorePreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -85,6 +88,8 @@ export default function AdminUsersPage() {
     }
   };
 
+  const isBcryptHash = (pwd: string) => /^\$2[aby]\$\d+\$/.test(pwd) && pwd.length >= 59;
+
   const parseBatchText = (text: string) => {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const parsed = lines.map(line => {
@@ -92,9 +97,25 @@ export default function AdminUsersPage() {
       const [username = '', password = '', nickname = '', roleText = ''] = parts;
       const role = roleText.includes('管理') ? 'admin' : 'user';
       const valid = username.length > 0 && password.length > 0;
-      return { username, password, nickname: nickname || username, role, valid };
+      return { username, password, nickname: nickname || username, role, valid, isHash: isBcryptHash(password) };
     });
     setBatchPreview(parsed);
+    return parsed;
+  };
+
+  const parseRestoreCSV = (text: string) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    // Skip header if first line contains Chinese or "username"
+    const startIndex = lines.length > 0 && (/用户名|username|密码|password/i.test(lines[0])) ? 1 : 0;
+    const parsed = lines.slice(startIndex).map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      // Format: username, password, nickname, role, status, created_at, updated_at
+      const [username = '', password = '', nickname = '', roleText = ''] = parts;
+      const role = roleText.includes('管理') || roleText === 'admin' ? 'admin' : 'user';
+      const valid = username.length > 0 && password.length > 0;
+      return { username, password, nickname: nickname || username, role, valid, isHash: isBcryptHash(password) };
+    });
+    setRestorePreview(parsed);
     return parsed;
   };
 
@@ -128,6 +149,42 @@ export default function AdminUsersPage() {
       setShowAddDialog(false);
       setBatchText('');
       setBatchPreview([]);
+      fetchUsers();
+    }
+  };
+
+  const handleRestoreUsers = async () => {
+    const users = parseRestoreCSV(restoreText).filter(u => u.valid);
+    if (users.length === 0) {
+      alert('没有有效的用户数据，请粘贴导出的 CSV 内容');
+      return;
+    }
+    let success = 0;
+    let failed = 0;
+    let hashCount = 0;
+    for (const user of users) {
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(user),
+        });
+        if (res.ok) {
+          success++;
+          if (user.isHash) hashCount++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+    alert(`批量还原完成：成功 ${success} 条（含 ${hashCount} 条哈希密码），失败 ${failed} 条`);
+    if (success > 0) {
+      setShowRestoreDialog(false);
+      setRestoreText('');
+      setRestorePreview([]);
       fetchUsers();
     }
   };
@@ -350,6 +407,48 @@ export default function AdminUsersPage() {
             <Button size="sm" variant="outline" onClick={handleExportUsers}>
               <Download className="w-4 h-4 mr-1" />批量导出
             </Button>
+            <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Upload className="w-4 h-4 mr-1" />批量还原
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>批量还原用户</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <p className="text-xs text-muted-foreground">粘贴导出的 CSV 内容，系统会自动识别 bcrypt 哈希密码并直接还原，无需重新加密。</p>
+                  <textarea
+                    className="w-full min-h-[120px] p-3 rounded-md border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder={`用户名,密码,昵称,角色...\nadmin,\$2b\$10\$...,管理员,admin...`}
+                    value={restoreText}
+                    onChange={e => { setRestoreText(e.target.value); parseRestoreCSV(e.target.value); }}
+                  />
+                  {restorePreview.length > 0 && (
+                    <div className="mt-2 space-y-1 max-h-[150px] overflow-y-auto">
+                      {restorePreview.map((u, i) => (
+                        <div key={i} className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${u.valid ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
+                          <span className="font-mono">{i + 1}.</span>
+                          <span>{u.username}</span>
+                          <span className="text-muted-foreground">{u.nickname}</span>
+                          {u.isHash && <Badge variant="outline" className="text-[10px] h-4">哈希</Badge>}
+                          <span className="ml-auto">{u.role === 'admin' ? '管理员' : '普通用户'}</span>
+                          {!u.valid && <span className="text-red-500">(信息不完整)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleRestoreUsers}
+                    disabled={restorePreview.filter(u => u.valid).length === 0}
+                    className="w-full"
+                  >
+                    批量还原 {restorePreview.filter(u => u.valid).length > 0 ? `(${restorePreview.filter(u => u.valid).length} 人)` : ''}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
                 <Button size="sm">添加用户</Button>
@@ -398,11 +497,11 @@ export default function AdminUsersPage() {
                 <div className="border-t pt-4 mt-2">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-muted-foreground">批量添加</p>
-                    <p className="text-xs text-muted-foreground">格式：用户名--密码--昵称--角色</p>
+                    <p className="text-xs text-muted-foreground">格式：用户名--密码--昵称--角色（支持 bcrypt 哈希密码直接导入）</p>
                   </div>
                   <textarea
                     className="w-full min-h-[100px] p-3 rounded-md border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder={`user1--123456--张三--普通用户\nadmin1--abcdef--李四--管理员`}
+                    placeholder={`user1--123456--张三--普通用户\nadmin1--\$2b\$10\$...--李四--管理员`}
                     value={batchText}
                     onChange={e => { setBatchText(e.target.value); parseBatchText(e.target.value); }}
                   />
@@ -413,6 +512,7 @@ export default function AdminUsersPage() {
                           <span className="font-mono">{i + 1}.</span>
                           <span>{u.username}</span>
                           <span className="text-muted-foreground">{u.nickname}</span>
+                          {u.isHash && <Badge variant="outline" className="text-[10px] h-4">哈希</Badge>}
                           <span className="ml-auto">{u.role === 'admin' ? '管理员' : '普通用户'}</span>
                           {!u.valid && <span className="text-red-500">(信息不完整)</span>}
                         </div>

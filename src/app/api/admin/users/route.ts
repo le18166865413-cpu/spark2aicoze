@@ -45,7 +45,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '用户名至少3个字符' }, { status: 400 });
     }
 
-    if (password.length < 6) {
+    // Detect bcrypt hash: starts with $2a$ / $2b$ / $2y$ and has 60 chars
+    const isBcryptHash = /^\$2[aby]\$\d+\$/.test(password) && password.length >= 59;
+
+    if (!isBcryptHash && password.length < 6) {
       return NextResponse.json({ error: '密码至少6个字符' }, { status: 400 });
     }
 
@@ -59,14 +62,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '用户名已存在' }, { status: 409 });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const finalPassword = isBcryptHash ? password : await bcrypt.hash(password, 10);
 
     const { data, error } = await getSupabaseClient()
       .from('users')
       .insert({
         username,
-        password: hashedPassword,
-        plain_password: password,
+        password: finalPassword,
+        plain_password: isBcryptHash ? undefined : password,
         nickname,
         role: role || 'user',
         status: 'approved',
