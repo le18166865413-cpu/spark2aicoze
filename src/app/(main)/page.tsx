@@ -40,7 +40,7 @@ interface GalleryImage {
 export default function Home() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<SortBy>("references");
+  const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [period, setPeriod] = useState<Period>("all");
   const [search, setSearch] = useState("");
