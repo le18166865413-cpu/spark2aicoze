@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
         }
 
         const userInfo = img.users as Record<string, unknown> | null;
-        const creatorName = (img.creator_name as string) || (userInfo?.nickname as string) || (userInfo?.username as string) || 'SparkAI 用户';
+        const creatorName = (img.creator_name as string) || (userInfo?.nickname as string) || (userInfo?.username as string) || '系统导入';
 
         return {
           id: img.id,
