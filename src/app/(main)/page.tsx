@@ -10,12 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Eye, Download, Search, Sparkles, ImagePlus, Palette } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Heart, BookOpen, Search, Sparkles, ImagePlus, Palette } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-type SortBy = "views" | "downloads" | "created_at";
+type SortBy = "likes" | "references" | "created_at";
 type SortOrder = "asc" | "desc";
 type Period = "day" | "week" | "month" | "all";
 
@@ -40,7 +40,7 @@ interface GalleryImage {
 export default function Home() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<SortBy>("created_at");
+  const [sortBy, setSortBy] = useState<SortBy>("references");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [period, setPeriod] = useState<Period>("all");
   const [search, setSearch] = useState("");
@@ -219,11 +219,11 @@ export default function Home() {
               <SelectItem value="created_at" className="cursor-pointer rounded-lg">
                 <div className="flex items-center gap-2"><Clock className="w-4 h-4" /> 生成时间</div>
               </SelectItem>
-              <SelectItem value="views" className="cursor-pointer rounded-lg">
-                <div className="flex items-center gap-2"><Eye className="w-4 h-4" /> 浏览热度</div>
+              <SelectItem value="likes" className="cursor-pointer rounded-lg">
+                <div className="flex items-center gap-2"><Heart className="w-4 h-4" /> 点赞量</div>
               </SelectItem>
-              <SelectItem value="downloads" className="cursor-pointer rounded-lg">
-                <div className="flex items-center gap-2"><Download className="w-4 h-4" /> 下载数量</div>
+              <SelectItem value="references" className="cursor-pointer rounded-lg">
+                <div className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> 参考量</div>
               </SelectItem>
             </SelectContent>
           </Select>

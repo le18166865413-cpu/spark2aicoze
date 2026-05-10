@@ -122,7 +122,11 @@ export async function GET(request: NextRequest) {
 
     // Sort: pinned first, then by selected column
     query = query.order("is_pinned", { ascending: false });
-    const sortColumn = sortBy === "views" ? "views" : sortBy === "downloads" ? "downloads" : sortBy === "likes" ? "likes" : "created_at";
+    const sortColumn =
+      sortBy === "likes" ? "likes" :
+      sortBy === "references" ? "reference_count" :
+      sortBy === "created_at" ? "created_at" :
+      "created_at";
     const ascending = sortOrder === "asc";
     query = query.order(sortColumn, { ascending });
 
