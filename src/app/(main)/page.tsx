@@ -34,6 +34,7 @@ interface GalleryImage {
   creatorName?: string;
   userId?: string | null;
   isPinned?: boolean;
+  liked?: boolean;
 }
 
 export default function Home() {
@@ -90,7 +91,7 @@ export default function Home() {
       if (debouncedSearch) queryParams.set("search", debouncedSearch);
       queryParams.set("limit", String(pageSize));
 
-      const res = await fetch(`/api/images?${queryParams.toString()}`);
+      const res = await fetch(`/api/images?${queryParams.toString()}`, { credentials: "include" });
       const rawData = await res.json();
       const data: GalleryImage[] = rawData.map((item: Record<string, unknown>) => ({
         id: item.id as string,
@@ -107,6 +108,7 @@ export default function Home() {
         creatorName: item.creatorName as string | undefined,
         userId: item.userId as string | null | undefined,
         isPinned: item.isPinned as boolean | undefined,
+        liked: item.liked as boolean | undefined,
       }));
       setImages(data);
     } catch (error) {

@@ -247,8 +247,8 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                   <Copy className="w-3 h-3 mr-0.5" />做同款
                 </Button>
                 {onDelete && (
-                  <Button size="sm" className="rounded-full bg-red-500 hover:bg-red-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleDelete}>
-                    <Trash2 className="w-3 h-3 mr-0.5" />删除
+                  <Button size="icon" className="rounded-full bg-red-500 hover:bg-red-500/90 text-white w-8 h-8" onClick={handleDelete}>
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 )}
                 {onHide && (
