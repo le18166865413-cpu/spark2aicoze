@@ -46,3 +46,42 @@ export async function verifyAdmin() {
   if (!user || user.role !== 'admin') return null;
   return user;
 }
+
+// 通过 API Token 验证（用于第三方系统对接）
+export async function verifyApiToken(request: Request): Promise<{
+  id: string;
+  name: string;
+  permissions: string[];
+} | null> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+
+  const supabase = getSupabaseClient();
+
+  const { data: record } = await supabase
+    .from('api_tokens')
+    .select('id, name, permissions, expires_at')
+    .eq('token', token)
+    .single();
+
+  if (!record) return null;
+
+  if (record.expires_at && new Date(record.expires_at) < new Date()) {
+    return null;
+  }
+
+  // Update last_used_at
+  await supabase
+    .from('api_tokens')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('id', record.id);
+
+  return {
+    id: record.id as string,
+    name: record.name as string,
+    permissions: (record.permissions as string[]) || ['read'],
+  };
+}
