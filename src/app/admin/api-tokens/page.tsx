@@ -8,7 +8,7 @@ export default function ApiTokensPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const [defaultModel, setDefaultModel] = useState('gpt-image-2');
+  const [defaultModel, setDefaultModel] = useState('image2');
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -20,7 +20,7 @@ export default function ApiTokensPage() {
     if (!loading && !initialized) {
       setApiKey(getSetting('grsai_api_key') || '');
       setBaseUrl(getSetting('grsai_base_url') || 'https://grsai.dakka.com.cn');
-      setDefaultModel(getSetting('default_model') || 'gpt-image-2');
+      setDefaultModel(getSetting('default_model') || 'image2');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -96,12 +96,18 @@ export default function ApiTokensPage() {
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h3 className="text-sm font-semibold text-foreground">默认模型</h3>
-        {['gpt-image-2-vip', 'gpt-image-2', 'nano-banana-fast'].map((model) => (
-          <label key={model} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${defaultModel === model ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-            <input type="radio" name="model" value={model} checked={defaultModel === model} onChange={() => setDefaultModel(model)} className="accent-primary" />
+        {[
+          { id: 'image2-vip', label: 'Spark2 VIP', desc: '最高画质，支持2K/4K' },
+          { id: 'image2', label: 'Spark2', desc: '高画质性价比之选' },
+          { id: 'nano-banana-fast', label: 'Spark Lite', desc: '适合纯图，无文字' },
+          { id: 'nano-banana-2', label: 'Spark2 Nano', desc: '新一代模型，支持超长比例' },
+          { id: 'nano-banana-pro-vip', label: 'Spark Pro VIP', desc: '专业画质，支持2K/4K' },
+        ].map((model) => (
+          <label key={model.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${defaultModel === model.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
+            <input type="radio" name="model" value={model.id} checked={defaultModel === model.id} onChange={() => setDefaultModel(model.id)} className="accent-primary" />
             <div>
-              <p className="text-sm font-medium text-foreground">{model}</p>
-              <p className="text-xs text-muted-foreground">{model === 'gpt-image-2-vip' ? '最高画质' : model === 'gpt-image-2' ? '高画质性价比之选' : '极速生成'}</p>
+              <p className="text-sm font-medium text-foreground">{model.label}</p>
+              <p className="text-xs text-muted-foreground">{model.desc}</p>
             </div>
           </label>
         ))}
