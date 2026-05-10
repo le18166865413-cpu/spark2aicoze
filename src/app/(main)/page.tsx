@@ -101,12 +101,12 @@ export default function Home() {
         views: item.views as number,
         downloads: item.downloads as number,
         likes: item.likes as number,
-        referenceCount: item.reference_count as number,
-        imageKey: item.image_key as string | undefined,
-        taskId: item.task_id as string | undefined,
-        creatorName: item.creator_name as string | undefined,
-        userId: item.user_id as string | null | undefined,
-        isPinned: item.is_pinned as boolean | undefined,
+        referenceCount: item.referenceCount as number,
+        imageKey: item.imageKey as string | undefined,
+        taskId: item.taskId as string | undefined,
+        creatorName: item.creatorName as string | undefined,
+        userId: item.userId as string | null | undefined,
+        isPinned: item.isPinned as boolean | undefined,
       }));
       setImages(data);
     } catch (error) {

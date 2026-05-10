@@ -69,15 +69,15 @@ export default function MyWorksPage() {
         views: item.views as number,
         downloads: item.downloads as number,
         likes: item.likes as number,
-        referenceCount: item.reference_count as number,
+        referenceCount: item.referenceCount as number,
         model: item.model as string,
         ratio: item.ratio as string,
         liked: item.liked as boolean,
-        creatorName: item.creator_name as string,
-        userId: item.user_id as string | null,
-        createdAt: item.created_at as string,
-        isHidden: item.is_hidden as boolean,
-        isPinned: item.is_pinned as boolean,
+        creatorName: item.creatorName as string,
+        userId: item.userId as string | null,
+        createdAt: item.createdAt as string,
+        isHidden: item.isHidden as boolean,
+        isPinned: item.isPinned as boolean,
       }));
 
       if (activeTab === 'works') {

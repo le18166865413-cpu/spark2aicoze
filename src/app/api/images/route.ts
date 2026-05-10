@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     // Build query (exclude soft-deleted)
     let query = supabase
       .from("gallery_images")
-      .select("*, users!gallery_images_user_id_fkey(nickname, username)")
+      .select("*, is_pinned, users!gallery_images_user_id_fkey(nickname, username)")
       .is("deleted_at", null);
 
     // Filter by favorites
