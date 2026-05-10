@@ -83,7 +83,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query (exclude soft-deleted)
-    let query = supabase.from("gallery_images").select("*").is("deleted_at", null);
+    let query = supabase
+      .from("gallery_images")
+      .select("*, users!gallery_images_user_id_fkey(nickname, username)")
+      .is("deleted_at", null);
 
     // Filter by favorites
     if (imageIds) {
@@ -164,6 +167,9 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        const userInfo = img.users as Record<string, unknown> | null;
+        const creatorName = (img.creator_name as string) || (userInfo?.nickname as string) || (userInfo?.username as string) || 'SparkAI 用户';
+
         return {
           id: img.id,
           imageKey: imageKey,
@@ -179,10 +185,11 @@ export async function GET(request: NextRequest) {
           model: img.model,
           ratio: img.ratio,
           taskId: img.task_id,
-          creatorName: img.creator_name || '',
+          creatorName: creatorName,
           userId: img.user_id || null,
           createdAt: img.created_at,
           isHidden: img.is_hidden || false,
+          isPinned: img.is_pinned || false,
         };
       })
     );
