@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, UserX, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BugfixPage() {
@@ -66,6 +66,51 @@ export default function BugfixPage() {
       } else {
         setResult({ type: "error", message: data.error || "操作失败" });
         toast.error(data.error || "操作失败");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult({ type: "error", message: msg });
+      toast.error(msg);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleExportS3Images = async () => {
+    setLoading("export");
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/bugfix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "exportS3Images" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ type: "success", message: data.message });
+        toast.success(data.message);
+
+        // Export as CSV
+        if (data.files && data.files.length > 0) {
+          const csvHeader = "文件名,下载链接\n";
+          const csvRows = data.files
+            .map((f: { key: string; url: string }) => `"${f.key}","${f.url}"`)
+            .join("\n");
+          const csvContent = csvHeader + csvRows;
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `s3-images-export-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        setResult({ type: "error", message: data.error || "导出失败" });
+        toast.error(data.error || "导出失败");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -166,6 +211,32 @@ export default function BugfixPage() {
               <Trash2 className="w-4 h-4 mr-2" />
             )}
             一键清除所有存储和作品
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="w-5 h-5" />
+            导出 S3 存储图片
+          </CardTitle>
+          <CardDescription>
+            一键导出 S3 存储桶内所有文件的列表和签名下载链接，生成 CSV 文件。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={handleExportS3Images}
+            disabled={loading === "export"}
+            className="w-full sm:w-auto"
+          >
+            {loading === "export" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            一键导出 S3 图片
           </Button>
         </CardContent>
       </Card>

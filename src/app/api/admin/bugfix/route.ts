@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Action 2: 一键清除指定时间段的作品和存储
-    if (action === "clearStorageAndWorks") {
+    if (action === "clearStorage") {
       const start = startDate ? new Date(startDate).toISOString() : "1970-01-01T00:00:00Z";
       const end = endDate ? new Date(endDate).toISOString() : new Date().toISOString();
 
@@ -92,6 +92,41 @@ export async function POST(request: NextRequest) {
         total,
         deletedStorage,
         failedStorage,
+      });
+    }
+
+    // Action 3: 一键导出 S3 存储内所有图片
+    if (action === "exportS3Images") {
+      const allKeys: { key: string; url: string }[] = [];
+      let continuationToken: string | undefined;
+
+      do {
+        const result = await (storage as unknown as { listFiles(opts: { maxKeys: number; continuationToken?: string }): Promise<{ keys: string[]; isTruncated?: boolean; nextContinuationToken?: string }> }).listFiles({
+          maxKeys: 1000,
+          continuationToken,
+        });
+
+        for (const key of result.keys) {
+          try {
+            const url = await storage.generatePresignedUrl({ key, expireTime: 0 });
+            allKeys.push({ key, url });
+          } catch {
+            // skip files that cannot be signed
+          }
+        }
+
+        if (result.isTruncated && result.nextContinuationToken) {
+          continuationToken = result.nextContinuationToken;
+        } else {
+          continuationToken = undefined;
+        }
+      } while (continuationToken);
+
+      return NextResponse.json({
+        success: true,
+        message: `成功导出 ${allKeys.length} 个 S3 文件`,
+        files: allKeys,
+        count: allKeys.length,
       });
     }
 
