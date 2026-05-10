@@ -25,6 +25,7 @@ interface User {
   id: string;
   username: string;
   password: string;
+  plain_password?: string;
   nickname: string;
   role: string;
   status: string;
@@ -245,7 +246,7 @@ export default function AdminUsersPage() {
       const headers = ['用户名', '密码', '昵称', '角色', '状态', '创建时间', '更新时间'];
       const rows = list.map((u: User) => [
         u.username,
-        u.password || '',
+        u.plain_password || '已加密（无法还原）',
         u.nickname,
         u.role === 'admin' ? '管理员' : '普通用户',
         u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',

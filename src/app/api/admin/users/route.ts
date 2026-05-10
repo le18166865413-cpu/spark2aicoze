@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data, error } = await getSupabaseClient()
       .from('users')
-      .select('id, username, password, nickname, role, status, created_at, updated_at')
+      .select('id, username, password, plain_password, nickname, role, status, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       .insert({
         username,
         password: hashedPassword,
+        plain_password: password,
         nickname,
         role: role || 'user',
         status: 'approved',
@@ -114,6 +115,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: '密码至少6个字符' }, { status: 400 });
       }
       updates.password = await bcrypt.hash(password, 10);
+      updates.plain_password = password;
       // Delete sessions to force re-login with new password
       await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);
     }

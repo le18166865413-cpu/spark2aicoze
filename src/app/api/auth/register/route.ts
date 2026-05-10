@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       .insert({
         username,
         password: hashedPassword,
+        plain_password: password,
         nickname,
         role: 'user',
         status: 'pending',
