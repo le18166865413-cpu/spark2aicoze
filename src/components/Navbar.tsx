@@ -102,14 +102,22 @@ export default function Navbar() {
           {/* Mobile: 广场 */}
           <Link
             href="/"
-            className="sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 border border-primary/30 text-primary hover:bg-primary/10 transition-all"
+            className={`sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 transition-all ${
+              pathname === '/'
+                ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+                : 'border border-primary/30 text-primary hover:bg-primary/10'
+            }`}
           >
             <House className="h-3.5 w-3.5 mr-1" />广场
           </Link>
           {/* Mobile: 创作中心 */}
           <Link
             href="/create"
-            className="sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_12px_rgba(34,197,94,0.2)] transition-all"
+            className={`sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 transition-all ${
+              pathname === '/create'
+                ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_12px_rgba(34,197,94,0.2)]'
+            }`}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />创作
           </Link>
