@@ -144,12 +144,16 @@ export async function GET(request: NextRequest) {
     // Check if current user has favorited each image
     let userFavorites: Set<string> = new Set();
     if (currentUserId) {
-      const { data: favs } = await supabase
+      const imageIds = images.map((img: Record<string, unknown>) => img.id as string);
+      const { data: allFavs } = await supabase
         .from('user_favorites')
         .select('image_id')
-        .eq('user_id', currentUserId)
-        .in('image_id', images.map((img: Record<string, unknown>) => img.id as string));
-      userFavorites = new Set((favs || []).map((f: Record<string, unknown>) => f.image_id as string));
+        .eq('user_id', currentUserId);
+      userFavorites = new Set(
+        (allFavs || [])
+          .map((f: Record<string, unknown>) => f.image_id as string)
+          .filter(id => imageIds.includes(id))
+      );
     }
 
     // Generate signed URLs for all images

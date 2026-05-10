@@ -223,19 +223,21 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                   {pinned ? "已置顶" : "置顶"}
                 </Button>
               )}
-              <Button
-                size="sm"
-                className={cn(
-                  "rounded-full text-xs font-medium px-3 h-8 transition-all",
-                  liked
-                    ? "bg-red-500 hover:bg-red-500/90 text-white"
-                    : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
-                )}
-                onClick={handleLike}
-              >
-                <Heart className={cn("w-3 h-3 mr-1 transition-all", liked && "fill-current")} />
-                {liked ? "已收藏" : "收藏"}
-              </Button>
+              <div className="ml-auto">
+                <Button
+                  size="sm"
+                  className={cn(
+                    "rounded-full text-xs font-medium px-3 h-8 transition-all",
+                    liked
+                      ? "bg-red-500 hover:bg-red-500/90 text-white"
+                      : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+                  )}
+                  onClick={handleLike}
+                >
+                  <Heart className={cn("w-3 h-3 mr-1 transition-all", liked && "fill-current")} />
+                  {liked ? "已收藏" : "收藏"}
+                </Button>
+              </div>
             </div>
             {/* Bottom Section - desktop */}
             <div className="flex flex-col gap-3 pointer-events-auto">
