@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
-import { Sparkles, House, Plus, User, LogOut, Palette, BarChart3 } from 'lucide-react';
+import { Sparkles, House, PenTool, User, LogOut, Palette, BarChart3 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
@@ -66,7 +66,7 @@ export default function Navbar() {
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
             }`}
           >
-            <Plus className="h-4 w-4" />
+            <PenTool className="h-4 w-4" />
             <span>创作中心</span>
           </Link>
           {user && (
@@ -119,7 +119,7 @@ export default function Navbar() {
                 : 'bg-primary/15 text-primary ring-1 ring-primary/30'
             }`}
           >
-            <Plus className="h-3.5 w-3.5 mr-1" />创作
+            <PenTool className="h-3.5 w-3.5 mr-1" />创作
           </Link>
 
           {/* User menu */}
