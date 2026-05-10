@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Action 2: 一键清除指定时间段的作品和存储
+    // Action 2: 一键清除指定时间段的作品和存储，并顺手清理 S3 孤儿文件
     if (action === "clearStorage") {
       const start = startDate ? new Date(startDate).toISOString() : "1970-01-01T00:00:00Z";
       const end = endDate ? new Date(endDate).toISOString() : new Date().toISOString();
@@ -86,12 +86,56 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // 顺手清理 S3 中不在数据库里的孤儿文件
+      let orphanDeleted = 0;
+      let orphanFailed = 0;
+
+      try {
+        // 1. 列出 S3 中所有文件
+        const s3Keys: string[] = [];
+        let continuationToken: string | undefined;
+        do {
+          const result = await (storage as unknown as { listFiles(opts: { maxKeys: number; continuationToken?: string }): Promise<{ keys: string[]; isTruncated?: boolean; nextContinuationToken?: string }> }).listFiles({
+            maxKeys: 1000,
+            continuationToken,
+          });
+          s3Keys.push(...result.keys);
+          continuationToken = result.isTruncated && result.nextContinuationToken ? result.nextContinuationToken : undefined;
+        } while (continuationToken);
+
+        // 2. 获取数据库中所有仍存在的 image_key
+        const { data: dbImages } = await supabase
+          .from("gallery_images")
+          .select("image_key");
+
+        const dbKeys = new Set((dbImages || []).map((img) => img.image_key).filter(Boolean));
+
+        // 3. 找出孤儿文件并删除
+        for (const key of s3Keys) {
+          if (!dbKeys.has(key)) {
+            try {
+              // @ts-expect-error storage delete not typed
+              await storage.delete(key);
+              orphanDeleted++;
+            } catch {
+              orphanFailed++;
+            }
+          }
+        }
+      } catch {
+        // 孤儿文件清理失败不影响主流程
+      }
+
       return NextResponse.json({
         success: true,
-        message: `已清除 ${total} 条作品记录，其中 ${deletedStorage} 个存储文件已删除${failedStorage > 0 ? `，${failedStorage} 个文件删除失败` : ""}`,
+        message:
+          `已清除 ${total} 条作品记录，其中 ${deletedStorage} 个存储文件已删除${failedStorage > 0 ? `，${failedStorage} 个文件删除失败` : ""}` +
+          `${orphanDeleted > 0 ? `；另外顺手清理了 ${orphanDeleted} 个孤儿文件` : ""}${orphanFailed > 0 ? `，${orphanFailed} 个孤儿文件清理失败` : ""}`,
         total,
         deletedStorage,
         failedStorage,
+        orphanDeleted,
+        orphanFailed,
       });
     }
 

@@ -167,7 +167,7 @@ export default function BugfixPage() {
             清除存储和作品
           </CardTitle>
           <CardDescription>
-            一键清除数据库作品记录和对应的 S3 存储文件。可选择时间段，不选则清除全部。
+            清除数据库作品记录和对应的 S3 存储文件。可选择时间段，不选则清除全部。操作完成后会自动扫描并清理 S3 中的孤儿文件，确保存储完全干净。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
