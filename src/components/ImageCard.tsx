@@ -366,7 +366,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
         </div>
 
         {/* Left Image Side */}
-        <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%]">
+        <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%] border-b md:border-b-0">
           <div className="relative w-full h-full p-2 md:p-6 flex items-center justify-center">
             {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
