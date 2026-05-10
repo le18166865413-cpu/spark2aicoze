@@ -44,6 +44,17 @@ export default function Home() {
   const [pageSize, setPageSize] = useState(50);
   const [galleryTitle, setGalleryTitle] = useState("海报生成记录");
   const [gallerySubtitle, setGallerySubtitle] = useState("查看通过 SparkAI 生成的所有海报作品");
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role: string } | null>(null);
+
+  // Load current user
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
 
   // Load config
   useEffect(() => {
@@ -257,7 +268,7 @@ export default function Home() {
                   <ImageCard
                     key={img.id}
                     image={img}
-                    onDelete={handleDeleteImage}
+                    onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
                     priority={globalIndex < 4}
                   />
                 );

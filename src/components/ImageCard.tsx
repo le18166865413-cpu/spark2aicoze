@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Eye, ImageOff, Heart, Copy, Trash2, Share2, Sparkles, ImageIcon } from "lucide-react";
+import { Download, Eye, ImageOff, Heart, Copy, Share2, Sparkles, ImageIcon, EyeOff, RotateCcw, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -20,9 +20,18 @@ interface GalleryImage {
   taskId?: string;
   createdAt?: string;
   creatorName?: string;
+  isHidden?: boolean;
 }
 
-export function ImageCard({ image, onDelete, priority = false }: { image: GalleryImage; onDelete?: (id: string) => void; priority?: boolean }) {
+interface ImageCardProps {
+  image: GalleryImage;
+  onDelete?: (id: string) => void;
+  onHide?: (id: string) => void;
+  onUnhide?: (id: string) => void;
+  priority?: boolean;
+}
+
+export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false }: ImageCardProps) {
   const [imgError, setImgError] = useState(false);
   const [detailImgError, setDetailImgError] = useState(false);
   const [liked, setLiked] = useState(image.liked || false);
@@ -82,7 +91,7 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
 
   const handleDelete = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    
+
     if (!confirm("确定要删除这张海报吗？删除后可在后台回收站恢复。")) {
       return;
     }
@@ -102,6 +111,19 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
       console.error("Delete failed:", error);
       toast.error("删除失败，请重试");
     }
+  };
+
+  const handleHideClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!confirm("确定要隐藏这张海报吗？隐藏后不会在广场中显示，但可以在「已隐藏作品」中恢复。")) {
+      return;
+    }
+    onHide?.(image.id);
+  };
+
+  const handleUnhideClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    onUnhide?.(image.id);
   };
 
   return (
@@ -154,9 +176,21 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
                 <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleMakeSame}>
                   <Copy className="w-3 h-3 mr-1" />制作同款
                 </Button>
-                <Button size="icon" className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-9 h-9" onClick={handleDelete}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                {onDelete && (
+                  <Button size="icon" className="rounded-full bg-red-500/80 hover:bg-red-500 text-white w-9 h-9" onClick={handleDelete}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+                {onHide && (
+                  <Button size="icon" className="rounded-full bg-amber-500/80 hover:bg-amber-500 text-white w-9 h-9" onClick={handleHideClick}>
+                    <EyeOff className="w-4 h-4" />
+                  </Button>
+                )}
+                {onUnhide && (
+                  <Button size="icon" className="rounded-full bg-primary/80 hover:bg-primary text-white w-9 h-9" onClick={handleUnhideClick}>
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -171,6 +205,16 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
               <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-primary" onClick={handleMakeSame}>
                 <Copy className="w-3.5 h-3.5" />
               </Button>
+              {onHide && (
+                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-amber-500" onClick={handleHideClick}>
+                  <EyeOff className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              {onUnhide && (
+                <Button size="icon" variant="ghost" className="w-7 h-7 rounded-full text-primary" onClick={handleUnhideClick}>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -209,14 +253,38 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
               <Button size="icon" variant="ghost" className="rounded-full hover:bg-secondary">
                 <Share2 className="w-4 h-4" />
               </Button>
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="rounded-full hover:bg-secondary"
-                onClick={handleDelete}
-              >
-                <Trash2 className="w-4 h-4 text-destructive" />
-              </Button>
+              {onDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              )}
+              {onHide && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleHideClick}
+                  title="隐藏"
+                >
+                  <EyeOff className="w-4 h-4 text-amber-500" />
+                </Button>
+              )}
+              {onUnhide && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full hover:bg-secondary"
+                  onClick={handleUnhideClick}
+                  title="恢复显示"
+                >
+                  <RotateCcw className="w-4 h-4 text-primary" />
+                </Button>
+              )}
             </div>
             <Button onClick={handleLike} disabled={likeLoading} className={cn("rounded-full font-bold px-6 transition-all", liked ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 shadow-none" : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]")}>
               <Heart className={cn("w-4 h-4 mr-1.5", liked && "fill-current")} />
@@ -248,15 +316,15 @@ export function ImageCard({ image, onDelete, priority = false }: { image: Galler
           </div>
 
           <div className="flex items-center gap-2 pt-1">
-            <Button 
+            <Button
               className="flex-1 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-5 text-sm shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all"
               onClick={handleMakeSame}
             >
               <Copy className="w-4 h-4 mr-1.5" />
               制作同款
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex-1 rounded-xl font-semibold py-5 text-sm border-2 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50 transition-all"
               onClick={handleDownload}
             >

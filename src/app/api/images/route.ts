@@ -56,6 +56,9 @@ export async function GET(request: NextRequest) {
     // Filter by user
     if (userId) {
       query = query.eq("user_id", userId);
+    } else {
+      // Public gallery: exclude hidden images
+      query = query.eq("is_hidden", false);
     }
 
     // Filter by search
