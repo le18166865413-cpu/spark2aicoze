@@ -33,6 +33,7 @@ interface GalleryImage {
   taskId?: string;
   creatorName?: string;
   userId?: string | null;
+  isPinned?: boolean;
 }
 
 export default function Home() {
@@ -90,7 +91,23 @@ export default function Home() {
       queryParams.set("limit", String(pageSize));
 
       const res = await fetch(`/api/images?${queryParams.toString()}`);
-      const data = await res.json();
+      const rawData = await res.json();
+      const data: GalleryImage[] = rawData.map((item: Record<string, unknown>) => ({
+        id: item.id as string,
+        url: item.url as string,
+        prompt: item.prompt as string,
+        width: item.width as number,
+        height: item.height as number,
+        views: item.views as number,
+        downloads: item.downloads as number,
+        likes: item.likes as number,
+        referenceCount: item.reference_count as number,
+        imageKey: item.image_key as string | undefined,
+        taskId: item.task_id as string | undefined,
+        creatorName: item.creator_name as string | undefined,
+        userId: item.user_id as string | null | undefined,
+        isPinned: item.is_pinned as boolean | undefined,
+      }));
       setImages(data);
     } catch (error) {
       console.error(error);

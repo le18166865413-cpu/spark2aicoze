@@ -28,6 +28,7 @@ interface GalleryImage {
   userId: string | null;
   createdAt: string;
   isHidden?: boolean;
+  isPinned?: boolean;
 }
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
@@ -58,12 +59,31 @@ export default function MyWorksPage() {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
-      const imageList = Array.isArray(data) ? data : (data.images || []);
+      const rawList = Array.isArray(data) ? data : (data.images || []);
+      const imageList: GalleryImage[] = rawList.map((item: Record<string, unknown>) => ({
+        id: item.id as string,
+        url: item.url as string,
+        prompt: item.prompt as string,
+        width: item.width as number,
+        height: item.height as number,
+        views: item.views as number,
+        downloads: item.downloads as number,
+        likes: item.likes as number,
+        referenceCount: item.reference_count as number,
+        model: item.model as string,
+        ratio: item.ratio as string,
+        liked: item.liked as boolean,
+        creatorName: item.creator_name as string,
+        userId: item.user_id as string | null,
+        createdAt: item.created_at as string,
+        isHidden: item.is_hidden as boolean,
+        isPinned: item.is_pinned as boolean,
+      }));
 
       if (activeTab === 'works') {
-        setImages(imageList.filter((img: GalleryImage) => !img.isHidden));
+        setImages(imageList.filter((img) => !img.isHidden));
       } else if (activeTab === 'hidden') {
-        setImages(imageList.filter((img: GalleryImage) => img.isHidden));
+        setImages(imageList.filter((img) => img.isHidden));
       } else {
         setImages(imageList);
       }
