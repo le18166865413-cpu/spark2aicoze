@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/components/AuthProvider';
 import { DynamicTitle } from '@/components/DynamicTitle';
+import { ConsoleFilter } from '@/components/ConsoleFilter';
 import { getSiteConfig } from '@/lib/site-config';
 
 // Start GrsAI dashboard auto sync cron (server-side only)
@@ -39,6 +40,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <DynamicTitle />
+            <ConsoleFilter />
             {children}
           </AuthProvider>
         </ThemeProvider>
