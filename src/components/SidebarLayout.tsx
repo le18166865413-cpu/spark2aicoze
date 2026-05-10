@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut, Trash2, Bug } from 'lucide-react';
+import { LayoutDashboard, Settings, Plug, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut, Trash2, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -12,7 +12,7 @@ import { useAuth } from './AuthProvider';
 const menuItems = [
   { href: '/admin', icon: LayoutDashboard, label: '仪表盘' },
   { href: '/admin/settings', icon: Settings, label: '网站设置' },
-  { href: '/admin/api-tokens', icon: Key, label: 'API 令牌' },
+  { href: '/admin/integration', icon: Plug, label: '对接' },
   { href: '/admin/theme', icon: Palette, label: '主题配色' },
   { href: '/admin/creation', icon: Wand2, label: '创作配置' },
   { href: '/admin/storage', icon: HardDrive, label: '图片存储' },
