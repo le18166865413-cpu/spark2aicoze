@@ -387,7 +387,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
         </div>
 
         {/* Right Info Side */}
-        <div className="w-full md:w-[400px] flex-shrink-0 p-4 md:p-6 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full md:overflow-y-auto flex-1 md:flex-none">
+        <div className="w-full md:w-[400px] flex-shrink-0 px-4 pt-0 pb-4 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full md:overflow-y-auto flex-1 md:flex-none">
           {/* Top Action Bar - desktop only */}
           <div className="hidden md:flex items-center justify-between sticky top-0 bg-background z-10 pb-4 border-b">
             <div className="flex gap-2">
@@ -447,7 +447,10 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
             </Button>
           </div>
 
-          <div className="flex items-center gap-4 py-4 border-b md:border-0">
+          {/* 分割线 - 手机端图片与创作者之间 */}
+          <div className="md:hidden h-px bg-border my-3" />
+
+          <div className="flex items-center gap-4 pt-3 pb-4 md:py-4 border-b md:border-0">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
               {(image.creatorName || 'AI')[0]}
             </div>
