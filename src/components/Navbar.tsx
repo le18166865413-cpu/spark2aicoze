@@ -105,7 +105,7 @@ export default function Navbar() {
             className={`sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 transition-all ${
               pathname === '/'
                 ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
-                : 'border border-primary/30 text-primary hover:bg-primary/10'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
             }`}
           >
             <House className="h-3.5 w-3.5 mr-1" />广场
@@ -115,8 +115,8 @@ export default function Navbar() {
             href="/create"
             className={`sm:hidden inline-flex items-center justify-center rounded-md text-xs font-semibold h-8 px-3 transition-all ${
               pathname === '/create'
-                ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_12px_rgba(34,197,94,0.2)]'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
             }`}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />创作
