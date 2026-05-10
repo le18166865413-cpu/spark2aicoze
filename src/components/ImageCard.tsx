@@ -244,7 +244,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
               <p className="text-white text-sm line-clamp-2 font-medium drop-shadow-lg">{image.prompt}</p>
               <div className="flex justify-end gap-2">
                 <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 h-8" onClick={handleMakeSame}>
-                  <Copy className="w-3 h-3 mr-1" />制作同款
+                  <Copy className="w-3 h-3 mr-1" />做同款
                 </Button>
                 {onDelete && (
                   <Button size="sm" className="rounded-full bg-red-500 hover:bg-red-500/90 text-white text-xs font-medium px-3 h-8" onClick={handleDelete}>
@@ -411,7 +411,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
               onClick={handleMakeSame}
             >
               <Copy className="w-4 h-4 mr-1.5" />
-              制作同款
+              做同款
             </Button>
             <Button
               variant="outline"
@@ -449,7 +449,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
       {/* Make Same Choice Dialog */}
       <Dialog open={showMakeSameDialog} onOpenChange={setShowMakeSameDialog}>
         <DialogContent className="w-[90vw] max-w-[400px] bg-background rounded-2xl p-6 border border-border shadow-2xl">
-          <DialogTitle className="text-lg font-bold text-center">制作同款</DialogTitle>
+          <DialogTitle className="text-lg font-bold text-center">做同款</DialogTitle>
           <p className="text-sm text-muted-foreground text-center -mt-2">选择生成方式</p>
           <div className="flex flex-col gap-3 mt-2">
             <button

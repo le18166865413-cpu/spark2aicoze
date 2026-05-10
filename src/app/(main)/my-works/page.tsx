@@ -43,6 +43,43 @@ export default function MyWorksPage() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('works');
+  const [counts, setCounts] = useState({ works: 0, favorites: 0, hidden: 0 });
+
+  const fetchCounts = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=1000&userId=${user.id}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const rawList = Array.isArray(data) ? data : (data.images || []);
+      const allImages: GalleryImage[] = rawList.map((item: Record<string, unknown>) => ({
+        id: item.id as string,
+        url: item.url as string,
+        prompt: item.prompt as string,
+        width: item.width as number,
+        height: item.height as number,
+        views: item.views as number,
+        downloads: item.downloads as number,
+        likes: item.likes as number,
+        referenceCount: item.referenceCount as number,
+        model: item.model as string,
+        ratio: item.ratio as string,
+        liked: item.liked as boolean,
+        creatorName: item.creatorName as string,
+        userId: item.userId as string | null,
+        createdAt: item.createdAt as string,
+        isHidden: item.isHidden as boolean,
+        isPinned: item.isPinned as boolean,
+      }));
+      setCounts({
+        works: allImages.filter((img) => !img.isHidden).length,
+        favorites: allImages.filter((img) => img.liked && !img.isHidden).length,
+        hidden: allImages.filter((img) => img.isHidden).length,
+      });
+    } catch (e) {
+      console.error('Failed to fetch counts:', e);
+    }
+  }, [user]);
 
   const fetchImages = useCallback(async () => {
     if (!user?.id) return;
@@ -100,9 +137,10 @@ export default function MyWorksPage() {
       return;
     }
     if (user) {
+      fetchCounts();
       fetchImages();
     }
-  }, [user, authLoading, router, fetchImages]);
+  }, [user, authLoading, router, fetchImages, fetchCounts]);
 
   const handleDelete = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
@@ -185,6 +223,9 @@ export default function MyWorksPage() {
             >
               <Icon className="w-4 h-4" />
               {tab.label}
+              <span className="ml-1 text-xs opacity-80">
+                ({counts[tab.key as keyof typeof counts]})
+              </span>
             </button>
           );
         })}

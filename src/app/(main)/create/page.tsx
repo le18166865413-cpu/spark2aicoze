@@ -81,7 +81,7 @@ function CreatePageInner() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   
-  // Get params from URL (for "制作同款")
+  // Get params from URL (for "做同款")
   const initialPrompt = searchParams.get("prompt") || "";
   const initialMode = searchParams.get("mode") || "text2img";
   const initialRefImageUrl = searchParams.get("refImageUrl") || "";
