@@ -271,6 +271,7 @@ export default function Home() {
                   <ImageCard
                     key={img.id}
                     image={img}
+                    isAdmin={currentUser?.role === "admin"}
                     onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
                     onHide={currentUser?.id && currentUser.id === img.userId ? handleDeleteImage : undefined}
                     priority={globalIndex < 4}
