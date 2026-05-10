@@ -177,23 +177,11 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
 
   const handleShare = async () => {
     const shareText = `我在 Spark2AI 生成了一张海报，麻烦你帮我参考参考提提意见 👉 ${window.location.href}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Spark2AI 海报分享",
-          text: shareText,
-        });
-        toast.success("分享成功");
-      } catch {
-        // 用户取消分享，不做处理
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareText);
-        toast.success("分享文案已复制到剪贴板");
-      } catch {
-        toast.error("复制失败，请手动复制");
-      }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      toast.success("分享文案已复制到剪贴板");
+    } catch {
+      toast.error("复制失败，请手动复制");
     }
   };
 
