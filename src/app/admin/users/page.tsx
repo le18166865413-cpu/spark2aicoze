@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Download } from 'lucide-react';
 
 interface User {
   id: string;
@@ -226,6 +227,32 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleExportUsers = () => {
+    if (users.length === 0) {
+      alert('暂无用户数据可导出');
+      return;
+    }
+    const headers = ['用户名', '昵称', '角色', '状态', '创建时间', '更新时间'];
+    const rows = users.map(u => [
+      u.username,
+      u.nickname,
+      u.role === 'admin' ? '管理员' : '普通用户',
+      u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',
+      new Date(u.created_at).toLocaleString(),
+      new Date(u.updated_at).toLocaleString(),
+    ]);
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">加载中...</div>;
   }
@@ -301,10 +328,14 @@ export default function AdminUsersPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>用户管理</CardTitle>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button size="sm">添加用户</Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleExportUsers}>
+              <Download className="w-4 h-4 mr-1" />批量导出
+            </Button>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm">添加用户</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>添加用户</DialogTitle>
@@ -382,6 +413,7 @@ export default function AdminUsersPage() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
