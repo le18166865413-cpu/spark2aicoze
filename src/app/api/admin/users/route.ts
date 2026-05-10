@@ -20,7 +20,24 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ users: data });
+    // Fetch work counts for all users in one go
+    const { data: images } = await getSupabaseClient()
+      .from('gallery_images')
+      .select('user_id')
+      .not('user_id', 'is', null);
+
+    const countMap = new Map<string, number>();
+    for (const img of images || []) {
+      const uid = img.user_id as string;
+      countMap.set(uid, (countMap.get(uid) || 0) + 1);
+    }
+
+    const usersWithCount = (data || []).map(u => ({
+      ...u,
+      work_count: countMap.get(u.id) || 0,
+    }));
+
+    return NextResponse.json({ users: usersWithCount });
   } catch {
     return NextResponse.json({ error: '获取用户列表失败' }, { status: 500 });
   }

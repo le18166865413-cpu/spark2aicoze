@@ -31,6 +31,7 @@ interface User {
   status: string;
   created_at: string;
   updated_at: string;
+  work_count?: number;
 }
 
 export default function AdminUsersPage() {
@@ -48,6 +49,7 @@ export default function AdminUsersPage() {
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreText, setRestoreText] = useState('');
   const [restorePreview, setRestorePreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'admin' | 'user' | 'approved' | 'pending' | 'rejected'>('all');
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -286,6 +288,17 @@ export default function AdminUsersPage() {
     }
   };
 
+  const filteredUsers = users.filter(u => {
+    switch (activeFilter) {
+      case 'admin': return u.role === 'admin';
+      case 'user': return u.role === 'user';
+      case 'approved': return u.status === 'approved';
+      case 'pending': return u.status === 'pending';
+      case 'rejected': return u.status === 'rejected';
+      default: return true;
+    }
+  });
+
   const handleExportUsers = async () => {
     setLoading(true);
     try {
@@ -362,8 +375,32 @@ export default function AdminUsersPage() {
         </Card>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap gap-2">
+        {([
+          { key: 'all', label: '全部', count: users.length },
+          { key: 'admin', label: '管理员', count: users.filter(u => u.role === 'admin').length },
+          { key: 'user', label: '普通用户', count: users.filter(u => u.role === 'user').length },
+          { key: 'approved', label: '已通过', count: approvedUsers.length },
+          { key: 'pending', label: '待审核', count: pendingUsers.length },
+          { key: 'rejected', label: '已拒绝', count: rejectedUsers.length },
+        ] as { key: typeof activeFilter; label: string; count: number }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveFilter(tab.key)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              activeFilter === tab.key
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:bg-muted'
+            }`}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
       {/* Pending Approval Section */}
-      {pendingUsers.length > 0 && (
+      {(activeFilter === 'all' || activeFilter === 'pending') && pendingUsers.length > 0 && (
         <Card className="border-yellow-500/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -380,7 +417,12 @@ export default function AdminUsersPage() {
                       {user.nickname[0]}
                     </div>
                     <div>
-                      <p className="font-semibold">{user.nickname}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{user.nickname}</p>
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                          作品 {user.work_count || 0}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">@{user.username} · {new Date(user.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
@@ -535,7 +577,7 @@ export default function AdminUsersPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {users.map(user => (
+            {filteredUsers.map(user => (
               <div key={user.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
@@ -546,6 +588,9 @@ export default function AdminUsersPage() {
                       <p className="font-medium text-sm">{user.nickname}</p>
                       {getRoleBadge(user.role)}
                       {getStatusBadge(user.status)}
+                      <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                        作品 {user.work_count || 0}
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">@{user.username} · 注册于 {new Date(user.created_at).toLocaleDateString()}</p>
                   </div>
