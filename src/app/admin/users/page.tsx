@@ -228,31 +228,46 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleExportUsers = () => {
-    if (users.length === 0) {
-      alert('暂无用户数据可导出');
-      return;
+  const handleExportUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/users', { credentials: 'include' });
+      if (!res.ok) {
+        alert('获取用户数据失败');
+        return;
+      }
+      const data = await res.json();
+      const list: User[] = data.users || [];
+      if (list.length === 0) {
+        alert('暂无用户数据可导出');
+        return;
+      }
+      const headers = ['用户名', '密码', '昵称', '角色', '状态', '创建时间', '更新时间'];
+      const rows = list.map((u: User) => [
+        u.username,
+        u.password || '',
+        u.nickname,
+        u.role === 'admin' ? '管理员' : '普通用户',
+        u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',
+        new Date(u.created_at).toLocaleString(),
+        new Date(u.updated_at).toLocaleString(),
+      ]);
+      const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export failed:', e);
+      alert('导出失败');
+    } finally {
+      setLoading(false);
     }
-    const headers = ['用户名', '密码', '昵称', '角色', '状态', '创建时间', '更新时间'];
-    const rows = users.map(u => [
-      u.username,
-      u.password || '',
-      u.nickname,
-      u.role === 'admin' ? '管理员' : '普通用户',
-      u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',
-      new Date(u.created_at).toLocaleString(),
-      new Date(u.updated_at).toLocaleString(),
-    ]);
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   if (loading) {
