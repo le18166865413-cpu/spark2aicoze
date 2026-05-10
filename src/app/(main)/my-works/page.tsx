@@ -19,6 +19,8 @@ interface GalleryImage {
   height: number;
   views: number;
   downloads: number;
+  likes: number;
+  referenceCount: number;
   model: string;
   ratio: string;
   liked: boolean;
@@ -41,20 +43,36 @@ export default function MyWorksPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('works');
 
-  const fetchMyImages = useCallback(async () => {
+  const fetchImages = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=200&userId=${user.id}`, { credentials: 'include' });
+      let url: string;
+      if (activeTab === 'favorites') {
+        url = '/api/images?sortBy=created_at&sortOrder=desc&limit=200&favorites=1';
+      } else if (activeTab === 'hidden') {
+        url = `/api/images?sortBy=created_at&sortOrder=desc&limit=200&userId=${user.id}`;
+      } else {
+        url = `/api/images?sortBy=created_at&sortOrder=desc&limit=200&userId=${user.id}`;
+      }
+
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
       const imageList = Array.isArray(data) ? data : (data.images || []);
-      setImages(imageList);
+
+      if (activeTab === 'works') {
+        setImages(imageList.filter((img: GalleryImage) => !img.isHidden));
+      } else if (activeTab === 'hidden') {
+        setImages(imageList.filter((img: GalleryImage) => img.isHidden));
+      } else {
+        setImages(imageList);
+      }
     } catch (e) {
       console.error('Failed to fetch images:', e);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, activeTab]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -62,9 +80,9 @@ export default function MyWorksPage() {
       return;
     }
     if (user) {
-      fetchMyImages();
+      fetchImages();
     }
-  }, [user, authLoading, router, fetchMyImages]);
+  }, [user, authLoading, router, fetchImages]);
 
   const handleDelete = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
@@ -110,12 +128,7 @@ export default function MyWorksPage() {
     }
   };
 
-  const filteredImages = images.filter((img) => {
-    if (activeTab === 'works') return !img.isHidden;
-    if (activeTab === 'favorites') return img.liked && !img.isHidden;
-    if (activeTab === 'hidden') return img.isHidden;
-    return true;
-  });
+  const filteredImages = images;
 
   if (authLoading) {
     return (
@@ -132,19 +145,13 @@ export default function MyWorksPage() {
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">我的作品</h1>
         <p className="text-muted-foreground mt-2">
-          {user.nickname} 的创作集 · 共 {images.length} 件作品
+          {user.nickname} 的创作集
         </p>
       </div>
 
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const count = images.filter((img) => {
-            if (tab.key === 'works') return !img.isHidden;
-            if (tab.key === 'favorites') return img.liked && !img.isHidden;
-            if (tab.key === 'hidden') return img.isHidden;
-            return false;
-          }).length;
           return (
             <button
               key={tab.key}
@@ -158,12 +165,6 @@ export default function MyWorksPage() {
             >
               <Icon className="w-4 h-4" />
               {tab.label}
-              <span className={cn(
-                'ml-1 text-xs px-1.5 py-0.5 rounded-full',
-                activeTab === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
-              )}>
-                {count}
-              </span>
             </button>
           );
         })}

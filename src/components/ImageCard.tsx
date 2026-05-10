@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Eye, ImageOff, Heart, Copy, Share2, Sparkles, ImageIcon, EyeOff, RotateCcw, Trash2 } from "lucide-react";
+import { Download, ImageOff, Heart, Copy, Share2, Sparkles, ImageIcon, EyeOff, RotateCcw, Trash2, ThumbsUp } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ interface GalleryImage {
   height: number;
   views: number;
   downloads: number;
+  likes: number;
+  referenceCount: number;
   liked?: boolean;
   imageKey?: string;
   taskId?: string;
@@ -35,6 +37,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
   const [imgError, setImgError] = useState(false);
   const [detailImgError, setDetailImgError] = useState(false);
   const [liked, setLiked] = useState(image.liked || false);
+  const [likes, setLikes] = useState(image.likes || 0);
   const [likeLoading, setLikeLoading] = useState(false);
   const [showMakeSameDialog, setShowMakeSameDialog] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -45,11 +48,14 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
     if (likeLoading) return;
     setLikeLoading(true);
     try {
-      const res = await fetch(`/api/images/${image.id}/like`, { method: "POST" });
+      const res = await fetch(`/api/images/${image.id}/like`, { method: "POST", credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setLiked(data.liked);
-        toast.success(data.liked ? "已收藏到灵感库" : "已取消收藏");
+        setLikes(data.likes || 0);
+        toast.success(data.liked ? "已加入灵感库" : "已取消收藏");
+      } else if (res.status === 401) {
+        toast.error("请先登录");
       } else {
         toast.error("操作失败");
       }
@@ -76,8 +82,17 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
     setShowMakeSameDialog(true);
   };
 
+  const recordReference = async () => {
+    try {
+      await fetch(`/api/images/${image.id}/reference`, { method: "POST" });
+    } catch {
+      // silently fail
+    }
+  };
+
   const goCreateWithRef = () => {
     setShowMakeSameDialog(false);
+    recordReference();
     const encodedPrompt = encodeURIComponent(image.prompt);
     const encodedRefUrl = encodeURIComponent(image.url);
     router.push(`/create?prompt=${encodedPrompt}&mode=img2img&refImageUrl=${encodedRefUrl}`);
@@ -85,6 +100,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
 
   const goCreateTextOnly = () => {
     setShowMakeSameDialog(false);
+    recordReference();
     const encodedPrompt = encodeURIComponent(image.prompt);
     router.push(`/create?prompt=${encodedPrompt}&mode=text2img`);
   };
@@ -99,6 +115,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
     try {
       const response = await fetch(`/api/images/${image.id}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -160,13 +177,17 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
             {/* Top Section - desktop */}
             <div className="flex justify-end gap-2 pointer-events-auto">
               <Button
-                size="icon"
+                size="sm"
                 className={cn(
-                  "rounded-full w-10 h-10 transition-all bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+                  "rounded-full text-xs font-medium px-3 h-8 transition-all",
+                  liked
+                    ? "bg-red-500 hover:bg-red-500/90 text-white"
+                    : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
                 )}
                 onClick={handleLike}
               >
-                <Heart className={cn("w-5 h-5 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
+                <Heart className={cn("w-3 h-3 mr-1 transition-all", liked && "fill-current")} />
+                {liked ? "已收藏" : "收藏"}
               </Button>
             </div>
             {/* Bottom Section - desktop */}
@@ -199,8 +220,8 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
           <div className="flex md:hidden items-center justify-between px-2 py-1.5">
             <p className="text-xs text-muted-foreground line-clamp-1 flex-1 mr-2">{image.prompt}</p>
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full" onClick={handleLike}>
-                <Heart className={cn("w-4 h-4 transition-all", liked && "fill-current text-red-500 scale-110", likeLoading && "opacity-50")} />
+              <Button size="icon" variant="ghost" className={cn("w-8 h-8 rounded-full", liked && "text-red-500")} onClick={handleLike}>
+                <Heart className={cn("w-4 h-4 transition-all", liked && "fill-current scale-110", likeLoading && "opacity-50")} />
               </Button>
               <Button size="icon" variant="ghost" className="w-8 h-8 rounded-full text-primary" onClick={handleMakeSame}>
                 <Copy className="w-4 h-4" />
@@ -309,14 +330,14 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, priority = false 
 
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 flex items-center justify-center gap-1.5 text-sm rounded-lg border border-border bg-card px-4 py-2">
-              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">浏览量</span>
-              <span className="font-bold">{image.views}</span>
+              <ThumbsUp className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">点赞量</span>
+              <span className="font-bold">{likes}</span>
             </div>
             <div className="flex-1 flex items-center justify-center gap-1.5 text-sm rounded-lg border border-border bg-card px-4 py-2">
-              <Download className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">下载量</span>
-              <span className="font-bold">{image.downloads}</span>
+              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-muted-foreground">参考量</span>
+              <span className="font-bold">{image.referenceCount || 0}</span>
             </div>
           </div>
 

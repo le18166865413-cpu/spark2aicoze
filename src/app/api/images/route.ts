@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
+import { cookies } from "next/headers";
+
+async function getCurrentUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('user_session')?.value;
+  if (!token) return null;
+
+  const { data: session } = await getSupabaseClient()
+    .from('user_sessions')
+    .select('user_id, expires_at')
+    .eq('id', token)
+    .single();
+
+  if (!session || new Date(session.expires_at) < new Date()) return null;
+  return session.user_id;
+}
 
 // Get permanent signed URL via sign-url endpoint
 async function getSignedUrl(key: string): Promise<string> {
@@ -46,17 +62,38 @@ export async function GET(request: NextRequest) {
   const period = searchParams.get("period") as string | null;
   const search = searchParams.get("search") || undefined;
   const userId = searchParams.get("userId") || undefined;
+  const favorites = searchParams.get("favorites") === "1";
 
   try {
     const supabase = getSupabaseClient();
+    const currentUserId = await getCurrentUserId();
+
+    let imageIds: string[] | null = null;
+
+    // If favorites mode, get favorited image IDs first
+    if (favorites && currentUserId) {
+      const { data: favs } = await supabase
+        .from('user_favorites')
+        .select('image_id')
+        .eq('user_id', currentUserId);
+      imageIds = (favs || []).map((f: Record<string, unknown>) => f.image_id as string);
+      if (imageIds.length === 0) {
+        return NextResponse.json([]);
+      }
+    }
 
     // Build query (exclude soft-deleted)
     let query = supabase.from("gallery_images").select("*").is("deleted_at", null);
 
+    // Filter by favorites
+    if (imageIds) {
+      query = query.in("id", imageIds);
+    }
+
     // Filter by user
     if (userId) {
       query = query.eq("user_id", userId);
-    } else {
+    } else if (!favorites) {
       // Public gallery: exclude hidden images
       query = query.eq("is_hidden", false);
     }
@@ -80,10 +117,9 @@ export async function GET(request: NextRequest) {
       query = query.gte("created_at", cutoff.toISOString());
     }
 
-    // Sort: liked items first, then by the selected sort column
-    const sortColumn = sortBy === "views" ? "views" : sortBy === "downloads" ? "downloads" : "created_at";
+    // Sort by selected column
+    const sortColumn = sortBy === "views" ? "views" : sortBy === "downloads" ? "downloads" : sortBy === "likes" ? "likes" : "created_at";
     const ascending = sortOrder === "asc";
-    query = query.order("liked", { ascending: false, nullsFirst: false });
     query = query.order(sortColumn, { ascending });
 
     // Limit
@@ -99,6 +135,17 @@ export async function GET(request: NextRequest) {
 
     if (!images || images.length === 0) {
       return NextResponse.json([]);
+    }
+
+    // Check if current user has favorited each image
+    let userFavorites: Set<string> = new Set();
+    if (currentUserId) {
+      const { data: favs } = await supabase
+        .from('user_favorites')
+        .select('image_id')
+        .eq('user_id', currentUserId)
+        .in('image_id', images.map((img: Record<string, unknown>) => img.id as string));
+      userFavorites = new Set((favs || []).map((f: Record<string, unknown>) => f.image_id as string));
     }
 
     // Generate signed URLs for all images
@@ -125,13 +172,16 @@ export async function GET(request: NextRequest) {
           height: img.height,
           views: img.views || 0,
           downloads: img.downloads || 0,
-          liked: img.liked || false,
+          likes: img.likes || 0,
+          referenceCount: img.reference_count || 0,
+          liked: userFavorites.has(img.id as string),
           model: img.model,
           ratio: img.ratio,
           taskId: img.task_id,
           creatorName: img.creator_name || '',
           userId: img.user_id || null,
           createdAt: img.created_at,
+          isHidden: img.is_hidden || false,
         };
       })
     );

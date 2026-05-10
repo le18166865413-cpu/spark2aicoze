@@ -27,6 +27,8 @@ interface GalleryImage {
   height: number;
   views: number;
   downloads: number;
+  likes: number;
+  referenceCount: number;
   imageKey?: string;
   taskId?: string;
   creatorName?: string;
