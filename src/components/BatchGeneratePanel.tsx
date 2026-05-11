@@ -1,23 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-  Wand2,
-  Loader2,
-  Check,
-  Trash2,
-  Square,
-  LayoutTemplate,
-  Palette,
-  Type,
-  Pencil,
-  X,
-} from "lucide-react";
+import { Wand2, Loader2, Square, Type } from "lucide-react";
 
-interface PageData {
+export interface PageData {
   index: number;
   title: string;
   content: string;
@@ -34,17 +23,15 @@ interface BatchGeneratePanelProps {
   selectedUsage: string[];
   selectedStyle: string[];
   selectedColor: string[];
-  sceneOpts: string[];
-  usageOpts: string[];
-  styleOpts: string[];
-  colorOpts: string[];
-  templates: { label: string; prompt: string }[];
   refImageUrl?: string | null;
-  onResultClick?: (imageUrl: string) => void;
-  onPagesChange?: (pages: PageData[]) => void;
+
+  pages: PageData[];
+  selectedIndices: Set<number>;
+  onPagesChange: (updater: PageData[] | ((prev: PageData[]) => PageData[])) => void;
+  onSelectedIndicesChange: (indices: Set<number>) => void;
 }
 
-function splitStoryToScenes(text: string, pageCount: number): { title: string; content: string }[] {
+export function splitStoryToScenes(text: string, pageCount: number): { title: string; content: string }[] {
   const targetCount = Math.max(1, Math.min(pageCount, 20));
 
   // 第一层：按段落拆分
@@ -90,27 +77,24 @@ export default function BatchGeneratePanel({
   selectedUsage,
   selectedStyle,
   selectedColor,
-  templates,
   refImageUrl,
-  onResultClick,
+  pages,
+  selectedIndices,
   onPagesChange,
+  onSelectedIndicesChange,
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
-  const [pages, setPages] = useState<PageData[]>([]);
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [pageCount, setPageCount] = useState(4);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
 
   const stopRef = useRef(false);
+  const pagesRef = useRef(pages);
 
   useEffect(() => {
-    onPagesChange?.(pages);
-  }, [pages, onPagesChange]);
+    pagesRef.current = pages;
+  }, [pages]);
 
   const handleSplit = useCallback(() => {
     const text = batchPrompt.trim();
@@ -119,85 +103,24 @@ export default function BatchGeneratePanel({
       return;
     }
     const newPages = splitStoryToScenes(text, pageCount);
-    setPages(
-      newPages.map((p, i) => ({
-        ...p,
-        index: i,
-        status: "pending",
-        imageUrl: null,
-        taskId: null,
-        url: null,
-      }))
-    );
-    setSelectedIndices(new Set(newPages.map((_, i) => i)));
-    setEditingIndex(null);
+    const pageData: PageData[] = newPages.map((p, i) => ({
+      ...p,
+      index: i,
+      status: "pending",
+      imageUrl: null,
+      taskId: null,
+      url: null,
+    }));
+    onPagesChange(pageData);
+    onSelectedIndicesChange(new Set(newPages.map((_, i) => i)));
     toast.success(`已拆分为 ${newPages.length} 页，可手动编辑调整`);
-  }, [batchPrompt, pageCount]);
-
-  const toggleSelect = useCallback((index: number) => {
-    setSelectedIndices((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedIndices((prev) => {
-      if (prev.size === pages.length) {
-        return new Set();
-      }
-      return new Set(pages.map((p) => p.index));
-    });
-  }, [pages]);
-
-  const removePage = useCallback((index: number) => {
-    setPages((prev) => prev.filter((p) => p.index !== index).map((p, i) => ({ ...p, index: i })));
-    setSelectedIndices((prev) => {
-      const next = new Set<number>();
-      prev.forEach((idx) => {
-        if (idx < index) next.add(idx);
-        else if (idx > index) next.add(idx - 1);
-      });
-      return next;
-    });
-    setEditingIndex(null);
-  }, []);
-
-  const startEdit = useCallback((index: number) => {
-    const page = pages.find((p) => p.index === index);
-    if (!page) return;
-    setEditingIndex(index);
-    setEditTitle(page.title);
-    setEditContent(page.content);
-  }, [pages]);
-
-  const saveEdit = useCallback(() => {
-    if (editingIndex === null) return;
-    setPages((prev) =>
-      prev.map((p) =>
-        p.index === editingIndex
-          ? { ...p, title: editTitle.trim() || p.title, content: editContent.trim() || p.content }
-          : p
-      )
-    );
-    setEditingIndex(null);
-    toast.success("已保存修改");
-  }, [editingIndex, editTitle, editContent]);
-
-  const cancelEdit = useCallback(() => {
-    setEditingIndex(null);
-  }, []);
+  }, [batchPrompt, pageCount, onPagesChange, onSelectedIndicesChange]);
 
   const buildEnhancedPrompt = useCallback(
     (page: PageData, totalPages: number) => {
-      const styleLabel = [selectedScene.join("、"), selectedUsage.join("、"), selectedStyle.join("、"), selectedColor.join("、")]
+      const styleLabel = [selectedScene.join("。"), selectedUsage.join("。"), selectedStyle.join("。"), selectedColor.join("。")]
         .filter(Boolean)
-        .join("、") || "海报";
+        .join("。") || "海报";
 
       return `【${page.title}】第${page.index + 1}页，共${totalPages}页
 
@@ -210,7 +133,8 @@ export default function BatchGeneratePanel({
   );
 
   const handleBatchGenerate = useCallback(async () => {
-    const toGen = pages.filter((p) => selectedIndices.has(p.index));
+    const currentPages = pagesRef.current;
+    const toGen = currentPages.filter((p) => selectedIndices.has(p.index));
     if (!toGen.length) {
       toast.error("请至少选择一页");
       return;
@@ -228,7 +152,7 @@ export default function BatchGeneratePanel({
       if (stopRef.current) break;
 
       const page = toGen[i];
-      setPages((prev) =>
+      onPagesChange((prev) =>
         prev.map((p) => (p.index === page.index ? { ...p, status: "generating" } : p))
       );
       setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
@@ -287,7 +211,7 @@ export default function BatchGeneratePanel({
               const taskId = (firstResult.data.taskId as string) || "";
               pageSuccess = true;
               succeeded++;
-              setPages((prev) =>
+              onPagesChange((prev) =>
                 prev.map((p) =>
                   p.index === page.index
                     ? { ...p, status: "done", imageUrl: resultUrl, taskId }
@@ -309,7 +233,7 @@ export default function BatchGeneratePanel({
             continue;
           }
           toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
-          setPages((prev) =>
+          onPagesChange((prev) =>
             prev.map((p) => (p.index === page.index ? { ...p, status: "failed" } : p))
           );
         }
@@ -322,14 +246,12 @@ export default function BatchGeneratePanel({
     if (!stopRef.current) {
       toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
     }
-  }, [pages, selectedIndices, model, ratio, buildEnhancedPrompt, refImageUrl]);
+  }, [selectedIndices, model, ratio, buildEnhancedPrompt, refImageUrl, onPagesChange]);
 
   const handleStop = useCallback(() => {
     stopRef.current = true;
     setProgressStatus("正在停止...");
   }, []);
-
-  const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
 
   const pageCountOptions = [2, 3, 4, 5, 6, 8, 10];
 
@@ -364,7 +286,7 @@ export default function BatchGeneratePanel({
         <textarea
           value={batchPrompt}
           onChange={(e) => setBatchPrompt(e.target.value)}
-          placeholder="输入完整的内容文案，系统将自动分页...&#10;例如：产品介绍、演讲稿、故事脚本、数据报告等"
+          placeholder="输入完整的内容文案，系统将自动分页...\n例如：产品介绍、演讲稿、故事脚本、数据报告等"
           className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
         />
       </div>
@@ -381,126 +303,6 @@ export default function BatchGeneratePanel({
           <span>自动拆分为 {pageCount} 页</span>
         </div>
       </Button>
-
-      {/* Pages Preview */}
-      {pages.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold">
-              页面内容
-              <span className="ml-2 text-xs text-muted-foreground font-normal">
-                已选 {selectedIndices.size}/{pages.length}
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={toggleSelectAll}
-              className="text-xs text-primary hover:underline"
-            >
-              {selectedIndices.size === pages.length ? "取消全选" : "全选"}
-            </button>
-          </div>
-          <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
-            {pages.map((page) => (
-              <div
-                key={page.index}
-                className={cn(
-                  "flex items-start gap-2 p-3 rounded-xl border-2 transition-all",
-                  selectedIndices.has(page.index)
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-background",
-                  page.status === "done" && "border-green-500/30 bg-green-500/5",
-                  page.status === "failed" && "border-red-500/30 bg-red-500/5"
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSelect(page.index)}
-                  className={cn(
-                    "mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
-                    selectedIndices.has(page.index)
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : "border-border bg-background"
-                  )}
-                >
-                  {selectedIndices.has(page.index) && <Check className="w-3.5 h-3.5" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  {editingIndex === page.index ? (
-                    <div className="space-y-2">
-                      <input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full px-2 py-1 text-sm font-medium rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        placeholder="页面标题"
-                      />
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-y min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
-                        placeholder="页面内容"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={saveEdit}
-                          className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          保存
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
-                        >
-                          取消
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-primary">第 {page.index + 1} 页</span>
-                        <span className="text-xs font-medium text-foreground truncate">{page.title}</span>
-                        {page.status === "generating" && (
-                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                        )}
-                        {page.status === "done" && (
-                          <span className="text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">完成</span>
-                        )}
-                        {page.status === "failed" && (
-                          <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">失败</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
-                    </>
-                  )}
-                </div>
-                {editingIndex !== page.index && (
-                  <div className="flex flex-col gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(page.index)}
-                      className="p-1 text-muted-foreground hover:text-primary transition-colors"
-                      title="编辑"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removePage(page.index)}
-                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Batch Generate / Stop Buttons */}
       <div className="flex gap-3">
@@ -537,39 +339,6 @@ export default function BatchGeneratePanel({
           </Button>
         )}
       </div>
-
-      {/* Results Gallery */}
-      {doneCount > 0 && (
-        <div className="space-y-2 pt-2 border-t border-border">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-semibold">生成结果</label>
-            <span className="text-xs text-muted-foreground">{doneCount} 张</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {pages
-              .filter((p) => p.status === "done" && p.imageUrl)
-              .map((page) => (
-                <div
-                  key={page.index}
-                  onClick={() => onResultClick?.(page.imageUrl!)}
-                  className="group cursor-pointer relative rounded-xl overflow-hidden border border-border bg-muted aspect-[3/4]"
-                >
-                  <img
-                    src={page.imageUrl!}
-                    alt={`第${page.index + 1}页 ${page.title}`}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
-                  <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
-                    第 {page.index + 1} 页
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
-                    {page.title}
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

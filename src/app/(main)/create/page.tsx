@@ -6,21 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
-import BatchGeneratePanel from "@/components/BatchGeneratePanel";
+import BatchGeneratePanel, { PageData } from "@/components/BatchGeneratePanel";
 
-// Types for batch mode (must match BatchGeneratePanel)
-interface BatchPage {
-  index: number;
-  title: string;
-  content: string;
-  status?: "pending" | "generating" | "done" | "failed";
-  url?: string | null;
-}
 
 // Default fallback values (used before config loads)
 const defaultTemplates = [
@@ -176,7 +168,11 @@ function CreatePageInner() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Batch mode state
-  const [batchPages, setBatchPages] = useState<BatchPage[]>([]);
+  const [batchPages, setBatchPages] = useState<PageData[]>([]);
+  const [batchSelectedIndices, setBatchSelectedIndices] = useState<Set<number>>(new Set());
+  const [batchEditingIndex, setBatchEditingIndex] = useState<number | null>(null);
+  const [batchEditTitle, setBatchEditTitle] = useState("");
+  const [batchEditContent, setBatchEditContent] = useState("");
 
   // Image-to-image state - support multiple images
   const [refImages, setRefImages] = useState<RefImage[]>([]);
@@ -317,20 +313,6 @@ function CreatePageInner() {
   }, []);
 
   // Parse batch pages from prompt text
-  const parseBatchPages = useCallback((text: string, mode: string) => {
-    if (!text.trim()) return [];
-    let pages: string[] = [];
-    if (mode === "line") {
-      pages = text.split("\n").map((s) => s.trim()).filter(Boolean);
-    } else if (mode === "separator") {
-      pages = text.split(/---+/).map((s) => s.trim()).filter(Boolean);
-    } else {
-      // auto: split by blank lines (paragraphs)
-      pages = text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
-    }
-    return pages;
-  }, []);
-
   // Login submit handler (in-dialog login)
   const handleLoginSubmit = useCallback(async () => {
     if (!loginUsername.trim() || !loginPassword.trim()) {
@@ -351,6 +333,61 @@ function CreatePageInner() {
       setLoginLoading(false);
     }
   }, [loginUsername, loginPassword, login]);
+
+  // Batch page editing handlers
+  const toggleBatchSelect = useCallback((index: number) => {
+    setBatchSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const toggleBatchSelectAll = useCallback(() => {
+    setBatchSelectedIndices((prev) => {
+      if (prev.size === batchPages.length) return new Set();
+      return new Set(batchPages.map((p) => p.index));
+    });
+  }, [batchPages]);
+
+  const removeBatchPage = useCallback((index: number) => {
+    setBatchPages((prev) => prev.filter((p) => p.index !== index).map((p, i) => ({ ...p, index: i })));
+    setBatchSelectedIndices((prev) => {
+      const next = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx < index) next.add(idx);
+        else if (idx > index) next.add(idx - 1);
+      });
+      return next;
+    });
+    setBatchEditingIndex(null);
+  }, []);
+
+  const startBatchEdit = useCallback((index: number) => {
+    const page = batchPages.find((p) => p.index === index);
+    if (!page) return;
+    setBatchEditingIndex(index);
+    setBatchEditTitle(page.title);
+    setBatchEditContent(page.content);
+  }, [batchPages]);
+
+  const saveBatchEdit = useCallback(() => {
+    if (batchEditingIndex === null) return;
+    setBatchPages((prev) =>
+      prev.map((p) =>
+        p.index === batchEditingIndex
+          ? { ...p, title: batchEditTitle.trim() || p.title, content: batchEditContent.trim() || p.content }
+          : p
+      )
+    );
+    setBatchEditingIndex(null);
+    toast.success("已保存修改");
+  }, [batchEditingIndex, batchEditTitle, batchEditContent]);
+
+  const cancelBatchEdit = useCallback(() => {
+    setBatchEditingIndex(null);
+  }, []);
 
   // Generate handler - supports multiple images
   const handleGenerate = useCallback(async () => {
@@ -720,14 +757,11 @@ function CreatePageInner() {
                   selectedUsage={selectedUsages}
                   selectedStyle={selectedStyles}
                   selectedColor={selectedColors}
-                  sceneOpts={sceneOpts}
-                  usageOpts={usageOpts}
-                  styleOpts={styleOpts}
-                  colorOpts={colorOpts}
-                  templates={templates}
                   refImageUrl={refImages.length > 0 ? refImages[0].url : null}
-                  onResultClick={(url: string) => setPreviewImage(url)}
+                  pages={batchPages}
+                  selectedIndices={batchSelectedIndices}
                   onPagesChange={setBatchPages}
+                  onSelectedIndicesChange={setBatchSelectedIndices}
                 />
               </div>
             ) : (
@@ -1038,36 +1072,157 @@ function CreatePageInner() {
               </div>
             )}
 
-            {/* Batch Mode: Page Preview */}
+            {/* Batch Mode: Page Editor */}
             {mode === "batch" && batchPages.length > 0 && (
               <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
-                <h3 className="font-semibold mb-3">页面预览</h3>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold">
+                    页面内容
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">
+                      已选 {batchSelectedIndices.size}/{batchPages.length}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleBatchSelectAll}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {batchSelectedIndices.size === batchPages.length ? "取消全选" : "全选"}
+                  </button>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
                   {batchPages.map((page) => (
                     <div
                       key={page.index}
                       className={cn(
-                        "p-3 rounded-xl border text-sm",
-                        page.status === "done"
-                          ? "border-green-500/30 bg-green-50/50"
-                          : page.status === "failed"
-                          ? "border-destructive/30 bg-destructive/5"
-                          : page.status === "generating"
-                          ? "border-primary/30 bg-primary/5"
-                          : "border-border bg-muted/30"
+                        "flex items-start gap-2 p-3 rounded-xl border-2 transition-all",
+                        batchSelectedIndices.has(page.index)
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-background",
+                        page.status === "done" && "border-green-500/30 bg-green-500/5",
+                        page.status === "failed" && "border-red-500/30 bg-red-500/5"
                       )}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-xs">{page.title}</span>
-                        <div className="flex items-center gap-1.5">
-                          {page.status === "done" && <span className="w-2 h-2 rounded-full bg-green-500" />}
-                          {page.status === "failed" && <span className="w-2 h-2 rounded-full bg-destructive" />}
-                          {page.status === "generating" && <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
-                        </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleBatchSelect(page.index)}
+                        className={cn(
+                          "mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+                          batchSelectedIndices.has(page.index)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-border bg-background"
+                        )}
+                      >
+                        {batchSelectedIndices.has(page.index) && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        {batchEditingIndex === page.index ? (
+                          <div className="space-y-2">
+                            <input
+                              value={batchEditTitle}
+                              onChange={(e) => setBatchEditTitle(e.target.value)}
+                              className="w-full px-2 py-1 text-sm font-medium rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                              placeholder="页面标题"
+                            />
+                            <textarea
+                              value={batchEditContent}
+                              onChange={(e) => setBatchEditContent(e.target.value)}
+                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-y min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
+                              placeholder="页面内容"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={saveBatchEdit}
+                                className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                              >
+                                保存
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelBatchEdit}
+                                className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-bold text-primary">第 {page.index + 1} 页</span>
+                              <span className="text-xs font-medium text-foreground truncate">{page.title}</span>
+                              {page.status === "generating" && (
+                                <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                              )}
+                              {page.status === "done" && (
+                                <span className="text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">完成</span>
+                              )}
+                              {page.status === "failed" && (
+                                <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">失败</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
+                          </>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
+                      {batchEditingIndex !== page.index && (
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startBatchEdit(page.index)}
+                            className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                            title="编辑"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeBatchPage(page.index)}
+                            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Batch Mode: Results Gallery */}
+            {mode === "batch" && batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 0 && (
+              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold">生成结果</label>
+                  <span className="text-xs text-muted-foreground">
+                    {batchPages.filter((p) => p.status === "done" && p.imageUrl).length} 张
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {batchPages
+                    .filter((p) => p.status === "done" && p.imageUrl)
+                    .map((page) => (
+                      <div
+                        key={page.index}
+                        onClick={() => setPreviewImage(page.imageUrl!)}
+                        className="group cursor-pointer relative rounded-xl overflow-hidden border border-border bg-muted aspect-[3/4]"
+                      >
+                        <img
+                          src={page.imageUrl!}
+                          alt={`第${page.index + 1}页 ${page.title}`}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                          第 {page.index + 1} 页
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
+                          {page.title}
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
