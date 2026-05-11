@@ -1677,6 +1677,7 @@ function CreatePageInner() {
         {/* Image Preview Dialog */}
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-transparent shadow-none">
+            <DialogTitle className="sr-only">图片预览</DialogTitle>
             {previewImage && (
               <img
                 src={previewImage}
