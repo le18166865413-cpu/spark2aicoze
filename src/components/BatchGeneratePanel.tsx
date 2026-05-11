@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Wand2, Loader2, Square, Type } from "lucide-react";
+import { Type } from "lucide-react";
 
 export interface PageData {
   index: number;
@@ -71,30 +71,11 @@ export function splitStoryToScenes(text: string, pageCount: number): { title: st
 }
 
 export default function BatchGeneratePanel({
-  model,
-  ratio,
-  selectedScene,
-  selectedUsage,
-  selectedStyle,
-  selectedColor,
-  refImageUrl,
-  pages,
-  selectedIndices,
   onPagesChange,
   onSelectedIndicesChange,
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
   const [pageCount, setPageCount] = useState(4);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressStatus, setProgressStatus] = useState("");
-
-  const stopRef = useRef(false);
-  const pagesRef = useRef(pages);
-
-  useEffect(() => {
-    pagesRef.current = pages;
-  }, [pages]);
 
   const handleSplit = useCallback(() => {
     const text = batchPrompt.trim();
@@ -115,143 +96,6 @@ export default function BatchGeneratePanel({
     onSelectedIndicesChange(new Set(newPages.map((_, i) => i)));
     toast.success(`已拆分为 ${newPages.length} 页，可手动编辑调整`);
   }, [batchPrompt, pageCount, onPagesChange, onSelectedIndicesChange]);
-
-  const buildEnhancedPrompt = useCallback(
-    (page: PageData, totalPages: number) => {
-      const styleLabel = [selectedScene.join("。"), selectedUsage.join("。"), selectedStyle.join("。"), selectedColor.join("。")]
-        .filter(Boolean)
-        .join("。") || "海报";
-
-      return `【${page.title}】第${page.index + 1}页，共${totalPages}页
-
-页面标题：${page.title}
-页面内容：${page.content}
-
-设计要求：${styleLabel}风格`;
-    },
-    [selectedScene, selectedUsage, selectedStyle, selectedColor]
-  );
-
-  const handleBatchGenerate = useCallback(async () => {
-    const currentPages = pagesRef.current;
-    const toGen = currentPages.filter((p) => selectedIndices.has(p.index));
-    if (!toGen.length) {
-      toast.error("请至少选择一页");
-      return;
-    }
-
-    stopRef.current = false;
-    setIsGenerating(true);
-    setProgress(0);
-    setProgressStatus("准备生成...");
-
-    const totalPages = toGen.length;
-    let succeeded = 0;
-
-    for (let i = 0; i < toGen.length; i++) {
-      if (stopRef.current) break;
-
-      const page = toGen[i];
-      onPagesChange((prev) =>
-        prev.map((p) => (p.index === page.index ? { ...p, status: "generating" } : p))
-      );
-      setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
-      setProgress(Math.round((i / totalPages) * 100));
-
-      let pageSuccess = false;
-      let attempt = 0;
-
-      while (attempt < 3 && !pageSuccess && !stopRef.current) {
-        attempt++;
-        try {
-          const enhancedPrompt = buildEnhancedPrompt(page, totalPages);
-
-          const body: Record<string, unknown> = {
-            model,
-            ratio,
-            count: 1,
-            replyType: "json",
-            siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
-          };
-
-          if (refImageUrl) {
-            body.refImageUrl = refImageUrl;
-            body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
-          } else {
-            body.prompt = enhancedPrompt;
-          }
-
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
-
-          try {
-            const res = await fetch("/api/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-              signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-
-            const result = await res.json().catch(() => ({}));
-
-            if (!res.ok || !result.success) {
-              const errMsg = result.error || result.results?.[0]?.error || `第 ${page.index + 1} 页生成失败`;
-              const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
-              if (isViolation && attempt < 3) {
-                toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
-                continue;
-              }
-              throw new Error(errMsg);
-            }
-
-            const firstResult = result.results?.[0];
-            if (firstResult?.success && firstResult.data?.url) {
-              const resultUrl = firstResult.data.url as string;
-              const taskId = (firstResult.data.taskId as string) || "";
-              pageSuccess = true;
-              succeeded++;
-              onPagesChange((prev) =>
-                prev.map((p) =>
-                  p.index === page.index
-                    ? { ...p, status: "done", imageUrl: resultUrl, taskId }
-                    : p
-                )
-              );
-            } else {
-              throw new Error(firstResult?.error || "未获取到图片地址");
-            }
-          } catch (err: unknown) {
-            clearTimeout(timeoutId);
-            throw err;
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "生成失败";
-          const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(msg);
-          if (isViolation && attempt < 3) {
-            toast.warning(`第 ${page.index + 1} 页内容违规，自动调整后重试（${attempt}/3）...`);
-            continue;
-          }
-          toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
-          onPagesChange((prev) =>
-            prev.map((p) => (p.index === page.index ? { ...p, status: "failed" } : p))
-          );
-        }
-      }
-    }
-
-    setProgress(100);
-    setProgressStatus(stopRef.current ? "已停止" : "生成完成");
-    setIsGenerating(false);
-    if (!stopRef.current) {
-      toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
-    }
-  }, [selectedIndices, model, ratio, buildEnhancedPrompt, refImageUrl, onPagesChange]);
-
-  const handleStop = useCallback(() => {
-    stopRef.current = true;
-    setProgressStatus("正在停止...");
-  }, []);
 
   const pageCountOptions = [2, 3, 4, 5, 6, 8, 10];
 
@@ -303,42 +147,6 @@ export default function BatchGeneratePanel({
           <span>自动拆分为 {pageCount} 页</span>
         </div>
       </Button>
-
-      {/* Batch Generate / Stop Buttons */}
-      <div className="flex gap-3">
-        <Button
-          onClick={handleBatchGenerate}
-          disabled={isGenerating || selectedIndices.size === 0}
-          className={cn(
-            "flex-1 py-5 text-base font-bold rounded-2xl transition-all shadow-lg",
-            isGenerating
-              ? "bg-muted cursor-not-allowed"
-              : "bg-primary hover:bg-primary/90"
-          )}
-        >
-          {isGenerating ? (
-            <div className="flex items-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{progressStatus} ({progress}%)</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Wand2 className="w-5 h-5" />
-              批量生成 {selectedIndices.size > 0 ? `(${selectedIndices.size}页)` : ""}
-            </div>
-          )}
-        </Button>
-        {isGenerating && (
-          <Button
-            onClick={handleStop}
-            variant="destructive"
-            className="px-6 py-5 text-base font-bold rounded-2xl transition-all shadow-lg hover:bg-destructive/90"
-          >
-            <Square className="w-4 h-4 mr-2" />
-            停止
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

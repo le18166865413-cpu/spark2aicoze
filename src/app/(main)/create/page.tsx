@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -387,6 +387,150 @@ function CreatePageInner() {
 
   const cancelBatchEdit = useCallback(() => {
     setBatchEditingIndex(null);
+  }, []);
+
+  // Batch generate handlers
+  const batchStopRef = useRef(false);
+
+  const buildBatchPrompt = useCallback(
+    (page: PageData, totalPages: number) => {
+      const styleLabel = [selectedScenes.join("。"), selectedUsages.join("。"), selectedStyles.join("。"), selectedColors.join("。")]
+        .filter(Boolean)
+        .join("。") || "海报";
+
+      return `【${page.title}】第${page.index + 1}页，共${totalPages}页
+
+页面标题：${page.title}
+页面内容：${page.content}
+
+设计要求：${styleLabel}风格`;
+    },
+    [selectedScenes, selectedUsages, selectedStyles, selectedColors]
+  );
+
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchProgressStatus, setBatchProgressStatus] = useState("");
+
+  const handleBatchGenerate = useCallback(async () => {
+    const toGen = batchPages.filter((p) => batchSelectedIndices.has(p.index));
+    if (!toGen.length) {
+      toast.error("请至少选择一页");
+      return;
+    }
+
+    batchStopRef.current = false;
+    setIsBatchGenerating(true);
+    setBatchProgress(0);
+    setBatchProgressStatus("准备生成...");
+
+    const totalPages = toGen.length;
+    let succeeded = 0;
+
+    for (let i = 0; i < toGen.length; i++) {
+      if (batchStopRef.current) break;
+
+      const page = toGen[i];
+      setBatchPages((prev) =>
+        prev.map((p) => (p.index === page.index ? { ...p, status: "generating" } : p))
+      );
+      setBatchProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
+      setBatchProgress(Math.round((i / totalPages) * 100));
+
+      let pageSuccess = false;
+      let attempt = 0;
+
+      while (attempt < 3 && !pageSuccess && !batchStopRef.current) {
+        attempt++;
+        try {
+          const enhancedPrompt = buildBatchPrompt(page, totalPages);
+
+          const body: Record<string, unknown> = {
+            model,
+            ratio,
+            count: 1,
+            replyType: "json",
+            siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
+          };
+
+          const refImageUrl = refImages.length > 0 ? refImages[0].url : null;
+          if (refImageUrl) {
+            body.refImageUrl = refImageUrl;
+            body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
+          } else {
+            body.prompt = enhancedPrompt;
+          }
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+
+          try {
+            const res = await fetch("/api/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok || !result.success) {
+              const errMsg = result.error || result.results?.[0]?.error || `第 ${page.index + 1} 页生成失败`;
+              const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
+              if (isViolation && attempt < 3) {
+                toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
+                continue;
+              }
+              throw new Error(errMsg);
+            }
+
+            const firstResult = result.results?.[0];
+            if (firstResult?.success && firstResult.data?.url) {
+              const resultUrl = firstResult.data.url as string;
+              const taskId = (firstResult.data.taskId as string) || "";
+              pageSuccess = true;
+              succeeded++;
+              setBatchPages((prev) =>
+                prev.map((p) =>
+                  p.index === page.index
+                    ? { ...p, status: "done", imageUrl: resultUrl, taskId }
+                    : p
+                )
+              );
+            } else {
+              throw new Error(firstResult?.error || "未获取到图片地址");
+            }
+          } catch (err: unknown) {
+            clearTimeout(timeoutId);
+            throw err;
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "生成失败";
+          const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(msg);
+          if (isViolation && attempt < 3) {
+            toast.warning(`第 ${page.index + 1} 页内容违规，自动调整后重试（${attempt}/3）...`);
+            continue;
+          }
+          toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
+          setBatchPages((prev) =>
+            prev.map((p) => (p.index === page.index ? { ...p, status: "failed" } : p))
+          );
+        }
+      }
+    }
+
+    setBatchProgress(100);
+    setBatchProgressStatus(batchStopRef.current ? "已停止" : "生成完成");
+    setIsBatchGenerating(false);
+    if (!batchStopRef.current) {
+      toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
+    }
+  }, [batchPages, batchSelectedIndices, model, ratio, buildBatchPrompt, refImages]);
+
+  const handleBatchStop = useCallback(() => {
+    batchStopRef.current = true;
+    setBatchProgressStatus("正在停止...");
   }, []);
 
   // Generate handler - supports multiple images
@@ -1072,6 +1216,22 @@ function CreatePageInner() {
               </div>
             )}
 
+            {/* Batch Progress */}
+            {isBatchGenerating && (
+              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{batchProgressStatus}</span>
+                  <span className="text-sm font-medium text-primary">{batchProgress}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300 rounded-full"
+                    style={{ width: `${batchProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Batch Mode: Page Editor */}
             {mode === "batch" && batchPages.length > 0 && (
               <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
@@ -1188,6 +1348,42 @@ function CreatePageInner() {
                       )}
                     </div>
                   ))}
+                </div>
+
+                {/* Batch Generate / Stop Buttons */}
+                <div className="flex gap-3 mt-4 pt-3 border-t border-border">
+                  <Button
+                    onClick={handleBatchGenerate}
+                    disabled={isBatchGenerating || batchSelectedIndices.size === 0}
+                    className={cn(
+                      "flex-1 py-5 text-base font-bold rounded-2xl transition-all shadow-lg",
+                      isBatchGenerating
+                        ? "bg-muted cursor-not-allowed"
+                        : "bg-primary hover:bg-primary/90"
+                    )}
+                  >
+                    {isBatchGenerating ? (
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>{batchProgressStatus} ({batchProgress}%)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Wand2 className="w-5 h-5" />
+                        批量生成 {batchSelectedIndices.size > 0 ? `(${batchSelectedIndices.size}页)` : ""}
+                      </div>
+                    )}
+                  </Button>
+                  {isBatchGenerating && (
+                    <Button
+                      onClick={handleBatchStop}
+                      variant="destructive"
+                      className="px-6 py-5 text-base font-bold rounded-2xl transition-all shadow-lg hover:bg-destructive/90"
+                    >
+                      <Square className="w-4 h-4 mr-2" />
+                      停止
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
