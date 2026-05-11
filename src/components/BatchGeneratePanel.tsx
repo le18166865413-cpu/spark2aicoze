@@ -1,22 +1,33 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
-import { cn } from "@/lib/utils";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wand2, Check, Trash2, BrainCircuit, FileText, LayoutTemplate, BookOpen, Network, Square } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  Wand2,
+  Loader2,
+  Check,
+  Trash2,
+  Square,
+  LayoutTemplate,
+  Palette,
+  Type,
+  Pencil,
+  X,
+} from "lucide-react";
 
-interface BatchPage {
+interface PageData {
   index: number;
   title: string;
   content: string;
-  status: "pending" | "generating" | "done" | "error";
-  imageUrl?: string;
-  taskId?: string;
+  status: "idle" | "generating" | "done" | "error";
+  imageUrl: string | null;
+  taskId: string | null;
 }
 
 interface BatchGeneratePanelProps {
-  model: string;
+  model: string | null;
   ratio: string;
   selectedScene: string[];
   selectedUsage: string[];
@@ -27,17 +38,48 @@ interface BatchGeneratePanelProps {
   styleOpts: string[];
   colorOpts: string[];
   templates: { label: string; prompt: string }[];
+  refImageUrl?: string | null;
   onResultClick?: (imageUrl: string) => void;
 }
 
-type BatchType = "ppt" | "comic" | "infographic" | "architecture";
+function splitStoryToScenes(text: string, pageCount: number): { title: string; content: string }[] {
+  const targetCount = Math.max(1, Math.min(pageCount, 20));
 
-const batchTypeOptions: { key: BatchType; label: string; icon: React.ReactNode; desc: string }[] = [
-  { key: "ppt", label: "PPT海报", icon: <LayoutTemplate className="w-4 h-4" />, desc: "演示文稿风格" },
-  { key: "comic", label: "漫画故事", icon: <BookOpen className="w-4 h-4" />, desc: "故事板分镜" },
-  { key: "infographic", label: "信息图", icon: <FileText className="w-4 h-4" />, desc: "数据可视化" },
-  { key: "architecture", label: "架构图", icon: <Network className="w-4 h-4" />, desc: "系统/流程图" },
-];
+  // 第一层：按段落拆分
+  const paragraphs = text.split(/\n\n+/).filter((p) => p.trim());
+  if (paragraphs.length >= targetCount) {
+    return paragraphs.slice(0, targetCount).map((p, i) => ({
+      title: `第 ${i + 1} 页`,
+      content: p.trim(),
+    }));
+  }
+
+  // 第二层：按句子拆分
+  const sentences = text.split(/[。！？.!?]+/).filter((s) => s.trim());
+  if (sentences.length >= targetCount) {
+    const perPage = Math.ceil(sentences.length / targetCount);
+    const result: { title: string; content: string }[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      const start = i * perPage;
+      const end = Math.min(start + perPage, sentences.length);
+      const content = sentences.slice(start, end).join("。") + "。";
+      result.push({ title: `第 ${i + 1} 页`, content });
+    }
+    return result;
+  }
+
+  // 第三层：兜底处理 — 按字数均分
+  const cleanText = text.replace(/\n/g, "").trim();
+  const charsPerPage = Math.max(1, Math.ceil(cleanText.length / targetCount));
+  const result: { title: string; content: string }[] = [];
+  for (let i = 0; i < targetCount; i++) {
+    const start = i * charsPerPage;
+    const end = Math.min(start + charsPerPage, cleanText.length);
+    const content = cleanText.slice(start, end);
+    result.push({ title: `第 ${i + 1} 页`, content });
+  }
+  return result;
+}
 
 export default function BatchGeneratePanel({
   model,
@@ -47,119 +89,120 @@ export default function BatchGeneratePanel({
   selectedStyle,
   selectedColor,
   templates,
+  refImageUrl,
   onResultClick,
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
-  const [batchType, setBatchType] = useState<BatchType>("ppt");
-  const [pages, setPages] = useState<BatchPage[]>([]);
+  const [pages, setPages] = useState<PageData[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [pageCount, setPageCount] = useState(4);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
-  const [outlineTitle, setOutlineTitle] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<{ label: string; prompt: string } | null>(null);
+
   const stopRef = useRef(false);
 
-  const handleStop = useCallback(() => {
-    stopRef.current = true;
-    setIsGenerating(false);
-    setProgressStatus("已停止");
-    toast.info("批量生成已停止");
-  }, []);
-
-  // Smart analyze using LLM
-  const handleAnalyze = useCallback(async () => {
-    if (!batchPrompt.trim()) {
-      toast.error("请先输入内容");
+  const handleSplit = useCallback(() => {
+    const text = batchPrompt.trim();
+    if (!text) {
+      toast.error("请输入内容");
       return;
     }
-    setIsAnalyzing(true);
-    setProgressStatus("正在智能分析内容结构...");
-
-    try {
-      const res = await fetch("/api/batch-analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: batchPrompt, mode: batchType }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "分析失败");
-      }
-
-      const { title, pages: analyzedPages } = data.data;
-      setOutlineTitle(title);
-
-      const newPages: BatchPage[] = analyzedPages.map((p: { title: string; content: string }, i: number) => ({
+    const newPages = splitStoryToScenes(text, pageCount);
+    setPages(
+      newPages.map((p, i) => ({
+        ...p,
         index: i,
-        title: p.title,
-        content: p.content,
-        status: "pending",
-      }));
+        status: "idle",
+        imageUrl: null,
+        taskId: null,
+      }))
+    );
+    setSelectedIndices(new Set(newPages.map((_, i) => i)));
+    setEditingIndex(null);
+    toast.success(`已拆分为 ${newPages.length} 页，可手动编辑调整`);
+  }, [batchPrompt, pageCount]);
 
-      setPages(newPages);
-      setSelectedIndices(new Set(newPages.map((p) => p.index)));
-      toast.success(`智能分析完成：「${title}」共 ${newPages.length} 页`);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "分析失败";
-      toast.error(msg);
-    } finally {
-      setIsAnalyzing(false);
-      setProgressStatus("");
-    }
-  }, [batchPrompt, batchType]);
-
-  const toggleSelect = useCallback((idx: number) => {
+  const toggleSelect = useCallback((index: number) => {
     setSelectedIndices((prev) => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (selectedIndices.size === pages.length) {
-      setSelectedIndices(new Set());
-    } else {
-      setSelectedIndices(new Set(pages.map((p) => p.index)));
-    }
-  }, [selectedIndices.size, pages]);
-
-  const removePage = useCallback((idx: number) => {
-    setPages((prev) => prev.filter((p) => p.index !== idx));
     setSelectedIndices((prev) => {
-      const next = new Set(prev);
-      next.delete(idx);
+      if (prev.size === pages.length) {
+        return new Set();
+      }
+      return new Set(pages.map((p) => p.index));
+    });
+  }, [pages]);
+
+  const removePage = useCallback((index: number) => {
+    setPages((prev) => prev.filter((p) => p.index !== index).map((p, i) => ({ ...p, index: i })));
+    setSelectedIndices((prev) => {
+      const next = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx < index) next.add(idx);
+        else if (idx > index) next.add(idx - 1);
+      });
       return next;
     });
+    setEditingIndex(null);
   }, []);
 
-  const buildEnhancedPrompt = useCallback((
-    page: BatchPage,
-    totalPages: number,
-    outlineTitleParam: string,
-  ) => {
-    // Core content with page context for consistency
-    let enhanced = `【${outlineTitleParam}】第${page.index + 1}页，共${totalPages}页\n\n`;
-    enhanced += `页面标题：${page.title}\n`;
-    enhanced += `页面内容：${page.content}\n\n`;
+  const startEdit = useCallback((index: number) => {
+    const page = pages.find((p) => p.index === index);
+    if (!page) return;
+    setEditingIndex(index);
+    setEditTitle(page.title);
+    setEditContent(page.content);
+  }, [pages]);
 
-    // Style consistency instructions
-    enhanced += "设计要求：";
-    const sc = selectedScene.length ? `场景：${selectedScene.join("、")}，` : "";
-    const us = selectedUsage.length ? `用途：${selectedUsage.join("、")}，` : "";
-    const st = selectedStyle.length ? `风格：${selectedStyle.join("、")}，` : "";
-    const co = selectedColor.length ? `主色调：${selectedColor.join("、")}，` : "";
-    enhanced += `${sc}${us}${st}${co}`;
+  const saveEdit = useCallback(() => {
+    if (editingIndex === null) return;
+    setPages((prev) =>
+      prev.map((p) =>
+        p.index === editingIndex
+          ? { ...p, title: editTitle.trim() || p.title, content: editContent.trim() || p.content }
+          : p
+      )
+    );
+    setEditingIndex(null);
+    toast.success("已保存修改");
+  }, [editingIndex, editTitle, editContent]);
 
-    // Consistency instruction
-    enhanced += `\n\n重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。`;
+  const cancelEdit = useCallback(() => {
+    setEditingIndex(null);
+  }, []);
 
-    return enhanced;
-  }, [selectedScene, selectedUsage, selectedStyle, selectedColor]);
+  const buildEnhancedPrompt = useCallback(
+    (page: PageData, totalPages: number) => {
+      const styleLabel = [selectedScene.join("、"), selectedUsage.join("、"), selectedStyle.join("、"), selectedColor.join("、")]
+        .filter(Boolean)
+        .join("、") || "海报";
+
+      return `【${page.title}】第${page.index + 1}页，共${totalPages}页
+
+页面标题：${page.title}
+页面内容：${page.content}
+
+设计要求：${styleLabel}风格
+
+重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。`;
+    },
+    [selectedScene, selectedUsage, selectedStyle, selectedColor]
+  );
 
   const handleBatchGenerate = useCallback(async () => {
     const toGen = pages.filter((p) => selectedIndices.has(p.index));
@@ -174,55 +217,25 @@ export default function BatchGeneratePanel({
     setProgressStatus("准备生成...");
 
     const totalPages = toGen.length;
-    const title = outlineTitle || "批量生成";
-    let lastSuccessUrl = "";
     let succeeded = 0;
-
-    // Sanitize prompt for retry when moderation violation occurs
-    const sanitizePrompt = (original: string, attempt: number): string => {
-      let sanitized = original;
-      // Remove sensitive marketing keywords on first retry
-      if (attempt === 1) {
-        const sensitiveWords = ["免费", "免费领取", "限时免费", "0元", "免费送", "无偿", "赠品", "赠送", "福利", "薅羊毛", "钜惠", "跳楼价", "清仓"];
-        sensitiveWords.forEach((w) => {
-          sanitized = sanitized.replace(new RegExp(w, "g"), "");
-        });
-        sanitized += "\n\n（注意：请确保画面内容积极健康，符合平台规范，避免出现夸大宣传或敏感营销信息）";
-      }
-      // Further simplify on second retry
-      if (attempt === 2) {
-        sanitized = sanitized
-          .replace(/促销|优惠|折扣|特价|秒杀|抢购|大促|狂欢节/g, "活动")
-          .replace(/微信|QQ|电话|联系方式|二维码/g, "")
-          .replace(/\n\n（注意：.*）/g, "")
-          + "\n\n（请生成一张风格统一、内容健康向上的设计海报，画面简洁大方）";
-      }
-      return sanitized;
-    };
 
     for (let i = 0; i < toGen.length; i++) {
       if (stopRef.current) break;
 
       const page = toGen[i];
       setPages((prev) =>
-        prev.map((p) =>
-          p.index === page.index ? { ...p, status: "generating" } : p
-        )
+        prev.map((p) => (p.index === page.index ? { ...p, status: "generating" } : p))
       );
       setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
       setProgress(Math.round((i / totalPages) * 100));
 
       let pageSuccess = false;
       let attempt = 0;
-      let finalError = "";
 
       while (attempt < 3 && !pageSuccess && !stopRef.current) {
         attempt++;
         try {
-          let enhancedPrompt = buildEnhancedPrompt(page, totalPages, title);
-          if (attempt > 1) {
-            enhancedPrompt = sanitizePrompt(enhancedPrompt, attempt - 1);
-          }
+          const enhancedPrompt = buildEnhancedPrompt(page, totalPages);
 
           const body: Record<string, unknown> = {
             model,
@@ -232,10 +245,9 @@ export default function BatchGeneratePanel({
             siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
           };
 
-          // Use previous successful image as style reference
-          if (lastSuccessUrl) {
-            body.refImageUrl = lastSuccessUrl;
-            body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考上一张图片的视觉风格、配色方案、排版布局和字体风格，确保与整套系列保持高度统一的视觉语言。）`;
+          if (refImageUrl) {
+            body.refImageUrl = refImageUrl;
+            body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
           } else if (selectedTemplate) {
             body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
           } else {
@@ -243,7 +255,7 @@ export default function BatchGeneratePanel({
           }
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes for json mode
+          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
 
           try {
             const res = await fetch("/api/generate", {
@@ -271,9 +283,6 @@ export default function BatchGeneratePanel({
               const resultUrl = firstResult.data.url as string;
               const taskId = (firstResult.data.taskId as string) || "";
               pageSuccess = true;
-              lastSuccessUrl = resultUrl;
-              // eslint-disable-next-line no-console
-              console.log(`[Batch] Page ${page.index + 1} success, lastSuccessUrl set to:`, lastSuccessUrl);
               succeeded++;
               setPages((prev) =>
                 prev.map((p) =>
@@ -291,7 +300,6 @@ export default function BatchGeneratePanel({
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "生成失败";
-          finalError = msg;
           const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(msg);
           if (isViolation && attempt < 3) {
             toast.warning(`第 ${page.index + 1} 页内容违规，自动调整后重试（${attempt}/3）...`);
@@ -299,9 +307,7 @@ export default function BatchGeneratePanel({
           }
           toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
           setPages((prev) =>
-            prev.map((p) =>
-              p.index === page.index ? { ...p, status: "error" } : p
-            )
+            prev.map((p) => (p.index === page.index ? { ...p, status: "error" } : p))
           );
         }
       }
@@ -313,29 +319,35 @@ export default function BatchGeneratePanel({
     if (!stopRef.current) {
       toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
     }
-  }, [pages, selectedIndices, model, ratio, selectedTemplate, buildEnhancedPrompt, outlineTitle]);
+  }, [pages, selectedIndices, model, ratio, selectedTemplate, buildEnhancedPrompt, refImageUrl]);
+
+  const handleStop = useCallback(() => {
+    stopRef.current = true;
+    setProgressStatus("正在停止...");
+  }, []);
 
   const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
 
+  const pageCountOptions = [2, 3, 4, 5, 6, 8, 10];
+
   return (
     <div className="space-y-4">
-      {/* Batch Type Selector */}
+      {/* Page Count Selector */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground mr-1">生成类型：</span>
-        {batchTypeOptions.map((opt) => (
+        <span className="text-xs text-muted-foreground mr-1">拆分页数：</span>
+        {pageCountOptions.map((n) => (
           <button
-            key={opt.key}
+            key={n}
             type="button"
-            onClick={() => setBatchType(opt.key)}
+            onClick={() => setPageCount(n)}
             className={cn(
-              "flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg transition-all border-2",
-              batchType === opt.key
+              "px-2 py-1 text-xs rounded-lg transition-all border-2",
+              pageCount === n
                 ? "bg-primary/10 border-primary text-primary"
                 : "bg-secondary border-transparent hover:border-border"
             )}
           >
-            {opt.icon}
-            {opt.label}
+            {n} 页
           </button>
         ))}
       </div>
@@ -349,45 +361,30 @@ export default function BatchGeneratePanel({
         <textarea
           value={batchPrompt}
           onChange={(e) => setBatchPrompt(e.target.value)}
-          placeholder="输入完整的内容文案，AI将智能分析结构并自动分页...&#10;例如：产品介绍、演讲稿、故事脚本、数据报告等"
+          placeholder="输入完整的内容文案，系统将自动分页...&#10;例如：产品介绍、演讲稿、故事脚本、数据报告等"
           className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
         />
       </div>
 
-      {/* Smart Analyze Button */}
+      {/* Split Button */}
       <Button
-        onClick={handleAnalyze}
-        disabled={isAnalyzing || !batchPrompt.trim()}
+        onClick={handleSplit}
+        disabled={!batchPrompt.trim()}
         variant="outline"
         className="w-full py-5 text-base font-bold rounded-2xl transition-all border-2 border-dashed border-primary/30 hover:border-primary hover:bg-primary/5"
       >
-        {isAnalyzing ? (
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>正在智能分析内容结构...</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <BrainCircuit className="w-5 h-5" />
-            <span>AI 智能分析并分页</span>
-          </div>
-        )}
-      </Button>
-
-      {/* Outline Title */}
-      {outlineTitle && (
-        <div className="px-4 py-3 rounded-xl bg-primary/5 border border-primary/10">
-          <p className="text-sm font-semibold text-primary">{outlineTitle}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">共 {pages.length} 页 · 已智能分页</p>
+        <div className="flex items-center gap-3">
+          <Type className="w-5 h-5" />
+          <span>自动拆分为 {pageCount} 页</span>
         </div>
-      )}
+      </Button>
 
       {/* Pages Preview */}
       {pages.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold">
-              页面大纲
+              页面内容
               <span className="ml-2 text-xs text-muted-foreground font-normal">
                 已选 {selectedIndices.size}/{pages.length}
               </span>
@@ -400,7 +397,7 @@ export default function BatchGeneratePanel({
               {selectedIndices.size === pages.length ? "取消全选" : "全选"}
             </button>
           </div>
-          <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+          <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
             {pages.map((page) => (
               <div
                 key={page.index}
@@ -426,28 +423,76 @@ export default function BatchGeneratePanel({
                   {selectedIndices.has(page.index) && <Check className="w-3.5 h-3.5" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-primary">第 {page.index + 1} 页</span>
-                    <span className="text-xs font-medium text-foreground truncate">{page.title}</span>
-                    {page.status === "generating" && (
-                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                    )}
-                    {page.status === "done" && (
-                      <span className="text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">完成</span>
-                    )}
-                    {page.status === "error" && (
-                      <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">失败</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
+                  {editingIndex === page.index ? (
+                    <div className="space-y-2">
+                      <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full px-2 py-1 text-sm font-medium rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        placeholder="页面标题"
+                      />
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-y min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
+                        placeholder="页面内容"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={saveEdit}
+                          className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          保存
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-primary">第 {page.index + 1} 页</span>
+                        <span className="text-xs font-medium text-foreground truncate">{page.title}</span>
+                        {page.status === "generating" && (
+                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                        )}
+                        {page.status === "done" && (
+                          <span className="text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">完成</span>
+                        )}
+                        {page.status === "error" && (
+                          <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">失败</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
+                    </>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removePage(page.index)}
-                  className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {editingIndex !== page.index && (
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(page.index)}
+                      className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                      title="编辑"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePage(page.index)}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                      title="删除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -543,7 +588,7 @@ export default function BatchGeneratePanel({
                   className="group cursor-pointer relative rounded-xl overflow-hidden border border-border bg-muted aspect-[3/4]"
                 >
                   <img
-                    src={page.imageUrl}
+                    src={page.imageUrl!}
                     alt={`第${page.index + 1}页 ${page.title}`}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   />

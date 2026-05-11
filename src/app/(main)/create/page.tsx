@@ -713,6 +713,7 @@ function CreatePageInner() {
                   styleOpts={styleOpts}
                   colorOpts={colorOpts}
                   templates={templates}
+                  refImageUrl={refImages.length > 0 ? refImages[0].url : null}
                   onResultClick={(url: string) => setPreviewImage(url)}
                 />
               </div>
