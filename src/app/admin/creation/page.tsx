@@ -22,6 +22,11 @@ interface RatioItem {
   desc: string;
 }
 
+const DEFAULT_SCENE_OPTS = ['电商', '社交媒体', '微信营销', '公众号', '行政办公/教育', '生活娱乐', 'PPT'];
+const DEFAULT_USAGE_OPTS = ['营销带货', '交流分享', '祝福问候', '宣传推广', '干货科普', '通知公告', '招聘招募', '个人娱乐', '日月签', '公益宣传', '晒照分享', '简介介绍', '邀请函', '直播宣传', '喜报表彰', '计划总结', '员工关怀', '社交互动', '价目表', '学习素材', '资讯要闻', '生日祝福', '晒单反馈'];
+const DEFAULT_STYLE_OPTS = ['简约', '时尚', '实景', '插画', '卡通', '文艺', '喜庆', '手绘', '可爱', '拼贴风', '潮酷', '商务', '中国风', '通用', '扁平', '清新', '3D', '复古', '奢华', '酸性风', '科技', '膨胀风'];
+const DEFAULT_COLOR_OPTS = ['蓝', '黄', '绿', '红', '粉', '橙', '白', '棕', '紫', '黑', '灰', '米色'];
+
 type TabKey = 'templates' | 'models' | 'ratios' | 'scene' | 'usage' | 'style' | 'color' | 'tips' | 'wait' | 'pagesize' | 'imagecount' | 'imagesize' | 'violation' | 'limits';
 
 export default function CreationConfigPage() {
@@ -105,20 +110,20 @@ export default function CreationConfigPage() {
       setPromptMaxLength(getSetting('prompt_max_length') || '2000');
       try {
         const sc = getSetting('create_options_scene');
-        setSceneOpts(sc ? JSON.parse(sc) : []);
-      } catch { setSceneOpts([]); }
+        setSceneOpts(sc ? JSON.parse(sc) : DEFAULT_SCENE_OPTS);
+      } catch { setSceneOpts(DEFAULT_SCENE_OPTS); }
       try {
         const us = getSetting('create_options_usage');
-        setUsageOpts(us ? JSON.parse(us) : []);
-      } catch { setUsageOpts([]); }
+        setUsageOpts(us ? JSON.parse(us) : DEFAULT_USAGE_OPTS);
+      } catch { setUsageOpts(DEFAULT_USAGE_OPTS); }
       try {
         const st = getSetting('create_options_style');
-        setStyleOpts(st ? JSON.parse(st) : []);
-      } catch { setStyleOpts([]); }
+        setStyleOpts(st ? JSON.parse(st) : DEFAULT_STYLE_OPTS);
+      } catch { setStyleOpts(DEFAULT_STYLE_OPTS); }
       try {
         const co = getSetting('create_options_color');
-        setColorOpts(co ? JSON.parse(co) : []);
-      } catch { setColorOpts([]); }
+        setColorOpts(co ? JSON.parse(co) : DEFAULT_COLOR_OPTS);
+      } catch { setColorOpts(DEFAULT_COLOR_OPTS); }
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);

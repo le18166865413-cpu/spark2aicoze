@@ -168,10 +168,11 @@ export async function GET() {
       }
     }
 
-    // Merge DB values over defaults
+    // Merge DB values over defaults (treat empty string as unset)
     const config: Record<string, unknown> = {};
     for (const key of Object.keys(DEFAULTS)) {
-      config[key] = dbMap[key] ?? DEFAULTS[key];
+      const dbVal = dbMap[key];
+      config[key] = (dbVal === undefined || dbVal === null || dbVal === '') ? DEFAULTS[key] : dbVal;
     }
 
     // Parse JSON fields
@@ -181,6 +182,14 @@ export async function GET() {
         config[field] = JSON.parse(config[field] as string);
       } catch {
         config[field] = JSON.parse(DEFAULTS[field]);
+      }
+    }
+
+    // Convert string arrays to { label, value } objects for create options
+    for (const key of ['create_options_scene', 'create_options_usage', 'create_options_style', 'create_options_color']) {
+      const arr = config[key] as unknown[] | null;
+      if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'string') {
+        config[key] = arr.map((item: unknown) => ({ label: String(item), value: String(item) }));
       }
     }
 
