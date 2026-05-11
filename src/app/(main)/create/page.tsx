@@ -6,11 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
+import BatchGeneratePanel from "@/components/BatchGeneratePanel";
 
 // Default fallback values (used before config loads)
 const defaultTemplates = [
@@ -84,7 +85,7 @@ const colorOptions = [
   "棕", "紫", "黑", "灰", "米色",
 ];
 
-type GenerationMode = "text2img" | "img2img";
+type GenerationMode = "text2img" | "img2img" | "batch";
 
 interface RefImage {
   url: string; // S3 key or HTTP URL
@@ -301,6 +302,21 @@ function CreatePageInner() {
       }
       return prev.filter((_, i) => i !== index);
     });
+  }, []);
+
+  // Parse batch pages from prompt text
+  const parseBatchPages = useCallback((text: string, mode: string) => {
+    if (!text.trim()) return [];
+    let pages: string[] = [];
+    if (mode === "line") {
+      pages = text.split("\n").map((s) => s.trim()).filter(Boolean);
+    } else if (mode === "separator") {
+      pages = text.split(/---+/).map((s) => s.trim()).filter(Boolean);
+    } else {
+      // auto: split by blank lines (paragraphs)
+      pages = text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+    }
+    return pages;
   }, []);
 
   // Login submit handler (in-dialog login)
@@ -577,6 +593,18 @@ function CreatePageInner() {
                 <ImagePlus className="w-4 h-4" />
                 参考图生图
               </button>
+              <button
+                onClick={() => setMode("batch")}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
+                  mode === "batch"
+                    ? "bg-primary text-white shadow-md"
+                    : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
+                )}
+              >
+                <Layers className="w-4 h-4" />
+                批量生图
+              </button>
             </div>
 
             {/* Reference Image Upload (for img2img) - Multiple images */}
@@ -671,50 +699,69 @@ function CreatePageInner() {
             </div>
 
             {/* Prompt Input */}
-            <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-              <div className="flex items-center justify-between mb-4">
-                <Label className="text-base font-semibold" htmlFor="prompt">
-                  {mode === "text2img" ? "海报描述" : "图片描述"}
-                </Label>
-                <button
-                  onClick={() => {
-                    setPrompt("");
-                    promptRef.current = "";
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  清空
-                </button>
+            {mode === "batch" ? (
+              <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+                <BatchGeneratePanel
+                  model={model}
+                  ratio={ratio}
+                  selectedScene={selectedScenes}
+                  selectedUsage={selectedUsages}
+                  selectedStyle={selectedStyles}
+                  selectedColor={selectedColors}
+                  sceneOpts={sceneOpts}
+                  usageOpts={usageOpts}
+                  styleOpts={styleOpts}
+                  colorOpts={colorOpts}
+                  templates={templates}
+                  onResultClick={(url: string) => setPreviewImage(url)}
+                />
               </div>
-              <Textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => {
-                  setPrompt(e.target.value);
-                  promptRef.current = e.target.value;
-                }}
-                placeholder={mode === "text2img" 
-                  ? "输入你想要的文案/内容/联系方式/地址等主体内容..." 
-                  : "描述你想要生成的图片内容..."}
-                className="min-h-[120px] resize-none border-input focus:ring-2 focus:ring-ring"
-              />
-              
-              {/* Templates */}
-              <div className="mt-4">
-                <p className="text-xs text-muted-foreground mb-2">快捷模板</p>
-                <div className="flex flex-wrap gap-2">
-                  {templates.map((template) => (
-                    <button
-                      key={template.label}
-                      onClick={() => handleTemplateSelect(template.prompt)}
-                      className="px-3 py-1.5 text-xs bg-secondary rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
-                    >
-                      {template.label}
-                    </button>
-                  ))}
+            ) : (
+              <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
+                <div className="flex items-center justify-between mb-4">
+                  <Label className="text-base font-semibold" htmlFor="prompt">
+                    {mode === "text2img" ? "海报描述" : "图片描述"}
+                  </Label>
+                  <button
+                    onClick={() => {
+                      setPrompt("");
+                      promptRef.current = "";
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    清空
+                  </button>
+                </div>
+                <Textarea
+                  id="prompt"
+                  value={prompt}
+                  onChange={(e) => {
+                    setPrompt(e.target.value);
+                    promptRef.current = e.target.value;
+                  }}
+                  placeholder={mode === "text2img"
+                    ? "输入你想要的文案/内容/联系方式/地址等主体内容..."
+                    : "描述你想要生成的图片内容..."}
+                  className="min-h-[120px] resize-none border-input focus:ring-2 focus:ring-ring"
+                />
+
+                {/* Templates */}
+                <div className="mt-4">
+                  <p className="text-xs text-muted-foreground mb-2">快捷模板</p>
+                  <div className="flex flex-wrap gap-2">
+                    {templates.map((template) => (
+                      <button
+                        key={template.label}
+                        onClick={() => handleTemplateSelect(template.prompt)}
+                        className="px-3 py-1.5 text-xs bg-secondary rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Options */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
@@ -916,6 +963,7 @@ function CreatePageInner() {
             </div>
 
             {/* Generate Button */}
+            {mode !== "batch" && (
             <Button
               onClick={handleGenerate}
               disabled={loading || !prompt.trim() || (mode === "img2img" && refImages.length === 0)}
@@ -939,6 +987,7 @@ function CreatePageInner() {
                 </div>
               )}
             </Button>
+            )}
           </div>
 
           {/* Right: Preview Panel */}
