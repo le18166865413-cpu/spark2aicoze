@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import BatchGeneratePanel, { PageData } from "@/components/BatchGeneratePanel";
+import { useAutoResize } from "@/hooks/use-auto-resize";
 
 
 // Default fallback values (used before config loads)
@@ -173,6 +174,8 @@ function CreatePageInner() {
   const [batchEditingIndex, setBatchEditingIndex] = useState<number | null>(null);
   const [batchEditTitle, setBatchEditTitle] = useState("");
   const [batchEditContent, setBatchEditContent] = useState("");
+  const promptTextareaRef = useAutoResize<HTMLTextAreaElement>(prompt);
+  const batchEditTextareaRef = useAutoResize<HTMLTextAreaElement>(batchEditContent);
 
   // Image-to-image state - support multiple images
   const [refImages, setRefImages] = useState<RefImage[]>([]);
@@ -923,6 +926,7 @@ function CreatePageInner() {
                 </div>
                 <Textarea
                   id="prompt"
+                  ref={promptTextareaRef}
                   value={prompt}
                   onChange={(e) => {
                     setPrompt(e.target.value);
@@ -1282,9 +1286,10 @@ function CreatePageInner() {
                               placeholder="页面标题"
                             />
                             <textarea
+                              ref={batchEditTextareaRef}
                               value={batchEditContent}
                               onChange={(e) => setBatchEditContent(e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-y min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
+                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
                               placeholder="页面内容"
                             />
                             <div className="flex gap-2">

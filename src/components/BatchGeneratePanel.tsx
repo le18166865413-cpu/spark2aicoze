@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Type } from "lucide-react";
+import { useAutoResize } from "@/hooks/use-auto-resize";
 
 export interface PageData {
   index: number;
@@ -128,10 +129,11 @@ export default function BatchGeneratePanel({
           <span className="text-xs text-muted-foreground">支持长文本、Markdown</span>
         </div>
         <textarea
+          ref={useAutoResize<HTMLTextAreaElement>(batchPrompt)}
           value={batchPrompt}
           onChange={(e) => setBatchPrompt(e.target.value)}
           placeholder="输入完整的内容文案，系统将自动分页...\n例如：产品介绍、演讲稿、故事脚本、数据报告等"
-          className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+          className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
         />
       </div>
 
