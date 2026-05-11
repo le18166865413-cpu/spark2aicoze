@@ -1388,196 +1388,258 @@ function CreatePageInner() {
               </div>
             )}
 
-            {/* Batch Mode: Results Gallery */}
-            {mode === "batch" && batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 0 && (
-              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold">生成结果</label>
-                  <span className="text-xs text-muted-foreground">
-                    {batchPages.filter((p) => p.status === "done" && p.imageUrl).length} 张
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {batchPages
-                    .filter((p) => p.status === "done" && p.imageUrl)
-                    .map((page) => (
-                      <div
-                        key={page.index}
-                        onClick={() => setPreviewImage(page.imageUrl!)}
-                        className="group cursor-pointer relative rounded-xl overflow-hidden border border-border bg-muted aspect-[3/4]"
-                      >
-                        <img
-                          src={page.imageUrl!}
-                          alt={`第${page.index + 1}页 ${page.title}`}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        />
-                        <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
-                          第 {page.index + 1} 页
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
-                          {page.title}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
             {/* Preview Card */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">
                   生成预览
-                  {results.length > 0 && (
-                    <span className="text-sm font-normal text-muted-foreground ml-2">
-                      {results.length} 张
-                    </span>
+                  {mode === "batch" ? (
+                    batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground ml-2">
+                        {batchPages.filter((p) => p.status === "done" && p.imageUrl).length} 张
+                      </span>
+                    )
+                  ) : (
+                    results.length > 0 && (
+                      <span className="text-sm font-normal text-muted-foreground ml-2">
+                        {results.length} 张
+                      </span>
+                    )
                   )}
                 </h3>
                 <div className="flex items-center gap-2">
-                  {results.length > 1 && (
-                    <Button variant="outline" size="sm" onClick={handleDownloadAll}>
-                      <Download className="w-4 h-4 mr-1" />
-                      全部下载
-                    </Button>
+                  {mode === "batch" ? (
+                    batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 1 && (
+                      <Button variant="outline" size="sm" onClick={handleDownloadAll}>
+                        <Download className="w-4 h-4 mr-1" />
+                        全部下载
+                      </Button>
+                    )
+                  ) : (
+                    results.length > 1 && (
+                      <Button variant="outline" size="sm" onClick={handleDownloadAll}>
+                        <Download className="w-4 h-4 mr-1" />
+                        全部下载
+                      </Button>
+                    )
                   )}
-                  {results.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => setResults([])}>
-                      清空
-                    </Button>
+                  {mode === "batch" ? (
+                    batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => setBatchPages((prev) => prev.map((p) => ({ ...p, status: "pending", imageUrl: null, taskId: null, url: null })))}>
+                        清空
+                      </Button>
+                    )
+                  ) : (
+                    results.length > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => setResults([])}>
+                        清空
+                      </Button>
+                    )
                   )}
                 </div>
               </div>
               
-              {results.length === 0 ? (
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
-                  <div className="text-center text-muted-foreground p-8">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-foreground/20 flex items-center justify-center">
-                      <ImageIcon className="w-8 h-8" />
-                    </div>
-                    <p>生成的海报将在这里显示</p>
-                  </div>
-                </div>
-              ) : results.length === 1 ? (
-                <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
-                  {results[0].error ? (
-                    <div className="text-center text-destructive p-8">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
-                        <AlertTriangle className="w-8 h-8" />
+              {mode === "batch" ? (
+                /* Batch Mode */
+                batchPages.filter((p) => p.status === "done" && p.imageUrl).length === 0 ? (
+                  <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
+                    <div className="text-center text-muted-foreground p-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-foreground/20 flex items-center justify-center">
+                        <ImageIcon className="w-8 h-8" />
                       </div>
-                      <p className="font-semibold mb-1">生成失败</p>
-                      <p className="text-sm text-destructive/80">{results[0].error}</p>
+                      <p>批量生成的海报将在这里显示</p>
                     </div>
-                  ) : (
+                  </div>
+                ) : batchPages.filter((p) => p.status === "done" && p.imageUrl).length === 1 ? (
+                  <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
                     <img
-                      src={results[0].url as string}
+                      src={batchPages.find((p) => p.status === "done" && p.imageUrl)?.imageUrl as string}
                       alt="Generated"
                       className="w-full h-full object-contain cursor-zoom-in"
-                      onClick={() => setPreviewImage(results[0].url as string)}
+                      onClick={() => setPreviewImage(batchPages.find((p) => p.status === "done" && p.imageUrl)?.imageUrl as string)}
                     />
-                  )}
-                </div>
-              ) : (
-                <div className={cn(
-                  "grid gap-3",
-                  results.length === 2 ? "grid-cols-1 sm:grid-cols-2" :
-                  results.length === 3 ? "grid-cols-1 sm:grid-cols-3" :
-                  "grid-cols-1 sm:grid-cols-2"
-                )}>
-                  {results.map((result, index) => (
-                    <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square flex items-center justify-center">
-                      {result.error ? (
-                        <div className="text-center text-destructive p-4">
-                          <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-destructive/20 flex items-center justify-center">
-                            <AlertTriangle className="w-6 h-6" />
-                          </div>
-                          <p className="text-xs font-semibold mb-0.5">生成失败</p>
-                          <p className="text-xs text-destructive/80 line-clamp-2">{result.error}</p>
-                        </div>
-                      ) : (
-                        <>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {batchPages
+                      .filter((p) => p.status === "done" && p.imageUrl)
+                      .map((page) => (
+                        <div
+                          key={page.index}
+                          onClick={() => setPreviewImage(page.imageUrl!)}
+                          className="group cursor-pointer relative rounded-xl overflow-hidden border border-border bg-muted aspect-[3/4]"
+                        >
                           <img
-                            src={result.url as string}
-                            alt={`Generated ${index + 1}`}
-                            className="w-full h-full object-cover cursor-zoom-in"
-                            onClick={() => setPreviewImage(result.url as string)}
+                            src={page.imageUrl!}
+                            alt={`第${page.index + 1}页 ${page.title}`}
+                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
                           />
-                          {/* Desktop hover actions */}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors hidden sm:flex flex-col items-center justify-center gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDownload(result.url as string)}
-                            >
-                              <Download className="w-4 h-4 mr-1" />
-                              下载
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => {
-                                setMode("img2img");
-                                setRefImages((prev) => {
-                                  const alreadyAdded = prev.some((img) => img.url === result.url);
-                                  if (alreadyAdded) {
-                                    toast.success("该图片已在参考图中");
-                                    return prev;
-                                  }
-                                  toast.success(`已将第 ${index + 1} 张图添加为参考图`);
-                                  return [...prev, { url: result.url as string, preview: result.url as string }];
-                                });
-                              }}
-                            >
-                              <ImagePlus className="w-4 h-4 mr-1" />
-                              基于本图修改
-                            </Button>
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                            第 {page.index + 1} 页
                           </div>
-                          {/* Mobile always-visible actions */}
-                          <div className="absolute bottom-0 inset-x-0 flex sm:hidden gap-1 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
-                              onClick={() => handleDownload(result.url as string)}
-                            >
-                              <Download className="w-3.5 h-3.5 mr-1" />
-                              下载
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
-                              onClick={() => {
-                                setMode("img2img");
-                                setRefImages((prev) => {
-                                  const alreadyAdded = prev.some((img) => img.url === result.url);
-                                  if (alreadyAdded) {
-                                    toast.success("该图片已在参考图中");
-                                    return prev;
-                                  }
-                                  toast.success(`已将第 ${index + 1} 张图添加为参考图`);
-                                  return [...prev, { url: result.url as string, preview: result.url as string }];
-                                });
-                              }}
-                            >
-                              <ImagePlus className="w-3.5 h-3.5 mr-1" />
-                              修改
-                            </Button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
+                            {page.title}
                           </div>
-                        </>
-                      )}
-                      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                        {index + 1}
+                        </div>
+                      ))}
+                  </div>
+                )
+              ) : (
+                /* Normal / Image Mode */
+                results.length === 0 ? (
+                  <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
+                    <div className="text-center text-muted-foreground p-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted-foreground/20 flex items-center justify-center">
+                        <ImageIcon className="w-8 h-8" />
                       </div>
+                      <p>生成的海报将在这里显示</p>
                     </div>
-                  ))}
+                  </div>
+                ) : results.length === 1 ? (
+                  <div className="aspect-[9/16] max-h-[500px] mx-auto bg-muted rounded-xl overflow-hidden flex items-center justify-center">
+                    {results[0].error ? (
+                      <div className="text-center text-destructive p-8">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/20 flex items-center justify-center">
+                          <AlertTriangle className="w-8 h-8" />
+                        </div>
+                        <p className="font-semibold mb-1">生成失败</p>
+                        <p className="text-sm text-destructive/80">{results[0].error}</p>
+                      </div>
+                    ) : (
+                      <img
+                        src={results[0].url as string}
+                        alt="Generated"
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={() => setPreviewImage(results[0].url as string)}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className={cn(
+                    "grid gap-3",
+                    results.length === 2 ? "grid-cols-1 sm:grid-cols-2" :
+                    results.length === 3 ? "grid-cols-1 sm:grid-cols-3" :
+                    "grid-cols-1 sm:grid-cols-2"
+                  )}>
+                    {results.map((result, index) => (
+                      <div key={index} className="relative group bg-muted rounded-xl overflow-hidden aspect-square flex items-center justify-center">
+                        {result.error ? (
+                          <div className="text-center text-destructive p-4">
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-destructive/20 flex items-center justify-center">
+                              <AlertTriangle className="w-6 h-6" />
+                            </div>
+                            <p className="text-xs font-semibold mb-0.5">生成失败</p>
+                            <p className="text-xs text-destructive/80 line-clamp-2">{result.error}</p>
+                          </div>
+                        ) : (
+                          <>
+                            <img
+                              src={result.url as string}
+                              alt={`Generated ${index + 1}`}
+                              className="w-full h-full object-cover cursor-zoom-in"
+                              onClick={() => setPreviewImage(result.url as string)}
+                            />
+                            {/* Desktop hover actions */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors hidden sm:flex flex-col items-center justify-center gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleDownload(result.url as string)}
+                              >
+                                <Download className="w-4 h-4 mr-1" />
+                                下载
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => {
+                                  setMode("img2img");
+                                  setRefImages((prev) => {
+                                    const alreadyAdded = prev.some((img) => img.url === result.url);
+                                    if (alreadyAdded) {
+                                      toast.success("该图片已在参考图中");
+                                      return prev;
+                                    }
+                                    toast.success(`已将第 ${index + 1} 张图添加为参考图`);
+                                    return [...prev, { url: result.url as string, preview: result.url as string }];
+                                  });
+                                }}
+                              >
+                                <ImagePlus className="w-4 h-4 mr-1" />
+                                基于本图修改
+                              </Button>
+                            </div>
+                            {/* Mobile always-visible actions */}
+                            <div className="absolute bottom-0 inset-x-0 flex sm:hidden gap-1 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
+                                onClick={() => handleDownload(result.url as string)}
+                              >
+                                <Download className="w-3.5 h-3.5 mr-1" />
+                                下载
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
+                                onClick={() => {
+                                  setMode("img2img");
+                                  setRefImages((prev) => {
+                                    const alreadyAdded = prev.some((img) => img.url === result.url);
+                                    if (alreadyAdded) {
+                                      toast.success("该图片已在参考图中");
+                                      return prev;
+                                    }
+                                    toast.success(`已将第 ${index + 1} 张图添加为参考图`);
+                                    return [...prev, { url: result.url as string, preview: result.url as string }];
+                                  });
+                                }}
+                              >
+                                <ImagePlus className="w-3.5 h-3.5 mr-1" />
+                                修改
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* Actions for single result (batch mode) */}
+              {mode === "batch" && batchPages.filter((p) => p.status === "done" && p.imageUrl).length === 1 && (
+                <div className="flex gap-3 mt-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleDownload(batchPages.find((p) => p.status === "done" && p.imageUrl)?.imageUrl as string)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    下载
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(batchPages.find((p) => p.status === "done" && p.imageUrl)?.imageUrl as string);
+                      toast.success("链接已复制");
+                    }}
+                  >
+                    复制链接
+                  </Button>
                 </div>
               )}
 
-              {/* Actions for single result */}
-              {results.length === 1 && !results[0].error && (
+              {/* Actions for single result (normal mode) */}
+              {mode !== "batch" && results.length === 1 && !results[0].error && (
                 <div className="flex gap-3 mt-4">
                   <Button
                     variant="outline"
