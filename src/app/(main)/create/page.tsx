@@ -751,10 +751,10 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
                       className={cn(
-                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
                         selectedScenes.includes(opt)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
                       )}
                     >
                       {opt}
@@ -772,10 +772,10 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
                       className={cn(
-                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
                         selectedUsages.includes(opt)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
                       )}
                     >
                       {opt}
@@ -793,10 +793,10 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
                       className={cn(
-                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
                         selectedStyles.includes(opt)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
                       )}
                     >
                       {opt}
@@ -814,10 +814,10 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
                       className={cn(
-                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
                         selectedColors.includes(opt)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
                       )}
                     >
                       {opt}
@@ -835,10 +835,10 @@ function CreatePageInner() {
                       key={r.value}
                       onClick={() => setRatio(r.value)}
                       className={cn(
-                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
                         ratio === r.value
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
                       )}
                     >
                       {r.label}
