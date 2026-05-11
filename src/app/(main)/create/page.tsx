@@ -105,6 +105,7 @@ function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, login, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === "admin";
   
   // Login dialog state
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -132,7 +133,9 @@ function CreatePageInner() {
   const [waitDuration, setWaitDuration] = useState(5000);
   const [defaultRatio, setDefaultRatio] = useState("auto");
   
-  const [mode, setMode] = useState<GenerationMode>(initialMode as GenerationMode);
+  const [mode, setMode] = useState<GenerationMode>(
+    (initialMode === "batch" && !isAdmin ? "text2img" : initialMode) as GenerationMode
+  );
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
@@ -143,6 +146,14 @@ function CreatePageInner() {
   const [selectedUsages, setSelectedUsages] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
+
+  // Redirect non-admin away from batch mode
+  useEffect(() => {
+    if (!authLoading && mode === "batch" && !isAdmin) {
+      setMode("text2img");
+    }
+  }, [authLoading, isAdmin, mode]);
+
   const [imageSize, setImageSize] = useState("1K");
   const [imageCount, setImageCount] = useState(1);
   const [imageCountMax, setImageCountMax] = useState(4);
@@ -786,18 +797,20 @@ function CreatePageInner() {
                 <ImagePlus className="w-4 h-4" />
                 参考图生图
               </button>
-              <button
-                onClick={() => setMode("batch")}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
-                  mode === "batch"
-                    ? "bg-primary text-white shadow-md"
-                    : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
-                )}
-              >
-                <Layers className="w-4 h-4" />
-                批量生图
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setMode("batch")}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
+                    mode === "batch"
+                      ? "bg-primary text-white shadow-md"
+                      : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
+                  )}
+                >
+                  <Layers className="w-4 h-4" />
+                  批量生图
+                </button>
+              )}
             </div>
 
             {/* Reference Image Upload (for img2img) - Multiple images */}
