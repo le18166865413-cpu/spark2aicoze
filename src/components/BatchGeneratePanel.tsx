@@ -3,11 +3,12 @@
 import { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wand2, Check, GripVertical, Trash2 } from "lucide-react";
+import { Loader2, Wand2, Check, Trash2, BrainCircuit, FileText, LayoutTemplate, BookOpen, Network } from "lucide-react";
 import { toast } from "sonner";
 
 interface BatchPage {
   index: number;
+  title: string;
   content: string;
   status: "pending" | "generating" | "done" | "error";
   imageUrl?: string;
@@ -29,6 +30,15 @@ interface BatchGeneratePanelProps {
   onResultClick?: (imageUrl: string) => void;
 }
 
+type BatchType = "ppt" | "comic" | "infographic" | "architecture";
+
+const batchTypeOptions: { key: BatchType; label: string; icon: React.ReactNode; desc: string }[] = [
+  { key: "ppt", label: "PPT海报", icon: <LayoutTemplate className="w-4 h-4" />, desc: "演示文稿风格" },
+  { key: "comic", label: "漫画故事", icon: <BookOpen className="w-4 h-4" />, desc: "故事板分镜" },
+  { key: "infographic", label: "信息图", icon: <FileText className="w-4 h-4" />, desc: "数据可视化" },
+  { key: "architecture", label: "架构图", icon: <Network className="w-4 h-4" />, desc: "系统/流程图" },
+];
+
 export default function BatchGeneratePanel({
   model,
   ratio,
@@ -36,44 +46,61 @@ export default function BatchGeneratePanel({
   selectedUsage,
   selectedStyle,
   selectedColor,
-  sceneOpts,
-  usageOpts,
-  styleOpts,
-  colorOpts,
   templates,
   onResultClick,
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
-  const [batchMode, setBatchMode] = useState<"auto" | "line" | "separator">("auto");
+  const [batchType, setBatchType] = useState<BatchType>("ppt");
   const [pages, setPages] = useState<BatchPage[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
+  const [outlineTitle, setOutlineTitle] = useState("");
 
-  const parsePages = useCallback((text: string, mode: string) => {
-    if (!text.trim()) return [];
-    let raw: string[] = [];
-    if (mode === "line") {
-      raw = text.split("\n").map((s) => s.trim()).filter(Boolean);
-    } else if (mode === "separator") {
-      raw = text.split(/---+/).map((s) => s.trim()).filter(Boolean);
-    } else {
-      raw = text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  // Smart analyze using LLM
+  const handleAnalyze = useCallback(async () => {
+    if (!batchPrompt.trim()) {
+      toast.error("请先输入内容");
+      return;
     }
-    return raw.map((content, i) => ({
-      index: i,
-      content,
-      status: "pending" as const,
-    }));
-  }, []);
+    setIsAnalyzing(true);
+    setProgressStatus("正在智能分析内容结构...");
 
-  const handleParse = useCallback(() => {
-    const parsed = parsePages(batchPrompt, batchMode);
-    setPages(parsed);
-    setSelectedIndices(new Set(parsed.map((p) => p.index)));
-    toast.success(`已解析 ${parsed.length} 页`);
-  }, [batchPrompt, batchMode, parsePages]);
+    try {
+      const res = await fetch("/api/batch-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: batchPrompt, mode: batchType }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "分析失败");
+      }
+
+      const { title, pages: analyzedPages } = data.data;
+      setOutlineTitle(title);
+
+      const newPages: BatchPage[] = analyzedPages.map((p: { title: string; content: string }, i: number) => ({
+        index: i,
+        title: p.title,
+        content: p.content,
+        status: "pending",
+      }));
+
+      setPages(newPages);
+      setSelectedIndices(new Set(newPages.map((p) => p.index)));
+      toast.success(`智能分析完成：「${title}」共 ${newPages.length} 页`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "分析失败";
+      toast.error(msg);
+    } finally {
+      setIsAnalyzing(false);
+      setProgressStatus("");
+    }
+  }, [batchPrompt, batchType]);
 
   const toggleSelect = useCallback((idx: number) => {
     setSelectedIndices((prev) => {
@@ -101,13 +128,27 @@ export default function BatchGeneratePanel({
     });
   }, []);
 
-  const buildEnhancedPrompt = useCallback((pageContent: string) => {
-    let enhanced = pageContent;
-    const sc = selectedScene.length ? `，场景：${selectedScene.join("、")}` : "";
-    const us = selectedUsage.length ? `，用途：${selectedUsage.join("、")}` : "";
-    const st = selectedStyle.length ? `，风格：${selectedStyle.join("、")}` : "";
-    const co = selectedColor.length ? `，颜色：${selectedColor.join("、")}` : "";
+  const buildEnhancedPrompt = useCallback((
+    page: BatchPage,
+    totalPages: number,
+    outlineTitleParam: string,
+  ) => {
+    // Core content with page context for consistency
+    let enhanced = `【${outlineTitleParam}】第${page.index + 1}页，共${totalPages}页\n\n`;
+    enhanced += `页面标题：${page.title}\n`;
+    enhanced += `页面内容：${page.content}\n\n`;
+
+    // Style consistency instructions
+    enhanced += "设计要求：";
+    const sc = selectedScene.length ? `场景：${selectedScene.join("、")}，` : "";
+    const us = selectedUsage.length ? `用途：${selectedUsage.join("、")}，` : "";
+    const st = selectedStyle.length ? `风格：${selectedStyle.join("、")}，` : "";
+    const co = selectedColor.length ? `主色调：${selectedColor.join("、")}，` : "";
     enhanced += `${sc}${us}${st}${co}`;
+
+    // Consistency instruction
+    enhanced += "\n\n重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。";
+
     return enhanced;
   }, [selectedScene, selectedUsage, selectedStyle, selectedColor]);
 
@@ -123,6 +164,11 @@ export default function BatchGeneratePanel({
     setProgressStatus("准备生成...");
 
     const updatedPages = [...pages];
+    const totalPages = toGen.length;
+    const title = outlineTitle || "批量生成";
+
+    // Pick template for consistency
+    const selectedTemplate = templates.length > 0 ? templates[0] : null;
 
     for (let i = 0; i < toGen.length; i++) {
       const page = toGen[i];
@@ -131,11 +177,11 @@ export default function BatchGeneratePanel({
 
       updatedPages[pageIdx] = { ...updatedPages[pageIdx], status: "generating" };
       setPages([...updatedPages]);
-      setProgressStatus(`正在生成第 ${i + 1}/${toGen.length} 页...`);
-      setProgress(Math.round((i / toGen.length) * 100));
+      setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
+      setProgress(Math.round((i / totalPages) * 100));
 
       try {
-        const enhancedPrompt = buildEnhancedPrompt(page.content);
+        const enhancedPrompt = buildEnhancedPrompt(page, totalPages, title);
         const body: Record<string, unknown> = {
           model,
           ratio,
@@ -143,7 +189,6 @@ export default function BatchGeneratePanel({
           siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
         };
 
-        const selectedTemplate = templates.length > 0 ? templates[0] : null;
         if (selectedTemplate) {
           body.templates = [selectedTemplate.label];
           body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
@@ -216,66 +261,83 @@ export default function BatchGeneratePanel({
     setProgress(100);
     setProgressStatus("生成完成");
     setIsGenerating(false);
-    toast.success(`批量生成完成，成功 ${updatedPages.filter((p) => p.status === "done").length}/${toGen.length} 页`);
-  }, [pages, selectedIndices, model, ratio, templates, buildEnhancedPrompt]);
+    const doneCount = updatedPages.filter((p) => p.status === "done").length;
+    toast.success(`批量生成完成，成功 ${doneCount}/${totalPages} 页`);
+  }, [pages, selectedIndices, model, ratio, templates, buildEnhancedPrompt, outlineTitle]);
 
   const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
 
   return (
     <div className="space-y-4">
-      {/* Batch Input */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold">批量文案</label>
-          <span className="text-xs text-muted-foreground">{pages.length} 页</span>
-        </div>
-        <textarea
-          value={batchPrompt}
-          onChange={(e) => setBatchPrompt(e.target.value)}
-          placeholder="输入多页文案，每段或每行为一页内容...&#10;使用 --- 作为手动分页分隔符"
-          className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-        />
-      </div>
-
-      {/* Parse Controls */}
+      {/* Batch Type Selector */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground mr-1">分页方式：</span>
-        {[
-          { key: "auto", label: "自动分段" },
-          { key: "line", label: "按行分页" },
-          { key: "separator", label: "手动分隔" },
-        ].map((opt) => (
+        <span className="text-xs text-muted-foreground mr-1">生成类型：</span>
+        {batchTypeOptions.map((opt) => (
           <button
             key={opt.key}
             type="button"
-            onClick={() => setBatchMode(opt.key as "auto" | "line" | "separator")}
+            onClick={() => setBatchType(opt.key)}
             className={cn(
-              "px-2 py-1 text-xs rounded-lg transition-all border-2",
-              batchMode === opt.key
+              "flex items-center gap-1.5 px-2 py-1 text-xs rounded-lg transition-all border-2",
+              batchType === opt.key
                 ? "bg-primary/10 border-primary text-primary"
                 : "bg-secondary border-transparent hover:border-border"
             )}
           >
+            {opt.icon}
             {opt.label}
           </button>
         ))}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleParse}
-          disabled={!batchPrompt.trim() || isGenerating}
-          className="ml-auto text-xs h-8"
-        >
-          解析分页
-        </Button>
       </div>
+
+      {/* Batch Input */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold">内容输入</label>
+          <span className="text-xs text-muted-foreground">支持长文本、Markdown</span>
+        </div>
+        <textarea
+          value={batchPrompt}
+          onChange={(e) => setBatchPrompt(e.target.value)}
+          placeholder="输入完整的内容文案，AI将智能分析结构并自动分页...&#10;例如：产品介绍、演讲稿、故事脚本、数据报告等"
+          className="w-full min-h-[160px] px-4 py-3 rounded-xl border border-border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+        />
+      </div>
+
+      {/* Smart Analyze Button */}
+      <Button
+        onClick={handleAnalyze}
+        disabled={isAnalyzing || !batchPrompt.trim()}
+        variant="outline"
+        className="w-full py-5 text-base font-bold rounded-2xl transition-all border-2 border-dashed border-primary/30 hover:border-primary hover:bg-primary/5"
+      >
+        {isAnalyzing ? (
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>正在智能分析内容结构...</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <BrainCircuit className="w-5 h-5" />
+            <span>AI 智能分析并分页</span>
+          </div>
+        )}
+      </Button>
+
+      {/* Outline Title */}
+      {outlineTitle && (
+        <div className="px-4 py-3 rounded-xl bg-primary/5 border border-primary/10">
+          <p className="text-sm font-semibold text-primary">{outlineTitle}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">共 {pages.length} 页 · 已智能分页</p>
+        </div>
+      )}
 
       {/* Pages Preview */}
       {pages.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold">
-              页码预览
+              页面大纲
               <span className="ml-2 text-xs text-muted-foreground font-normal">
                 已选 {selectedIndices.size}/{pages.length}
               </span>
@@ -288,7 +350,7 @@ export default function BatchGeneratePanel({
               {selectedIndices.size === pages.length ? "取消全选" : "全选"}
             </button>
           </div>
-          <div className="max-h-[260px] overflow-y-auto space-y-2 pr-1">
+          <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
             {pages.map((page) => (
               <div
                 key={page.index}
@@ -316,6 +378,7 @@ export default function BatchGeneratePanel({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-bold text-primary">第 {page.index + 1} 页</span>
+                    <span className="text-xs font-medium text-foreground truncate">{page.title}</span>
                     {page.status === "generating" && (
                       <Loader2 className="w-3 h-3 animate-spin text-primary" />
                     )}
@@ -383,11 +446,14 @@ export default function BatchGeneratePanel({
                 >
                   <img
                     src={page.imageUrl}
-                    alt={`第${page.index + 1}页`}
+                    alt={`第${page.index + 1}页 ${page.title}`}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   />
                   <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
                     第 {page.index + 1} 页
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
+                    {page.title}
                   </div>
                 </div>
               ))}
