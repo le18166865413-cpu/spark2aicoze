@@ -325,6 +325,7 @@ export async function POST(request: NextRequest) {
       }
     } else if (refImageUrl) {
       // Single reference image - check if it's base64 or URL
+      console.log("[Generate] Using refImageUrl:", refImageUrl.substring(0, 120) + "...");
       if (refImageUrl.startsWith("data:")) {
         // Base64 - need to upload first
         const uploadedKey = await uploadBase64ToStorage(refImageUrl);
@@ -334,6 +335,8 @@ export async function POST(request: NextRequest) {
         // HTTP URL - use directly
         urls = [refImageUrl];
       }
+    } else {
+      console.log("[Generate] No refImageUrl provided");
     }
 
     if (urls && urls.length > 0) {

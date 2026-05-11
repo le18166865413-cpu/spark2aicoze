@@ -299,6 +299,8 @@ export default function BatchGeneratePanel({
             if (resultUrl) {
               pageSuccess = true;
               lastSuccessUrl = resultUrl;
+              // eslint-disable-next-line no-console
+              console.log(`[Batch] Page ${page.index + 1} success, lastSuccessUrl set to:`, lastSuccessUrl);
               succeeded++;
               setPages((prev) =>
                 prev.map((p) =>
