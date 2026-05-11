@@ -694,7 +694,7 @@ function CreatePageInner() {
                   promptRef.current = e.target.value;
                 }}
                 placeholder={mode === "text2img" 
-                  ? "描述你想要的海报内容... 例如：科技峰会海报，未来感设计，蓝色渐变背景，全息元素" 
+                  ? "输入你想要的文案/内容/联系方式/地址等主体内容..." 
                   : "描述你想要生成的图片内容..."}
                 className="min-h-[120px] resize-none border-input focus:ring-2 focus:ring-ring"
               />
@@ -761,7 +761,7 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
                       className={cn(
-                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
                         selectedScenes.includes(opt)
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
@@ -782,7 +782,7 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
                       className={cn(
-                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
                         selectedUsages.includes(opt)
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
@@ -803,7 +803,7 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
                       className={cn(
-                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
                         selectedStyles.includes(opt)
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
@@ -824,7 +824,7 @@ function CreatePageInner() {
                       key={opt}
                       onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
                       className={cn(
-                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
                         selectedColors.includes(opt)
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
@@ -845,7 +845,7 @@ function CreatePageInner() {
                       key={r.value}
                       onClick={() => setRatio(r.value)}
                       className={cn(
-                        "px-3 py-2 text-sm rounded-xl transition-all border-2",
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
                         ratio === r.value
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
