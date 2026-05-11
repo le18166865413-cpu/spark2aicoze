@@ -179,7 +179,7 @@ function CreatePageInner() {
 
   // Load config from API
   useEffect(() => {
-    fetch("/api/config")
+    fetch("/api/config", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.templates?.length) setTemplates(data.templates);

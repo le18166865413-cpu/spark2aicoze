@@ -168,7 +168,7 @@ export default function CreationConfigPage() {
     } finally {
       setSaving(false);
     }
-  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, imageSizes, defaultImageSize, hdModels, violationMessages, dailyGenerateLimit, promptMaxLength, saveSettings]);
+  }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, imageSizes, defaultImageSize, hdModels, violationMessages, dailyGenerateLimit, promptMaxLength, sceneOpts, usageOpts, styleOpts, colorOpts, saveSettings]);
 
   // Template helpers
   const addTemplate = () => setTemplates([...templates, { label: '', prompt: '' }]);
