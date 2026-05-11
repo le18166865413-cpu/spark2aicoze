@@ -120,6 +120,11 @@ function CreatePageInner() {
   const [modelOptions, setModelOptions] = useState(defaultModels);
   const [ratioOptions, setRatioOptions] = useState(defaultRatios);
   const [tips, setTips] = useState(defaultTips);
+  // Dynamic options from database (/api/options)
+  const [sceneOpts, setSceneOpts] = useState<string[]>(sceneOptions);
+  const [usageOpts, setUsageOpts] = useState<string[]>(usageOptions);
+  const [styleOpts, setStyleOpts] = useState<string[]>(styleOptions);
+  const [colorOpts, setColorOpts] = useState<string[]>(colorOptions);
   const [waitMessage, setWaitMessage] = useState("请等待30-120秒，不要切换页面");
   const [waitDuration, setWaitDuration] = useState(5000);
   const [defaultRatio, setDefaultRatio] = useState("auto");
@@ -196,6 +201,39 @@ function CreatePageInner() {
         if (data.violationMessages) setViolationMessages(data.violationMessages);
         if (data.dailyGenerateLimit !== undefined) setDailyGenerateLimit(Number(data.dailyGenerateLimit));
         if (data.promptMaxLength) setPromptMaxLength(Number(data.promptMaxLength));
+      })
+      .catch(() => {
+        // Use defaults on error
+      });
+
+    // Load dynamic options from database
+    fetch("/api/options")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.data) return;
+        const o = data.data;
+        if (o.scene?.length) setSceneOpts(o.scene.map((item: { label: string }) => item.label));
+        if (o.usage?.length) setUsageOpts(o.usage.map((item: { label: string }) => item.label));
+        if (o.style?.length) setStyleOpts(o.style.map((item: { label: string }) => item.label));
+        if (o.color?.length) setColorOpts(o.color.map((item: { label: string }) => item.label));
+        if (o.ratio?.length) {
+          setRatioOptions(
+            o.ratio.map((item: { value: string; label: string; description?: string }) => ({
+              value: item.value,
+              label: item.label,
+              desc: item.description || "",
+            }))
+          );
+        }
+        if (o.model?.length) {
+          setModelOptions(
+            o.model.map((item: { value: string; label: string; description?: string }) => ({
+              value: item.value,
+              label: item.label,
+              desc: item.description || "",
+            }))
+          );
+        }
       })
       .catch(() => {
         // Use defaults on error
@@ -746,7 +784,7 @@ function CreatePageInner() {
               <div className="mb-5">
                 <Label className="text-sm text-muted-foreground mb-2 block">场景（使用平台/载体）</Label>
                 <div className="flex flex-wrap gap-2">
-                  {sceneOptions.map((opt) => (
+                  {sceneOpts.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
@@ -767,7 +805,7 @@ function CreatePageInner() {
               <div className="mb-5">
                 <Label className="text-sm text-muted-foreground mb-2 block">用途（模板功能）</Label>
                 <div className="flex flex-wrap gap-2">
-                  {usageOptions.map((opt) => (
+                  {usageOpts.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
@@ -788,7 +826,7 @@ function CreatePageInner() {
               <div className="mb-5">
                 <Label className="text-sm text-muted-foreground mb-2 block">风格</Label>
                 <div className="flex flex-wrap gap-2">
-                  {styleOptions.map((opt) => (
+                  {styleOpts.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
@@ -809,7 +847,7 @@ function CreatePageInner() {
               <div className="mb-5">
                 <Label className="text-sm text-muted-foreground mb-2 block">颜色</Label>
                 <div className="flex flex-wrap gap-2">
-                  {colorOptions.map((opt) => (
+                  {colorOpts.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
