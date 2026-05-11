@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,7 +21,8 @@ interface PageData {
   index: number;
   title: string;
   content: string;
-  status: "idle" | "generating" | "done" | "error";
+  status: "pending" | "generating" | "done" | "failed";
+  url: string | null;
   imageUrl: string | null;
   taskId: string | null;
 }
@@ -40,6 +41,7 @@ interface BatchGeneratePanelProps {
   templates: { label: string; prompt: string }[];
   refImageUrl?: string | null;
   onResultClick?: (imageUrl: string) => void;
+  onPagesChange?: (pages: PageData[]) => void;
 }
 
 function splitStoryToScenes(text: string, pageCount: number): { title: string; content: string }[] {
@@ -91,6 +93,7 @@ export default function BatchGeneratePanel({
   templates,
   refImageUrl,
   onResultClick,
+  onPagesChange,
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
   const [pages, setPages] = useState<PageData[]>([]);
@@ -102,9 +105,12 @@ export default function BatchGeneratePanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<{ label: string; prompt: string } | null>(null);
 
   const stopRef = useRef(false);
+
+  useEffect(() => {
+    onPagesChange?.(pages);
+  }, [pages, onPagesChange]);
 
   const handleSplit = useCallback(() => {
     const text = batchPrompt.trim();
@@ -117,9 +123,10 @@ export default function BatchGeneratePanel({
       newPages.map((p, i) => ({
         ...p,
         index: i,
-        status: "idle",
+        status: "pending",
         imageUrl: null,
         taskId: null,
+        url: null,
       }))
     );
     setSelectedIndices(new Set(newPages.map((_, i) => i)));
@@ -197,9 +204,7 @@ export default function BatchGeneratePanel({
 页面标题：${page.title}
 页面内容：${page.content}
 
-设计要求：${styleLabel}风格
-
-重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。`;
+设计要求：${styleLabel}风格`;
     },
     [selectedScene, selectedUsage, selectedStyle, selectedColor]
   );
@@ -248,8 +253,6 @@ export default function BatchGeneratePanel({
           if (refImageUrl) {
             body.refImageUrl = refImageUrl;
             body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
-          } else if (selectedTemplate) {
-            body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
           } else {
             body.prompt = enhancedPrompt;
           }
@@ -307,7 +310,7 @@ export default function BatchGeneratePanel({
           }
           toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
           setPages((prev) =>
-            prev.map((p) => (p.index === page.index ? { ...p, status: "error" } : p))
+            prev.map((p) => (p.index === page.index ? { ...p, status: "failed" } : p))
           );
         }
       }
@@ -319,7 +322,7 @@ export default function BatchGeneratePanel({
     if (!stopRef.current) {
       toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
     }
-  }, [pages, selectedIndices, model, ratio, selectedTemplate, buildEnhancedPrompt, refImageUrl]);
+  }, [pages, selectedIndices, model, ratio, buildEnhancedPrompt, refImageUrl]);
 
   const handleStop = useCallback(() => {
     stopRef.current = true;
@@ -407,7 +410,7 @@ export default function BatchGeneratePanel({
                     ? "border-primary bg-primary/5"
                     : "border-border bg-background",
                   page.status === "done" && "border-green-500/30 bg-green-500/5",
-                  page.status === "error" && "border-red-500/30 bg-red-500/5"
+                  page.status === "failed" && "border-red-500/30 bg-red-500/5"
                 )}
               >
                 <button
@@ -465,7 +468,7 @@ export default function BatchGeneratePanel({
                         {page.status === "done" && (
                           <span className="text-[10px] text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">完成</span>
                         )}
-                        {page.status === "error" && (
+                        {page.status === "failed" && (
                           <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">失败</span>
                         )}
                       </div>
@@ -494,42 +497,6 @@ export default function BatchGeneratePanel({
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Template Selector */}
-      {templates.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-sm font-semibold">辅助模板（可选）</label>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedTemplate(null)}
-              className={cn(
-                "px-3 py-1.5 text-xs rounded-lg border-2 transition-all",
-                !selectedTemplate
-                  ? "bg-primary/10 border-primary text-primary"
-                  : "bg-secondary border-transparent hover:border-border"
-              )}
-            >
-              不使用模板
-            </button>
-            {templates.map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                onClick={() => setSelectedTemplate(t)}
-                className={cn(
-                  "px-3 py-1.5 text-xs rounded-lg border-2 transition-all",
-                  selectedTemplate?.label === t.label
-                    ? "bg-primary/10 border-primary text-primary"
-                    : "bg-secondary border-transparent hover:border-border"
-                )}
-              >
-                {t.label}
-              </button>
             ))}
           </div>
         </div>

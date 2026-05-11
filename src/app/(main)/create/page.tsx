@@ -13,6 +13,15 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import BatchGeneratePanel from "@/components/BatchGeneratePanel";
 
+// Types for batch mode (must match BatchGeneratePanel)
+interface BatchPage {
+  index: number;
+  title: string;
+  content: string;
+  status?: "pending" | "generating" | "done" | "failed";
+  url?: string | null;
+}
+
 // Default fallback values (used before config loads)
 const defaultTemplates = [
   { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出" },
@@ -165,6 +174,9 @@ function CreatePageInner() {
   const [progressStatus, setProgressStatus] = useState("");
   const [results, setResults] = useState<GenerationResult[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Batch mode state
+  const [batchPages, setBatchPages] = useState<BatchPage[]>([]);
 
   // Image-to-image state - support multiple images
   const [refImages, setRefImages] = useState<RefImage[]>([]);
@@ -715,6 +727,7 @@ function CreatePageInner() {
                   templates={templates}
                   refImageUrl={refImages.length > 0 ? refImages[0].url : null}
                   onResultClick={(url: string) => setPreviewImage(url)}
+                  onPagesChange={setBatchPages}
                 />
               </div>
             ) : (
@@ -1021,6 +1034,40 @@ function CreatePageInner() {
                     className="h-full bg-primary transition-all duration-300 rounded-full"
                     style={{ width: `${progress}%` }}
                   />
+                </div>
+              </div>
+            )}
+
+            {/* Batch Mode: Page Preview */}
+            {mode === "batch" && batchPages.length > 0 && (
+              <div className="bg-card rounded-2xl p-4 shadow-sm border border-border">
+                <h3 className="font-semibold mb-3">页面预览</h3>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {batchPages.map((page) => (
+                    <div
+                      key={page.index}
+                      className={cn(
+                        "p-3 rounded-xl border text-sm",
+                        page.status === "done"
+                          ? "border-green-500/30 bg-green-50/50"
+                          : page.status === "failed"
+                          ? "border-destructive/30 bg-destructive/5"
+                          : page.status === "generating"
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-border bg-muted/30"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-xs">{page.title}</span>
+                        <div className="flex items-center gap-1.5">
+                          {page.status === "done" && <span className="w-2 h-2 rounded-full bg-green-500" />}
+                          {page.status === "failed" && <span className="w-2 h-2 rounded-full bg-destructive" />}
+                          {page.status === "generating" && <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{page.content}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
