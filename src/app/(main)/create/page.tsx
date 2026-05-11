@@ -393,15 +393,12 @@ function CreatePageInner() {
   const batchStopRef = useRef(false);
 
   const buildBatchPrompt = useCallback(
-    (page: PageData, totalPages: number) => {
+    (page: PageData) => {
       const styleLabel = [selectedScenes.join("。"), selectedUsages.join("。"), selectedStyles.join("。"), selectedColors.join("。")]
         .filter(Boolean)
         .join("。") || "海报";
 
-      return `【${page.title}】第${page.index + 1}页，共${totalPages}页
-
-页面标题：${page.title}
-页面内容：${page.content}
+      return `${page.content}
 
 设计要求：${styleLabel}风格`;
     },
@@ -443,7 +440,7 @@ function CreatePageInner() {
       while (attempt < 3 && !pageSuccess && !batchStopRef.current) {
         attempt++;
         try {
-          const enhancedPrompt = buildBatchPrompt(page, totalPages);
+          const enhancedPrompt = buildBatchPrompt(page);
 
           const body: Record<string, unknown> = {
             model,
