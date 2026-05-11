@@ -22,10 +22,29 @@ interface RatioItem {
   desc: string;
 }
 
-const DEFAULT_SCENE_OPTS = ['电商', '社交媒体', '微信营销', '公众号', '行政办公/教育', '生活娱乐', 'PPT'];
-const DEFAULT_USAGE_OPTS = ['营销带货', '交流分享', '祝福问候', '宣传推广', '干货科普', '通知公告', '招聘招募', '个人娱乐', '日月签', '公益宣传', '晒照分享', '简介介绍', '邀请函', '直播宣传', '喜报表彰', '计划总结', '员工关怀', '社交互动', '价目表', '学习素材', '资讯要闻', '生日祝福', '晒单反馈'];
-const DEFAULT_STYLE_OPTS = ['简约', '时尚', '实景', '插画', '卡通', '文艺', '喜庆', '手绘', '可爱', '拼贴风', '潮酷', '商务', '中国风', '通用', '扁平', '清新', '3D', '复古', '奢华', '酸性风', '科技', '膨胀风'];
-const DEFAULT_COLOR_OPTS = ['蓝', '黄', '绿', '红', '粉', '橙', '白', '棕', '紫', '黑', '灰', '米色'];
+interface OptionItem {
+  value: string;
+  label: string;
+}
+
+const DEFAULT_SCENE_OPTS: OptionItem[] = ['电商', '社交媒体', '微信营销', '公众号', '行政办公/教育', '生活娱乐', 'PPT'].map((s) => ({ value: s, label: s }));
+const DEFAULT_USAGE_OPTS: OptionItem[] = ['营销带货', '交流分享', '祝福问候', '宣传推广', '干货科普', '通知公告', '招聘招募', '个人娱乐', '日月签', '公益宣传', '晒照分享', '简介介绍', '邀请函', '直播宣传', '喜报表彰', '计划总结', '员工关怀', '社交互动', '价目表', '学习素材', '资讯要闻', '生日祝福', '晒单反馈'].map((s) => ({ value: s, label: s }));
+const DEFAULT_STYLE_OPTS: OptionItem[] = ['简约', '时尚', '实景', '插画', '卡通', '文艺', '喜庆', '手绘', '可爱', '拼贴风', '潮酷', '商务', '中国风', '通用', '扁平', '清新', '3D', '复古', '奢华', '酸性风', '科技', '膨胀风'].map((s) => ({ value: s, label: s }));
+const DEFAULT_COLOR_OPTS: OptionItem[] = ['蓝', '黄', '绿', '红', '粉', '橙', '白', '棕', '紫', '黑', '灰', '米色'].map((s) => ({ value: s, label: s }));
+
+function parseOpts(val: string | null, defaults: OptionItem[]): OptionItem[] {
+  if (!val) return defaults;
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) {
+      if (parsed.length > 0 && typeof parsed[0] === 'string') {
+        return (parsed as string[]).map((s: string) => ({ value: s, label: s }));
+      }
+      return parsed as OptionItem[];
+    }
+  } catch {}
+  return defaults;
+}
 
 type TabKey = 'templates' | 'models' | 'ratios' | 'scene' | 'usage' | 'style' | 'color' | 'tips' | 'wait' | 'pagesize' | 'imagecount' | 'imagesize' | 'violation' | 'limits';
 
@@ -61,10 +80,10 @@ export default function CreationConfigPage() {
   // Violation messages
   const [violationMessages, setViolationMessages] = useState<Record<string, string>>({});
   // Scene / Usage / Style / Color options
-  const [sceneOpts, setSceneOpts] = useState<string[]>([]);
-  const [usageOpts, setUsageOpts] = useState<string[]>([]);
-  const [styleOpts, setStyleOpts] = useState<string[]>([]);
-  const [colorOpts, setColorOpts] = useState<string[]>([]);
+  const [sceneOpts, setSceneOpts] = useState<OptionItem[]>([]);
+  const [usageOpts, setUsageOpts] = useState<OptionItem[]>([]);
+  const [styleOpts, setStyleOpts] = useState<OptionItem[]>([]);
+  const [colorOpts, setColorOpts] = useState<OptionItem[]>([]);
   // Limits
   const [dailyGenerateLimit, setDailyGenerateLimit] = useState('0');
   const [promptMaxLength, setPromptMaxLength] = useState('2000');
@@ -108,22 +127,10 @@ export default function CreationConfigPage() {
       } catch { setViolationMessages({}); }
       setDailyGenerateLimit(getSetting('daily_generate_limit') || '0');
       setPromptMaxLength(getSetting('prompt_max_length') || '2000');
-      try {
-        const sc = getSetting('create_options_scene');
-        setSceneOpts(sc ? JSON.parse(sc) : DEFAULT_SCENE_OPTS);
-      } catch { setSceneOpts(DEFAULT_SCENE_OPTS); }
-      try {
-        const us = getSetting('create_options_usage');
-        setUsageOpts(us ? JSON.parse(us) : DEFAULT_USAGE_OPTS);
-      } catch { setUsageOpts(DEFAULT_USAGE_OPTS); }
-      try {
-        const st = getSetting('create_options_style');
-        setStyleOpts(st ? JSON.parse(st) : DEFAULT_STYLE_OPTS);
-      } catch { setStyleOpts(DEFAULT_STYLE_OPTS); }
-      try {
-        const co = getSetting('create_options_color');
-        setColorOpts(co ? JSON.parse(co) : DEFAULT_COLOR_OPTS);
-      } catch { setColorOpts(DEFAULT_COLOR_OPTS); }
+      setSceneOpts(parseOpts(getSetting('create_options_scene'), DEFAULT_SCENE_OPTS));
+      setUsageOpts(parseOpts(getSetting('create_options_usage'), DEFAULT_USAGE_OPTS));
+      setStyleOpts(parseOpts(getSetting('create_options_style'), DEFAULT_STYLE_OPTS));
+      setColorOpts(parseOpts(getSetting('create_options_color'), DEFAULT_COLOR_OPTS));
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -188,6 +195,39 @@ export default function CreationConfigPage() {
     const next = [...ratios];
     next[i] = { ...next[i], [field]: val };
     setRatios(next);
+  };
+
+  // Scene helpers
+  const addScene = () => setSceneOpts([...sceneOpts, { value: '', label: '' }]);
+  const removeScene = (i: number) => setSceneOpts(sceneOpts.filter((_, idx) => idx !== i));
+  const updateScene = (i: number, field: keyof OptionItem, val: string) => {
+    const next = [...sceneOpts];
+    next[i] = { ...next[i], [field]: val };
+    setSceneOpts(next);
+  };
+  // Usage helpers
+  const addUsage = () => setUsageOpts([...usageOpts, { value: '', label: '' }]);
+  const removeUsage = (i: number) => setUsageOpts(usageOpts.filter((_, idx) => idx !== i));
+  const updateUsage = (i: number, field: keyof OptionItem, val: string) => {
+    const next = [...usageOpts];
+    next[i] = { ...next[i], [field]: val };
+    setUsageOpts(next);
+  };
+  // Style helpers
+  const addStyle = () => setStyleOpts([...styleOpts, { value: '', label: '' }]);
+  const removeStyle = (i: number) => setStyleOpts(styleOpts.filter((_, idx) => idx !== i));
+  const updateStyle = (i: number, field: keyof OptionItem, val: string) => {
+    const next = [...styleOpts];
+    next[i] = { ...next[i], [field]: val };
+    setStyleOpts(next);
+  };
+  // Color helpers
+  const addColor = () => setColorOpts([...colorOpts, { value: '', label: '' }]);
+  const removeColor = (i: number) => setColorOpts(colorOpts.filter((_, idx) => idx !== i));
+  const updateColor = (i: number, field: keyof OptionItem, val: string) => {
+    const next = [...colorOpts];
+    next[i] = { ...next[i], [field]: val };
+    setColorOpts(next);
   };
 
   // Tips helpers
@@ -539,57 +579,101 @@ export default function CreationConfigPage() {
 
       {activeTab === 'scene' && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold">场景选项</h3>
-          <p className="text-xs text-muted-foreground">创作中心「场景」分类的可选项，每行一个</p>
-          <textarea
-            value={sceneOpts.join('\n')}
-            onChange={(e) => setSceneOpts(e.target.value.split('\n').filter((s) => s.trim()))}
-            placeholder="电商\n社交媒体\n微信营销"
-            rows={8}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-          />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">场景选项</h3>
+              <p className="text-xs text-muted-foreground">创作中心「场景」分类的可选项</p>
+            </div>
+            <button onClick={addScene} className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> 添加
+            </button>
+          </div>
+          <div className="space-y-2">
+            {sceneOpts.map((opt, i) => (
+              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input type="text" value={opt.label} onChange={(e) => updateScene(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input type="text" value={opt.value} onChange={(e) => updateScene(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button onClick={() => removeScene(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+            {sceneOpts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">暂无选项，点击上方添加</p>}
+          </div>
         </div>
       )}
 
       {activeTab === 'usage' && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold">用途选项</h3>
-          <p className="text-xs text-muted-foreground">创作中心「用途」分类的可选项，每行一个</p>
-          <textarea
-            value={usageOpts.join('\n')}
-            onChange={(e) => setUsageOpts(e.target.value.split('\n').filter((s) => s.trim()))}
-            placeholder="营销带货\n交流分享\n祝福问候"
-            rows={8}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-          />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">用途选项</h3>
+              <p className="text-xs text-muted-foreground">创作中心「用途」分类的可选项</p>
+            </div>
+            <button onClick={addUsage} className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> 添加
+            </button>
+          </div>
+          <div className="space-y-2">
+            {usageOpts.map((opt, i) => (
+              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input type="text" value={opt.label} onChange={(e) => updateUsage(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input type="text" value={opt.value} onChange={(e) => updateUsage(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button onClick={() => removeUsage(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+            {usageOpts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">暂无选项，点击上方添加</p>}
+          </div>
         </div>
       )}
 
       {activeTab === 'style' && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold">风格选项</h3>
-          <p className="text-xs text-muted-foreground">创作中心「风格」分类的可选项，每行一个</p>
-          <textarea
-            value={styleOpts.join('\n')}
-            onChange={(e) => setStyleOpts(e.target.value.split('\n').filter((s) => s.trim()))}
-            placeholder="简约\n时尚\n实景"
-            rows={8}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-          />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">风格选项</h3>
+              <p className="text-xs text-muted-foreground">创作中心「风格」分类的可选项</p>
+            </div>
+            <button onClick={addStyle} className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> 添加
+            </button>
+          </div>
+          <div className="space-y-2">
+            {styleOpts.map((opt, i) => (
+              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input type="text" value={opt.label} onChange={(e) => updateStyle(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input type="text" value={opt.value} onChange={(e) => updateStyle(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button onClick={() => removeStyle(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+            {styleOpts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">暂无选项，点击上方添加</p>}
+          </div>
         </div>
       )}
 
       {activeTab === 'color' && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold">颜色选项</h3>
-          <p className="text-xs text-muted-foreground">创作中心「颜色」分类的可选项，每行一个</p>
-          <textarea
-            value={colorOpts.join('\n')}
-            onChange={(e) => setColorOpts(e.target.value.split('\n').filter((s) => s.trim()))}
-            placeholder="蓝\n黄\n绿"
-            rows={8}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-          />
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">颜色选项</h3>
+              <p className="text-xs text-muted-foreground">创作中心「颜色」分类的可选项</p>
+            </div>
+            <button onClick={addColor} className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> 添加
+            </button>
+          </div>
+          <div className="space-y-2">
+            {colorOpts.map((opt, i) => (
+              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input type="text" value={opt.label} onChange={(e) => updateColor(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <input type="text" value={opt.value} onChange={(e) => updateColor(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button onClick={() => removeColor(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
+            {colorOpts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">暂无选项，点击上方添加</p>}
+          </div>
         </div>
       )}
 
