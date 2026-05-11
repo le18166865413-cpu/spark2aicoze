@@ -842,7 +842,6 @@ function CreatePageInner() {
                       )}
                     >
                       <span className="text-base font-bold">{r.label}</span>
-                      <span className="text-[10px] mt-0.5 opacity-70">{r.desc}</span>
                     </button>
                   ))}
                 </div>
