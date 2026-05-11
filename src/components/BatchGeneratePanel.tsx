@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Loader2, Wand2, Check, Trash2, BrainCircuit, FileText, LayoutTemplate, BookOpen, Network } from "lucide-react";
+import { Loader2, Wand2, Check, Trash2, BrainCircuit, FileText, LayoutTemplate, BookOpen, Network, Square } from "lucide-react";
 import { toast } from "sonner";
 
 interface BatchPage {
@@ -58,6 +58,14 @@ export default function BatchGeneratePanel({
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
   const [outlineTitle, setOutlineTitle] = useState("");
+  const stopRef = useRef(false);
+
+  const handleStop = useCallback(() => {
+    stopRef.current = true;
+    setIsGenerating(false);
+    setProgressStatus("已停止");
+    toast.info("批量生成已停止");
+  }, []);
 
   // Smart analyze using LLM
   const handleAnalyze = useCallback(async () => {
@@ -159,123 +167,169 @@ export default function BatchGeneratePanel({
       return;
     }
 
+    stopRef.current = false;
     setIsGenerating(true);
     setProgress(0);
-    setProgressStatus("正在并行生成中...");
+    setProgressStatus("准备生成...");
 
     const totalPages = toGen.length;
     const title = outlineTitle || "批量生成";
     const selectedTemplate = templates.length > 0 ? templates[0] : null;
-    let completed = 0;
+    let lastSuccessUrl = "";
     let succeeded = 0;
 
-    // Mark all selected pages as generating
-    setPages((prev) =>
-      prev.map((p) =>
-        selectedIndices.has(p.index) ? { ...p, status: "generating" } : p
-      )
-    );
-
-    const generateOne = async (page: BatchPage) => {
-      try {
-        const enhancedPrompt = buildEnhancedPrompt(page, totalPages, title);
-        const body: Record<string, unknown> = {
-          model,
-          ratio,
-          count: 1,
-          siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
-        };
-
-        if (selectedTemplate) {
-          body.templates = [selectedTemplate.label];
-          body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
-        } else {
-          body.prompt = enhancedPrompt;
-        }
-
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+    // Sanitize prompt for retry when moderation violation occurs
+    const sanitizePrompt = (original: string, attempt: number): string => {
+      let sanitized = original;
+      // Remove sensitive marketing keywords on first retry
+      if (attempt === 1) {
+        const sensitiveWords = ["免费", "免费领取", "限时免费", "0元", "免费送", "无偿", "赠品", "赠送", "福利", "薅羊毛", "钜惠", "跳楼价", "清仓"];
+        sensitiveWords.forEach((w) => {
+          sanitized = sanitized.replace(new RegExp(w, "g"), "");
         });
+        sanitized += "\n\n（注意：请确保画面内容积极健康，符合平台规范，避免出现夸大宣传或敏感营销信息）";
+      }
+      // Further simplify on second retry
+      if (attempt === 2) {
+        sanitized = sanitized
+          .replace(/促销|优惠|折扣|特价|秒杀|抢购|大促|狂欢节/g, "活动")
+          .replace(/微信|QQ|电话|联系方式|二维码/g, "")
+          .replace(/\n\n（注意：.*）/g, "")
+          + "\n\n（请生成一张风格统一、内容健康向上的设计海报，画面简洁大方）";
+      }
+      return sanitized;
+    };
 
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `第 ${page.index + 1} 页生成失败`);
-        }
+    for (let i = 0; i < toGen.length; i++) {
+      if (stopRef.current) break;
 
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("无法读取响应");
+      const page = toGen[i];
+      setPages((prev) =>
+        prev.map((p) =>
+          p.index === page.index ? { ...p, status: "generating" } : p
+        )
+      );
+      setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
+      setProgress(Math.round((i / totalPages) * 100));
 
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let resultUrl = "";
-        let taskId = "";
+      let pageSuccess = false;
+      let attempt = 0;
+      let finalError = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data: ")) continue;
-            const jsonStr = trimmed.slice(6);
-            if (jsonStr === "[DONE]") continue;
-            try {
-              const data = JSON.parse(jsonStr);
-              if (data.type === "image" && data.url) {
-                resultUrl = data.url;
-              }
-              if (data.taskId) {
-                taskId = data.taskId;
-              }
-            } catch { /* ignore */ }
+      while (attempt < 3 && !pageSuccess && !stopRef.current) {
+        attempt++;
+        try {
+          let enhancedPrompt = buildEnhancedPrompt(page, totalPages, title);
+          if (attempt > 1) {
+            enhancedPrompt = sanitizePrompt(enhancedPrompt, attempt - 1);
           }
-        }
 
-        completed++;
-        if (resultUrl) {
-          succeeded++;
-          setPages((prev) =>
-            prev.map((p) =>
-              p.index === page.index
-                ? { ...p, status: "done", imageUrl: resultUrl, taskId }
-                : p
-            )
-          );
-        } else {
+          const body: Record<string, unknown> = {
+            model,
+            ratio,
+            count: 1,
+            siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
+          };
+
+          // Use previous successful image as style reference
+          if (lastSuccessUrl) {
+            body.refImageUrl = lastSuccessUrl;
+            body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考上一张图片的视觉风格、配色方案、排版布局和字体风格，确保与整套系列保持高度统一的视觉语言。）`;
+          } else if (selectedTemplate) {
+            body.templates = [selectedTemplate.label];
+            body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
+          } else {
+            body.prompt = enhancedPrompt;
+          }
+
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            const errMsg = err.error || `第 ${page.index + 1} 页生成失败`;
+            // Detect moderation violation
+            const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
+            if (isViolation && attempt < 3) {
+              toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
+              continue;
+            }
+            throw new Error(errMsg);
+          }
+
+          const reader = res.body?.getReader();
+          if (!reader) throw new Error("无法读取响应");
+
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let resultUrl = "";
+          let taskId = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data: ")) continue;
+              const jsonStr = trimmed.slice(6);
+              if (jsonStr === "[DONE]") continue;
+              try {
+                const data = JSON.parse(jsonStr);
+                if (data.type === "image" && data.url) {
+                  resultUrl = data.url;
+                }
+                if (data.taskId) {
+                  taskId = data.taskId;
+                }
+              } catch { /* ignore */ }
+            }
+          }
+
+          if (resultUrl) {
+            pageSuccess = true;
+            lastSuccessUrl = resultUrl;
+            succeeded++;
+            setPages((prev) =>
+              prev.map((p) =>
+                p.index === page.index
+                  ? { ...p, status: "done", imageUrl: resultUrl, taskId }
+                  : p
+              )
+            );
+          } else {
+            throw new Error("未获取到图片地址");
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "生成失败";
+          finalError = msg;
+          const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(msg);
+          if (isViolation && attempt < 3) {
+            toast.warning(`第 ${page.index + 1} 页内容违规，自动调整后重试（${attempt}/3）...`);
+            continue;
+          }
+          toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
           setPages((prev) =>
             prev.map((p) =>
               p.index === page.index ? { ...p, status: "error" } : p
             )
           );
         }
-        setProgress(Math.round((completed / totalPages) * 100));
-        setProgressStatus(`并行生成中：${completed}/${totalPages} 页已完成`);
-      } catch (err: unknown) {
-        completed++;
-        const msg = err instanceof Error ? err.message : "生成失败";
-        toast.error(msg);
-        setPages((prev) =>
-          prev.map((p) =>
-            p.index === page.index ? { ...p, status: "error" } : p
-          )
-        );
-        setProgress(Math.round((completed / totalPages) * 100));
-        setProgressStatus(`并行生成中：${completed}/${totalPages} 页已完成`);
       }
-    };
-
-    // Fire all generation requests in parallel
-    await Promise.all(toGen.map((page) => generateOne(page)));
+    }
 
     setProgress(100);
-    setProgressStatus("生成完成");
+    setProgressStatus(stopRef.current ? "已停止" : "生成完成");
     setIsGenerating(false);
-    toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
+    if (!stopRef.current) {
+      toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
+    }
   }, [pages, selectedIndices, model, ratio, templates, buildEnhancedPrompt, outlineTitle]);
 
   const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
@@ -417,29 +471,41 @@ export default function BatchGeneratePanel({
         </div>
       )}
 
-      {/* Batch Generate Button */}
-      <Button
-        onClick={handleBatchGenerate}
-        disabled={isGenerating || selectedIndices.size === 0}
-        className={cn(
-          "w-full py-5 text-base font-bold rounded-2xl transition-all shadow-lg",
-          isGenerating
-            ? "bg-muted cursor-not-allowed"
-            : "bg-primary hover:bg-primary/90"
+      {/* Batch Generate / Stop Buttons */}
+      <div className="flex gap-3">
+        <Button
+          onClick={handleBatchGenerate}
+          disabled={isGenerating || selectedIndices.size === 0}
+          className={cn(
+            "flex-1 py-5 text-base font-bold rounded-2xl transition-all shadow-lg",
+            isGenerating
+              ? "bg-muted cursor-not-allowed"
+              : "bg-primary hover:bg-primary/90"
+          )}
+        >
+          {isGenerating ? (
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>{progressStatus} ({progress}%)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Wand2 className="w-5 h-5" />
+              批量生成 {selectedIndices.size > 0 ? `(${selectedIndices.size}页)` : ""}
+            </div>
+          )}
+        </Button>
+        {isGenerating && (
+          <Button
+            onClick={handleStop}
+            variant="destructive"
+            className="px-6 py-5 text-base font-bold rounded-2xl transition-all shadow-lg hover:bg-destructive/90"
+          >
+            <Square className="w-4 h-4 mr-2" />
+            停止
+          </Button>
         )}
-      >
-        {isGenerating ? (
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>{progressStatus} ({progress}%)</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Wand2 className="w-5 h-5" />
-            批量生成 {selectedIndices.size > 0 ? `(${selectedIndices.size}页)` : ""}
-          </div>
-        )}
-      </Button>
+      </div>
 
       {/* Results Gallery */}
       {doneCount > 0 && (
