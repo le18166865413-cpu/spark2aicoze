@@ -82,6 +82,78 @@ const DEFAULTS: Record<string, string> = {
   theme_custom_hex: "#22C55E",
   gallery_title: "海报生成记录",
   gallery_subtitle: "查看通过 SparkAI 生成的所有海报作品",
+  create_options_scene: JSON.stringify([
+    { label: "电商", value: "电商" },
+    { label: "社交媒体", value: "社交媒体" },
+    { label: "微信营销", value: "微信营销" },
+    { label: "公众号", value: "公众号" },
+    { label: "行政办公/教育", value: "行政办公/教育" },
+    { label: "生活娱乐", value: "生活娱乐" },
+    { label: "PPT", value: "PPT" },
+  ]),
+  create_options_usage: JSON.stringify([
+    { label: "营销带货", value: "营销带货" },
+    { label: "交流分享", value: "交流分享" },
+    { label: "祝福问候", value: "祝福问候" },
+    { label: "宣传推广", value: "宣传推广" },
+    { label: "干货科普", value: "干货科普" },
+    { label: "通知公告", value: "通知公告" },
+    { label: "招聘招募", value: "招聘招募" },
+    { label: "个人娱乐", value: "个人娱乐" },
+    { label: "日月签", value: "日月签" },
+    { label: "公益宣传", value: "公益宣传" },
+    { label: "晒照分享", value: "晒照分享" },
+    { label: "简介介绍", value: "简介介绍" },
+    { label: "邀请函", value: "邀请函" },
+    { label: "直播宣传", value: "直播宣传" },
+    { label: "喜报表彰", value: "喜报表彰" },
+    { label: "计划总结", value: "计划总结" },
+    { label: "员工关怀", value: "员工关怀" },
+    { label: "社交互动", value: "社交互动" },
+    { label: "价目表", value: "价目表" },
+    { label: "学习素材", value: "学习素材" },
+    { label: "资讯要闻", value: "资讯要闻" },
+    { label: "生日祝福", value: "生日祝福" },
+    { label: "晒单反馈", value: "晒单反馈" },
+  ]),
+  create_options_style: JSON.stringify([
+    { label: "简约", value: "简约" },
+    { label: "时尚", value: "时尚" },
+    { label: "实景", value: "实景" },
+    { label: "插画", value: "插画" },
+    { label: "卡通", value: "卡通" },
+    { label: "文艺", value: "文艺" },
+    { label: "喜庆", value: "喜庆" },
+    { label: "手绘", value: "手绘" },
+    { label: "可爱", value: "可爱" },
+    { label: "拼贴风", value: "拼贴风" },
+    { label: "潮酷", value: "潮酷" },
+    { label: "商务", value: "商务" },
+    { label: "中国风", value: "中国风" },
+    { label: "通用", value: "通用" },
+    { label: "扁平", value: "扁平" },
+    { label: "清新", value: "清新" },
+    { label: "3D", value: "3D" },
+    { label: "复古", value: "复古" },
+    { label: "奢华", value: "奢华" },
+    { label: "酸性风", value: "酸性风" },
+    { label: "科技", value: "科技" },
+    { label: "膨胀风", value: "膨胀风" },
+  ]),
+  create_options_color: JSON.stringify([
+    { label: "蓝", value: "蓝" },
+    { label: "黄", value: "黄" },
+    { label: "绿", value: "绿" },
+    { label: "红", value: "红" },
+    { label: "粉", value: "粉" },
+    { label: "橙", value: "橙" },
+    { label: "白", value: "白" },
+    { label: "棕", value: "棕" },
+    { label: "紫", value: "紫" },
+    { label: "黑", value: "黑" },
+    { label: "灰", value: "灰" },
+    { label: "米色", value: "米色" },
+  ]),
 };
 
 export async function GET() {
@@ -103,7 +175,7 @@ export async function GET() {
     }
 
     // Parse JSON fields
-    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "available_image_sizes", "hd_models", "violation_messages"];
+    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "available_image_sizes", "hd_models", "violation_messages", "create_options_scene", "create_options_usage", "create_options_style", "create_options_color"];
     for (const field of jsonFields) {
       try {
         config[field] = JSON.parse(config[field] as string);
@@ -146,6 +218,12 @@ export async function GET() {
     config.themeColor = config.theme_color;
     config.themeMode = config.theme_mode;
     config.themeCustomHex = config.theme_custom_hex;
+    config.createOptions = {
+      scene: Array.isArray(config.create_options_scene) ? config.create_options_scene : [],
+      usage: Array.isArray(config.create_options_usage) ? config.create_options_usage : [],
+      style: Array.isArray(config.create_options_style) ? config.create_options_style : [],
+      color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
+    };
 
     // Multi-site info
     const site = getCurrentSite();
@@ -161,7 +239,7 @@ export async function GET() {
     for (const key of Object.keys(DEFAULTS)) {
       config[key] = DEFAULTS[key];
     }
-    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content"];
+    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "create_options_scene", "create_options_usage", "create_options_style", "create_options_color"];
     for (const field of jsonFields) {
       try {
         config[field] = JSON.parse(config[field] as string);
@@ -171,5 +249,11 @@ export async function GET() {
     config.gallery_page_size = Number(config.gallery_page_size) || 50;
     config.image_count_enabled = config.image_count_enabled === 'true';
     config.image_count_max = Number(config.image_count_max) || 4;
+    config.createOptions = {
+      scene: Array.isArray(config.create_options_scene) ? config.create_options_scene : [],
+      usage: Array.isArray(config.create_options_usage) ? config.create_options_usage : [],
+      style: Array.isArray(config.create_options_style) ? config.create_options_style : [],
+      color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
+    };
   }
 }

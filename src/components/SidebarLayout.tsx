@@ -13,7 +13,6 @@ const menuItems = [
   { href: '/admin', icon: LayoutDashboard, label: '仪表盘' },
   { href: '/admin/sites', icon: Server, label: '站点管理' },
   { href: '/admin/settings', icon: Settings, label: '网站设置' },
-  { href: '/admin/options', icon: ListChecks, label: '选项管理' },
   { href: '/admin/api-tokens', icon: Key, label: 'API 令牌' },
   { href: '/admin/integration', icon: Plug, label: '对接' },
   { href: '/admin/theme', icon: Palette, label: '主题配色' },

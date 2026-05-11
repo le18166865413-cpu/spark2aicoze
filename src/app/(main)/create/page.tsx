@@ -201,39 +201,11 @@ function CreatePageInner() {
         if (data.violationMessages) setViolationMessages(data.violationMessages);
         if (data.dailyGenerateLimit !== undefined) setDailyGenerateLimit(Number(data.dailyGenerateLimit));
         if (data.promptMaxLength) setPromptMaxLength(Number(data.promptMaxLength));
-      })
-      .catch(() => {
-        // Use defaults on error
-      });
-
-    // Load dynamic options from database
-    fetch("/api/options")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data.data) return;
-        const o = data.data;
-        if (o.scene?.length) setSceneOpts(o.scene.map((item: { label: string }) => item.label));
-        if (o.usage?.length) setUsageOpts(o.usage.map((item: { label: string }) => item.label));
-        if (o.style?.length) setStyleOpts(o.style.map((item: { label: string }) => item.label));
-        if (o.color?.length) setColorOpts(o.color.map((item: { label: string }) => item.label));
-        if (o.ratio?.length) {
-          setRatioOptions(
-            o.ratio.map((item: { value: string; label: string; description?: string }) => ({
-              value: item.value,
-              label: item.label,
-              desc: item.description || "",
-            }))
-          );
-        }
-        if (o.model?.length) {
-          setModelOptions(
-            o.model.map((item: { value: string; label: string; description?: string }) => ({
-              value: item.value,
-              label: item.label,
-              desc: item.description || "",
-            }))
-          );
-        }
+        // Load create options from config
+        if (data.createOptions?.scene?.length) setSceneOpts(data.createOptions.scene.map((item: { label: string }) => item.label));
+        if (data.createOptions?.usage?.length) setUsageOpts(data.createOptions.usage.map((item: { label: string }) => item.label));
+        if (data.createOptions?.style?.length) setStyleOpts(data.createOptions.style.map((item: { label: string }) => item.label));
+        if (data.createOptions?.color?.length) setColorOpts(data.createOptions.color.map((item: { label: string }) => item.label));
       })
       .catch(() => {
         // Use defaults on error

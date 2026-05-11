@@ -22,7 +22,7 @@ interface RatioItem {
   desc: string;
 }
 
-type TabKey = 'templates' | 'models' | 'ratios' | 'tips' | 'wait' | 'pagesize' | 'imagecount' | 'imagesize' | 'violation' | 'limits';
+type TabKey = 'templates' | 'models' | 'ratios' | 'scene' | 'usage' | 'style' | 'color' | 'tips' | 'wait' | 'pagesize' | 'imagecount' | 'imagesize' | 'violation' | 'limits';
 
 export default function CreationConfigPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
@@ -55,6 +55,11 @@ export default function CreationConfigPage() {
   const [hdModels, setHdModels] = useState<string[]>([]);
   // Violation messages
   const [violationMessages, setViolationMessages] = useState<Record<string, string>>({});
+  // Scene / Usage / Style / Color options
+  const [sceneOpts, setSceneOpts] = useState<string[]>([]);
+  const [usageOpts, setUsageOpts] = useState<string[]>([]);
+  const [styleOpts, setStyleOpts] = useState<string[]>([]);
+  const [colorOpts, setColorOpts] = useState<string[]>([]);
   // Limits
   const [dailyGenerateLimit, setDailyGenerateLimit] = useState('0');
   const [promptMaxLength, setPromptMaxLength] = useState('2000');
@@ -98,6 +103,22 @@ export default function CreationConfigPage() {
       } catch { setViolationMessages({}); }
       setDailyGenerateLimit(getSetting('daily_generate_limit') || '0');
       setPromptMaxLength(getSetting('prompt_max_length') || '2000');
+      try {
+        const sc = getSetting('create_options_scene');
+        setSceneOpts(sc ? JSON.parse(sc) : []);
+      } catch { setSceneOpts([]); }
+      try {
+        const us = getSetting('create_options_usage');
+        setUsageOpts(us ? JSON.parse(us) : []);
+      } catch { setUsageOpts([]); }
+      try {
+        const st = getSetting('create_options_style');
+        setStyleOpts(st ? JSON.parse(st) : []);
+      } catch { setStyleOpts([]); }
+      try {
+        const co = getSetting('create_options_color');
+        setColorOpts(co ? JSON.parse(co) : []);
+      } catch { setColorOpts([]); }
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -123,6 +144,10 @@ export default function CreationConfigPage() {
         { key: 'violation_messages', value: JSON.stringify(violationMessages) },
         { key: 'daily_generate_limit', value: dailyGenerateLimit },
         { key: 'prompt_max_length', value: promptMaxLength },
+        { key: 'create_options_scene', value: JSON.stringify(sceneOpts) },
+        { key: 'create_options_usage', value: JSON.stringify(usageOpts) },
+        { key: 'create_options_style', value: JSON.stringify(styleOpts) },
+        { key: 'create_options_color', value: JSON.stringify(colorOpts) },
       ]);
       setMessage({ type: 'success', text: '配置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -173,6 +198,10 @@ export default function CreationConfigPage() {
     { key: 'templates', label: '快捷模板' },
     { key: 'models', label: '可用模型' },
     { key: 'ratios', label: '可用比例' },
+    { key: 'scene', label: '场景' },
+    { key: 'usage', label: '用途' },
+    { key: 'style', label: '风格' },
+    { key: 'color', label: '颜色' },
     { key: 'tips', label: '创作小贴士' },
     { key: 'wait', label: '等待提示' },
     { key: 'pagesize', label: '广场数量' },
@@ -500,6 +529,62 @@ export default function CreationConfigPage() {
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'scene' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">场景选项</h3>
+          <p className="text-xs text-muted-foreground">创作中心「场景」分类的可选项，每行一个</p>
+          <textarea
+            value={sceneOpts.join('\n')}
+            onChange={(e) => setSceneOpts(e.target.value.split('\n').filter((s) => s.trim()))}
+            placeholder="电商\n社交媒体\n微信营销"
+            rows={8}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+          />
+        </div>
+      )}
+
+      {activeTab === 'usage' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">用途选项</h3>
+          <p className="text-xs text-muted-foreground">创作中心「用途」分类的可选项，每行一个</p>
+          <textarea
+            value={usageOpts.join('\n')}
+            onChange={(e) => setUsageOpts(e.target.value.split('\n').filter((s) => s.trim()))}
+            placeholder="营销带货\n交流分享\n祝福问候"
+            rows={8}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+          />
+        </div>
+      )}
+
+      {activeTab === 'style' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">风格选项</h3>
+          <p className="text-xs text-muted-foreground">创作中心「风格」分类的可选项，每行一个</p>
+          <textarea
+            value={styleOpts.join('\n')}
+            onChange={(e) => setStyleOpts(e.target.value.split('\n').filter((s) => s.trim()))}
+            placeholder="简约\n时尚\n实景"
+            rows={8}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+          />
+        </div>
+      )}
+
+      {activeTab === 'color' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h3 className="text-sm font-semibold">颜色选项</h3>
+          <p className="text-xs text-muted-foreground">创作中心「颜色」分类的可选项，每行一个</p>
+          <textarea
+            value={colorOpts.join('\n')}
+            onChange={(e) => setColorOpts(e.target.value.split('\n').filter((s) => s.trim()))}
+            placeholder="蓝\n黄\n绿"
+            rows={8}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+          />
         </div>
       )}
 
