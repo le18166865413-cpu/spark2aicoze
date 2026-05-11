@@ -228,6 +228,7 @@ export default function BatchGeneratePanel({
             model,
             ratio,
             count: 1,
+            replyType: "json",
             siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
           };
 
@@ -242,7 +243,7 @@ export default function BatchGeneratePanel({
           }
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8 * 60 * 1000); // 8 minutes
+          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes for json mode
 
           try {
             const res = await fetch("/api/generate", {
@@ -253,9 +254,10 @@ export default function BatchGeneratePanel({
             });
             clearTimeout(timeoutId);
 
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              const errMsg = err.error || `第 ${page.index + 1} 页生成失败`;
+            const result = await res.json().catch(() => ({}));
+
+            if (!res.ok || !result.success) {
+              const errMsg = result.error || result.results?.[0]?.error || `第 ${page.index + 1} 页生成失败`;
               const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
               if (isViolation && attempt < 3) {
                 toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
@@ -264,39 +266,10 @@ export default function BatchGeneratePanel({
               throw new Error(errMsg);
             }
 
-            const reader = res.body?.getReader();
-            if (!reader) throw new Error("无法读取响应");
-
-            const decoder = new TextDecoder();
-            let buffer = "";
-            let resultUrl = "";
-            let taskId = "";
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith("data: ")) continue;
-                const jsonStr = trimmed.slice(6);
-                if (jsonStr === "[DONE]") continue;
-                try {
-                  const data = JSON.parse(jsonStr);
-                  if (data.type === "image" && data.url) {
-                    resultUrl = data.url;
-                  }
-                  if (data.taskId) {
-                    taskId = data.taskId;
-                  }
-                } catch { /* ignore */ }
-              }
-            }
-
-            if (resultUrl) {
+            const firstResult = result.results?.[0];
+            if (firstResult?.success && firstResult.data?.url) {
+              const resultUrl = firstResult.data.url as string;
+              const taskId = (firstResult.data.taskId as string) || "";
               pageSuccess = true;
               lastSuccessUrl = resultUrl;
               // eslint-disable-next-line no-console
@@ -310,7 +283,7 @@ export default function BatchGeneratePanel({
                 )
               );
             } else {
-              throw new Error("未获取到图片地址");
+              throw new Error(firstResult?.error || "未获取到图片地址");
             }
           } catch (err: unknown) {
             clearTimeout(timeoutId);

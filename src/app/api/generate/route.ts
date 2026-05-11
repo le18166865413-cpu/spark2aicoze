@@ -200,10 +200,189 @@ function estimateDimensions(ratio: string, imageSize: string = "1K"): { width: n
   return { width: entry.width1K, height: entry.height1K };
 }
 
+// Call GrsAI and parse the response stream to get the final result
+async function callGrsaiAndGetResult(
+  apiUrl: string,
+  requestBody: Record<string, unknown>,
+  apiKey: string
+): Promise<{ imageUrl: string; taskId: string }> {
+  const response = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `GrsAI API error: ${response.status}`;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+    } catch {
+      // ignore parse error
+    }
+    console.error("GrsAI error:", errorText);
+    throw new Error(errorMessage);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("服务响应异常");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let imageUrl = "";
+  let taskId = "";
+  let lastError = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const result = parseStreamLine(line);
+      if (!result) continue;
+
+      if (result.id && !taskId) {
+        taskId = result.id;
+      }
+
+      if (result.status === "succeeded" && result.results) {
+        imageUrl = result.results[0]?.url || result.url || "";
+      }
+
+      if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
+        let reason: string;
+        if (result.error && typeof result.error === "string") {
+          reason = translateGrsaiError(result.error);
+        } else if (result.failure_reason && typeof result.failure_reason === "string") {
+          reason = translateGrsaiError(result.failure_reason);
+        } else if (result.status === "violation") {
+          reason = "生成内容违规，请修改提示词后重试";
+        } else {
+          reason = "生成失败，请重试";
+        }
+        lastError = reason;
+      }
+    }
+  }
+
+  // Process remaining buffer
+  if (buffer.trim()) {
+    const result = parseStreamLine(buffer);
+    if (result) {
+      if (result.id && !taskId) {
+        taskId = result.id;
+      }
+      if (result.status === "succeeded" && result.results) {
+        imageUrl = result.results[0]?.url || result.url || "";
+      }
+      if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
+        let reason: string;
+        if (result.error && typeof result.error === "string") {
+          reason = translateGrsaiError(result.error);
+        } else if (result.failure_reason && typeof result.failure_reason === "string") {
+          reason = translateGrsaiError(result.failure_reason);
+        } else if (result.status === "violation") {
+          reason = "生成内容违规，请修改提示词后重试";
+        } else {
+          reason = "生成失败，请重试";
+        }
+        lastError = reason;
+      }
+    }
+  }
+
+  if (!imageUrl) {
+    throw new Error(lastError || "生成失败，未获取到图片结果");
+  }
+
+  return { imageUrl, taskId };
+}
+
+// Download image from URL, upload to S3, save to database, return signed URL
+async function saveGeneratedImage(
+  imageUrl: string,
+  taskId: string,
+  prompt: string,
+  ratio: string,
+  model: string,
+  imageSize: string,
+  userId: string | null,
+  creatorName: string | null
+): Promise<{ imageKey: string; signedUrl: string; id: string; width: number; height: number }> {
+  // Upload to S3
+  let key: string;
+  try {
+    key = await storage.uploadFromUrl({
+      url: imageUrl,
+      timeout: 120000,
+    });
+  } catch (uploadError) {
+    throw new Error(getStorageErrorMessage(uploadError));
+  }
+
+  const { width, height } = estimateDimensions(ratio, imageSize);
+  const imageId = generateId();
+  const now = new Date().toISOString();
+
+  // Save to Supabase
+  try {
+    const supabase = getSupabaseClient();
+    const insertData = await buildSiteInsertData({
+      id: imageId,
+      prompt: prompt,
+      url: "",
+      image_key: key,
+      width: width,
+      height: height,
+      views: 0,
+      downloads: 0,
+      model: model,
+      ratio: ratio,
+      task_id: taskId,
+      user_id: userId,
+      creator_name: creatorName,
+      created_at: now,
+    });
+    const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
+    if (dbError) {
+      console.error("Failed to save to Supabase:", dbError);
+    } else {
+      console.log("Saved to Supabase, id:", imageId);
+    }
+  } catch (dbErr) {
+    console.error("Supabase save error:", dbErr);
+  }
+
+  // Get permanent signed URL
+  let signedUrl = "";
+  try {
+    signedUrl = await getSignedUrl(key);
+  } catch (err) {
+    console.error("Failed to get signed URL:", err);
+    try {
+      signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
+    } catch {
+      signedUrl = key;
+    }
+  }
+
+  return { imageKey: key, signedUrl, id: imageId, width, height };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, ratio = "auto", model = "image2", count = 1, imageSize = "1K", refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType } = body;
+    const { prompt, ratio = "auto", model = "image2", count = 1, imageSize = "1K", refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType, replyType = "stream" } = body;
 
     const imageCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
@@ -263,12 +442,14 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: `Unknown model: ${model}` }), { status: 400 });
     }
 
+    const isJsonMode = replyType === "json";
+
     // Build request body using unified /v1/api/generate endpoint
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModel,
       prompt: prompt,
       aspectRatio: ratio,
-      replyType: "stream",
+      replyType: isJsonMode ? "json" : "stream",
       shutProgress: false,
     };
 
@@ -357,7 +538,53 @@ export async function POST(request: NextRequest) {
 
     const url = `${GRSAI_BASE_URL}/v1/api/generate`;
 
-    // Use SSE streaming
+    // JSON mode: synchronous processing, wait for all images then return JSON
+    if (isJsonMode) {
+      const results: Array<{
+        success: boolean;
+        data?: GalleryImage & { url: string; taskId: string };
+        error?: string;
+        index: number;
+      }> = [];
+
+      for (let imgIndex = 0; imgIndex < imageCount; imgIndex++) {
+        try {
+          const { imageUrl, taskId } = await callGrsaiAndGetResult(url, requestBody, await getGrsaiApiKey());
+          const saved = await saveGeneratedImage(imageUrl, taskId, prompt, ratio, model, imageSize, userId, creatorName);
+
+          results.push({
+            success: true,
+            data: {
+              id: saved.id,
+              prompt: prompt,
+              url: saved.signedUrl,
+              imageKey: saved.imageKey,
+              width: saved.width,
+              height: saved.height,
+              views: 0,
+              downloads: 0,
+              model: model,
+              ratio: ratio,
+              taskId: taskId,
+              createdAt: new Date().toISOString(),
+            },
+            index: imgIndex,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "生成失败";
+          console.error(`JSON mode image ${imgIndex + 1} failed:`, msg);
+          results.push({ success: false, error: msg, index: imgIndex });
+        }
+      }
+
+      const allSuccess = results.every((r) => r.success);
+      return NextResponse.json(
+        { success: allSuccess, results },
+        { status: allSuccess ? 200 : 207 }
+      );
+    }
+
+    // Stream mode: SSE streaming
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
