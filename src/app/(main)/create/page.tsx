@@ -55,6 +55,35 @@ const defaultTips = [
   "使用参考图可以保持一致的视觉风格",
 ];
 
+// Scene options (使用平台/载体)
+const sceneOptions = [
+  "电商", "社交媒体", "微信营销", "公众号",
+  "行政办公/教育", "生活娱乐", "PPT",
+];
+
+// Usage options (用途/模板功能)
+const usageOptions = [
+  "营销带货", "交流分享", "祝福问候", "宣传推广", "干货科普",
+  "通知公告", "招聘招募", "个人娱乐", "日月签", "公益宣传",
+  "晒照分享", "简介介绍", "邀请函", "直播宣传", "喜报表彰",
+  "计划总结", "员工关怀", "社交互动", "价目表", "学习素材",
+  "资讯要闻", "生日祝福", "晒单反馈",
+];
+
+// Style options (风格)
+const styleOptions = [
+  "简约", "时尚", "实景", "插画", "卡通", "文艺",
+  "喜庆", "手绘", "可爱", "拼贴风", "潮酷", "商务",
+  "中国风", "通用", "扁平", "清新", "3D", "复古",
+  "奢华", "酸性风", "科技", "膨胀风",
+];
+
+// Color options (颜色)
+const colorOptions = [
+  "蓝", "黄", "绿", "红", "粉", "橙", "白",
+  "棕", "紫", "黑", "灰", "米色",
+];
+
 type GenerationMode = "text2img" | "img2img";
 
 interface RefImage {
@@ -100,6 +129,12 @@ function CreatePageInner() {
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
   const [model, setModel] = useState("image2");
+
+  // Scene / usage / style / color selectors
+  const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
+  const [selectedUsages, setSelectedUsages] = useState<string[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [imageSize, setImageSize] = useState("1K");
   const [imageCount, setImageCount] = useState(1);
   const [imageCountMax, setImageCountMax] = useState(4);
@@ -172,6 +207,22 @@ function CreatePageInner() {
     setPrompt(templatePrompt);
     promptRef.current = templatePrompt;
   }, []);
+
+  // Toggle multi-select tag
+  const toggleTag = useCallback((list: string[], setList: (v: string[]) => void, value: string) => {
+    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  }, []);
+
+  // Build enhanced prompt with scene/usage/style/color
+  const buildEnhancedPrompt = useCallback((basePrompt: string) => {
+    const parts: string[] = [];
+    if (selectedScenes.length > 0) parts.push(`场景：${selectedScenes.join("、")}`);
+    if (selectedUsages.length > 0) parts.push(`用途：${selectedUsages.join("、")}`);
+    if (selectedStyles.length > 0) parts.push(`风格：${selectedStyles.join("、")}`);
+    if (selectedColors.length > 0) parts.push(`颜色：${selectedColors.join("、")}`);
+    if (parts.length === 0) return basePrompt;
+    return `${basePrompt}\n${parts.join("，")}`;
+  }, [selectedScenes, selectedUsages, selectedStyles, selectedColors]);
 
   // File upload handler - supports multiple files
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,8 +353,10 @@ function CreatePageInner() {
           setProgress(Math.round((i / effectiveCount) * 100));
         }
 
+        const enhancedPrompt = buildEnhancedPrompt(prompt);
+
         const body: Record<string, unknown> = {
-          prompt: prompt,
+          prompt: enhancedPrompt,
           ratio,
           model,
           imageSize,
@@ -451,7 +504,7 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, user]);
+  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, user, buildEnhancedPrompt]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
@@ -688,6 +741,90 @@ function CreatePageInner() {
                 </div>
               </div>
               )}
+
+              {/* Scene */}
+              <div className="mb-5">
+                <Label className="text-sm text-muted-foreground mb-2 block">场景（使用平台/载体）</Label>
+                <div className="flex flex-wrap gap-2">
+                  {sceneOptions.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        selectedScenes.includes(opt)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Usage */}
+              <div className="mb-5">
+                <Label className="text-sm text-muted-foreground mb-2 block">用途（模板功能）</Label>
+                <div className="flex flex-wrap gap-2">
+                  {usageOptions.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        selectedUsages.includes(opt)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Style */}
+              <div className="mb-5">
+                <Label className="text-sm text-muted-foreground mb-2 block">风格</Label>
+                <div className="flex flex-wrap gap-2">
+                  {styleOptions.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        selectedStyles.includes(opt)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color */}
+              <div className="mb-5">
+                <Label className="text-sm text-muted-foreground mb-2 block">颜色</Label>
+                <div className="flex flex-wrap gap-2">
+                  {colorOptions.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full transition-all border",
+                        selectedColors.includes(opt)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Ratio */}
               <div className="mb-6">
