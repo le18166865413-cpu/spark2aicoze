@@ -404,6 +404,7 @@ export async function POST(request: NextRequest) {
             let buffer = "";
             let imageUrl = "";
             let taskId = "";
+            let lastError = "";
 
             while (true) {
               const { done, value } = await reader.read();
@@ -439,6 +440,7 @@ export async function POST(request: NextRequest) {
                   imageUrl = result.results[0]?.url || result.url || "";
                 }
 
+                // Record error but do NOT close stream immediately — GrsAI may retry and succeed later
                 if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
                   let reason: string;
                   if (result.error && typeof result.error === "string") {
@@ -450,9 +452,7 @@ export async function POST(request: NextRequest) {
                   } else {
                     reason = "生成失败，请重试";
                   }
-                  sendSSE({ type: "error", error: reason });
-                  controller.close();
-                  return;
+                  lastError = reason;
                 }
               }
             }
@@ -478,15 +478,14 @@ export async function POST(request: NextRequest) {
                   } else {
                     reason = "生成失败，请重试";
                   }
-                  sendSSE({ type: "error", error: reason });
-                  controller.close();
-                  return;
+                  lastError = reason;
                 }
               }
             }
 
             if (!imageUrl) {
-              sendSSE({ type: "error", error: `第 ${imgIndex + 1} 张生成失败，未获取到图片结果，请重试` });
+              const errMsg = lastError || `第 ${imgIndex + 1} 张生成失败，未获取到图片结果，请重试`;
+              sendSSE({ type: "error", error: errMsg });
               controller.close();
               return;
             }

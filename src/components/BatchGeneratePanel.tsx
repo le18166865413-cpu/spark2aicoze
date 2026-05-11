@@ -58,6 +58,7 @@ export default function BatchGeneratePanel({
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
   const [outlineTitle, setOutlineTitle] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<{ label: string; prompt: string } | null>(null);
   const stopRef = useRef(false);
 
   const handleStop = useCallback(() => {
@@ -155,7 +156,7 @@ export default function BatchGeneratePanel({
     enhanced += `${sc}${us}${st}${co}`;
 
     // Consistency instruction
-    enhanced += "\n\n重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。";
+    enhanced += `\n\n重要：这是系列海报中的第${page.index + 1}页，必须与整套${totalPages}页保持统一的视觉风格、配色方案、排版布局和字体风格。确保与前后页形成连贯的系列感。`;
 
     return enhanced;
   }, [selectedScene, selectedUsage, selectedStyle, selectedColor]);
@@ -174,7 +175,6 @@ export default function BatchGeneratePanel({
 
     const totalPages = toGen.length;
     const title = outlineTitle || "批量生成";
-    const selectedTemplate = templates.length > 0 ? templates[0] : null;
     let lastSuccessUrl = "";
     let succeeded = 0;
 
@@ -236,75 +236,83 @@ export default function BatchGeneratePanel({
             body.refImageUrl = lastSuccessUrl;
             body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考上一张图片的视觉风格、配色方案、排版布局和字体风格，确保与整套系列保持高度统一的视觉语言。）`;
           } else if (selectedTemplate) {
-            body.templates = [selectedTemplate.label];
             body.prompt = `${enhancedPrompt}\n\n请严格遵循以下模板样式进行排版：\n${selectedTemplate.prompt}`;
           } else {
             body.prompt = enhancedPrompt;
           }
 
-          const res = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8 * 60 * 1000); // 8 minutes
 
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            const errMsg = err.error || `第 ${page.index + 1} 页生成失败`;
-            // Detect moderation violation
-            const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
-            if (isViolation && attempt < 3) {
-              toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
-              continue;
+          try {
+            const res = await fetch("/api/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              const errMsg = err.error || `第 ${page.index + 1} 页生成失败`;
+              const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
+              if (isViolation && attempt < 3) {
+                toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
+                continue;
+              }
+              throw new Error(errMsg);
             }
-            throw new Error(errMsg);
-          }
 
-          const reader = res.body?.getReader();
-          if (!reader) throw new Error("无法读取响应");
+            const reader = res.body?.getReader();
+            if (!reader) throw new Error("无法读取响应");
 
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let resultUrl = "";
-          let taskId = "";
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let resultUrl = "";
+            let taskId = "";
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
 
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith("data: ")) continue;
-              const jsonStr = trimmed.slice(6);
-              if (jsonStr === "[DONE]") continue;
-              try {
-                const data = JSON.parse(jsonStr);
-                if (data.type === "image" && data.url) {
-                  resultUrl = data.url;
-                }
-                if (data.taskId) {
-                  taskId = data.taskId;
-                }
-              } catch { /* ignore */ }
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith("data: ")) continue;
+                const jsonStr = trimmed.slice(6);
+                if (jsonStr === "[DONE]") continue;
+                try {
+                  const data = JSON.parse(jsonStr);
+                  if (data.type === "image" && data.url) {
+                    resultUrl = data.url;
+                  }
+                  if (data.taskId) {
+                    taskId = data.taskId;
+                  }
+                } catch { /* ignore */ }
+              }
             }
-          }
 
-          if (resultUrl) {
-            pageSuccess = true;
-            lastSuccessUrl = resultUrl;
-            succeeded++;
-            setPages((prev) =>
-              prev.map((p) =>
-                p.index === page.index
-                  ? { ...p, status: "done", imageUrl: resultUrl, taskId }
-                  : p
-              )
-            );
-          } else {
-            throw new Error("未获取到图片地址");
+            if (resultUrl) {
+              pageSuccess = true;
+              lastSuccessUrl = resultUrl;
+              succeeded++;
+              setPages((prev) =>
+                prev.map((p) =>
+                  p.index === page.index
+                    ? { ...p, status: "done", imageUrl: resultUrl, taskId }
+                    : p
+                )
+              );
+            } else {
+              throw new Error("未获取到图片地址");
+            }
+          } catch (err: unknown) {
+            clearTimeout(timeoutId);
+            throw err;
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : "生成失败";
@@ -330,7 +338,7 @@ export default function BatchGeneratePanel({
     if (!stopRef.current) {
       toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
     }
-  }, [pages, selectedIndices, model, ratio, templates, buildEnhancedPrompt, outlineTitle]);
+  }, [pages, selectedIndices, model, ratio, selectedTemplate, buildEnhancedPrompt, outlineTitle]);
 
   const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
 
@@ -466,6 +474,42 @@ export default function BatchGeneratePanel({
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Template Selector */}
+      {templates.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-semibold">辅助模板（可选）</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedTemplate(null)}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-lg border-2 transition-all",
+                !selectedTemplate
+                  ? "bg-primary/10 border-primary text-primary"
+                  : "bg-secondary border-transparent hover:border-border"
+              )}
+            >
+              不使用模板
+            </button>
+            {templates.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => setSelectedTemplate(t)}
+                className={cn(
+                  "px-3 py-1.5 text-xs rounded-lg border-2 transition-all",
+                  selectedTemplate?.label === t.label
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-secondary border-transparent hover:border-border"
+                )}
+              >
+                {t.label}
+              </button>
             ))}
           </div>
         </div>
