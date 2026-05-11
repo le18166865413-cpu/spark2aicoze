@@ -829,19 +829,19 @@ function CreatePageInner() {
               {/* Ratio */}
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {ratioOptions.map((r) => (
                     <button
                       key={r.value}
                       onClick={() => setRatio(r.value)}
                       className={cn(
-                        "py-3 rounded-xl text-sm font-medium transition-all flex flex-col items-center justify-center",
+                        "px-3 py-1.5 text-xs rounded-full transition-all border",
                         ratio === r.value
-                          ? "bg-primary text-primary-foreground shadow-md"
-                          : "bg-secondary text-muted-foreground hover:bg-muted"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-transparent hover:border-border"
                       )}
                     >
-                      <span className="text-base font-bold">{r.label}</span>
+                      {r.label}
                     </button>
                   ))}
                 </div>
