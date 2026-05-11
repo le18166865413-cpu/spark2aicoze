@@ -161,25 +161,22 @@ export default function BatchGeneratePanel({
 
     setIsGenerating(true);
     setProgress(0);
-    setProgressStatus("准备生成...");
+    setProgressStatus("正在并行生成中...");
 
-    const updatedPages = [...pages];
     const totalPages = toGen.length;
     const title = outlineTitle || "批量生成";
-
-    // Pick template for consistency
     const selectedTemplate = templates.length > 0 ? templates[0] : null;
+    let completed = 0;
+    let succeeded = 0;
 
-    for (let i = 0; i < toGen.length; i++) {
-      const page = toGen[i];
-      const pageIdx = updatedPages.findIndex((p) => p.index === page.index);
-      if (pageIdx === -1) continue;
+    // Mark all selected pages as generating
+    setPages((prev) =>
+      prev.map((p) =>
+        selectedIndices.has(p.index) ? { ...p, status: "generating" } : p
+      )
+    );
 
-      updatedPages[pageIdx] = { ...updatedPages[pageIdx], status: "generating" };
-      setPages([...updatedPages]);
-      setProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
-      setProgress(Math.round((i / totalPages) * 100));
-
+    const generateOne = async (page: BatchPage) => {
       try {
         const enhancedPrompt = buildEnhancedPrompt(page, totalPages, title);
         const body: Record<string, unknown> = {
@@ -204,7 +201,7 @@ export default function BatchGeneratePanel({
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `第 ${i + 1} 页生成失败`);
+          throw new Error(err.error || `第 ${page.index + 1} 页生成失败`);
         }
 
         const reader = res.body?.getReader();
@@ -239,30 +236,46 @@ export default function BatchGeneratePanel({
           }
         }
 
+        completed++;
         if (resultUrl) {
-          updatedPages[pageIdx] = {
-            ...updatedPages[pageIdx],
-            status: "done",
-            imageUrl: resultUrl,
-            taskId,
-          };
+          succeeded++;
+          setPages((prev) =>
+            prev.map((p) =>
+              p.index === page.index
+                ? { ...p, status: "done", imageUrl: resultUrl, taskId }
+                : p
+            )
+          );
         } else {
-          updatedPages[pageIdx] = { ...updatedPages[pageIdx], status: "error" };
+          setPages((prev) =>
+            prev.map((p) =>
+              p.index === page.index ? { ...p, status: "error" } : p
+            )
+          );
         }
+        setProgress(Math.round((completed / totalPages) * 100));
+        setProgressStatus(`并行生成中：${completed}/${totalPages} 页已完成`);
       } catch (err: unknown) {
+        completed++;
         const msg = err instanceof Error ? err.message : "生成失败";
-        updatedPages[pageIdx] = { ...updatedPages[pageIdx], status: "error" };
         toast.error(msg);
+        setPages((prev) =>
+          prev.map((p) =>
+            p.index === page.index ? { ...p, status: "error" } : p
+          )
+        );
+        setProgress(Math.round((completed / totalPages) * 100));
+        setProgressStatus(`并行生成中：${completed}/${totalPages} 页已完成`);
       }
+    };
 
-      setPages([...updatedPages]);
-    }
+    // Fire all generation requests in parallel
+    await Promise.all(toGen.map((page) => generateOne(page)));
 
     setProgress(100);
     setProgressStatus("生成完成");
     setIsGenerating(false);
-    const doneCount = updatedPages.filter((p) => p.status === "done").length;
-    toast.success(`批量生成完成，成功 ${doneCount}/${totalPages} 页`);
+    toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
   }, [pages, selectedIndices, model, ratio, templates, buildEnhancedPrompt, outlineTitle]);
 
   const doneCount = useMemo(() => pages.filter((p) => p.status === "done").length, [pages]);
