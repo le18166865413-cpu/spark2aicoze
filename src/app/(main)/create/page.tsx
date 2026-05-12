@@ -919,7 +919,7 @@ function CreatePageInner() {
               </ul>
               {groupQrImage && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1">
-                  <div className="w-14 h-14 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                  <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
                     <img
                       src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
                       alt="交流反馈群"
@@ -1383,7 +1383,7 @@ function CreatePageInner() {
               </ul>
               {groupQrImage && (
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1">
-                  <div className="w-20 h-20 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                  <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
                     <img
                       src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
                       alt="交流反馈群"
