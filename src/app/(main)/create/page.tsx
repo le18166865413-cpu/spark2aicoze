@@ -778,7 +778,7 @@ function CreatePageInner() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 dark:from-background dark:to-background">
       <main className="container mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-[45fr_55fr] gap-8">
           {/* Left: Input Panel */}
           <div className="space-y-6">
             {/* Mode Switcher */}
