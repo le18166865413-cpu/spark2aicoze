@@ -906,26 +906,28 @@ function CreatePageInner() {
                 <Zap className="w-4 h-4" />
                 创作小贴士
               </h4>
-              <ul className="space-y-1.5 text-xs text-muted-foreground">
-                {tips.map((tip, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">&#8226;</span>
-                    {tip}
-                  </li>
-                ))}
-              </ul>
-              {groupQrImage && (
-                <div className="flex flex-col items-center gap-1 mt-3 shrink-0">
-                  <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
-                    <img
-                      src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                      alt="生图交流反馈群"
-                      className="w-full h-full object-contain"
-                    />
+              <div className="flex gap-2 items-start">
+                <ul className="space-y-1.5 text-xs text-muted-foreground flex-1">
+                  {tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">&#8226;</span>
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+                {groupQrImage && (
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                      <img
+                        src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
+                        alt="生图交流反馈群"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] text-primary/70 text-center leading-tight">生图交流<br/>反馈群</span>
                   </div>
-                  <span className="text-[10px] text-primary/70 text-center leading-tight">生图交流反馈群</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Prompt Input */}
@@ -1370,26 +1372,28 @@ function CreatePageInner() {
                 <Zap className="w-5 h-5" />
                 创作小贴士
               </h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {tips.map((tip, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">&#8226;</span>
-                    {tip}
-                  </li>
-                ))}
-              </ul>
-              {groupQrImage && (
-                <div className="flex flex-col items-center gap-1 mt-4 shrink-0">
-                  <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
-                    <img
-                      src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                      alt="生图交流反馈群"
-                      className="w-full h-full object-contain"
-                    />
+              <div className="flex gap-2 items-start">
+                <ul className="space-y-2 text-sm text-muted-foreground flex-1">
+                  {tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-primary mt-0.5">&#8226;</span>
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+                {groupQrImage && (
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                      <img
+                        src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
+                        alt="生图交流反馈群"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <span className="text-xs text-primary/70 text-center leading-tight">生图交流<br/>反馈群</span>
                   </div>
-                  <span className="text-xs text-primary/70 text-center leading-tight">生图交流反馈群</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Progress */}
