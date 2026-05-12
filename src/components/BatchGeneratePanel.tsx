@@ -77,6 +77,7 @@ export default function BatchGeneratePanel({
 }: BatchGeneratePanelProps) {
   const [batchPrompt, setBatchPrompt] = useState("");
   const [pageCount, setPageCount] = useState(4);
+  const [customPageCount, setCustomPageCount] = useState("");
 
   const handleSplit = useCallback(() => {
     const text = batchPrompt.trim();
@@ -109,10 +110,13 @@ export default function BatchGeneratePanel({
           <button
             key={n}
             type="button"
-            onClick={() => setPageCount(n)}
+            onClick={() => {
+              setPageCount(n);
+              setCustomPageCount("");
+            }}
             className={cn(
               "px-2 py-1 text-xs rounded-lg transition-all border-2",
-              pageCount === n
+              pageCount === n && !customPageCount
                 ? "bg-primary/10 border-primary text-primary"
                 : "bg-secondary border-transparent hover:border-border"
             )}
@@ -120,6 +124,40 @@ export default function BatchGeneratePanel({
             {n} 页
           </button>
         ))}
+        <input
+          type="text"
+          inputMode="numeric"
+          value={customPageCount}
+          onChange={(e) => setCustomPageCount(e.target.value)}
+          onBlur={() => {
+            const num = parseInt(customPageCount, 10);
+            if (!isNaN(num) && num >= 1 && num <= 20) {
+              setPageCount(num);
+            } else if (customPageCount.trim()) {
+              toast.error("页数需在 1-20 之间");
+            }
+            setCustomPageCount("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const num = parseInt(customPageCount, 10);
+              if (!isNaN(num) && num >= 1 && num <= 20) {
+                setPageCount(num);
+                setCustomPageCount("");
+                (e.target as HTMLInputElement).blur();
+              } else if (customPageCount.trim()) {
+                toast.error("页数需在 1-20 之间");
+              }
+            }
+          }}
+          placeholder="自定义"
+          className={cn(
+            "px-2 py-1 text-xs rounded-lg transition-all border-2 w-[72px] text-center outline-none bg-background",
+            pageCount.toString() === customPageCount && customPageCount
+              ? "bg-primary/10 border-primary text-primary"
+              : "bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+          )}
+        />
       </div>
 
       {/* Batch Input */}

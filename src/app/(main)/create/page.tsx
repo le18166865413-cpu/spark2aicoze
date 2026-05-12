@@ -139,7 +139,7 @@ function CreatePageInner() {
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
-  const [customRatio, setCustomRatio] = useState("");
+
   const [model, setModel] = useState("image2");
 
   // Scene / usage / style / color selectors
@@ -147,6 +147,10 @@ function CreatePageInner() {
   const [selectedUsages, setSelectedUsages] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [customScene, setCustomScene] = useState("");
+  const [customUsage, setCustomUsage] = useState("");
+  const [customStyle, setCustomStyle] = useState("");
+  const [customColor, setCustomColor] = useState("");
 
   // Redirect non-admin away from batch mode
   useEffect(() => {
@@ -1042,6 +1046,28 @@ function CreatePageInner() {
                       {opt}
                     </button>
                   ))}
+                  <input
+                    type="text"
+                    value={customScene}
+                    onChange={(e) => setCustomScene(e.target.value)}
+                    onBlur={() => {
+                      if (customScene.trim()) {
+                        const values = customScene.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedScenes((prev) => [...new Set([...prev, ...values])]);
+                        setCustomScene("");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customScene.trim()) {
+                        const values = customScene.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedScenes((prev) => [...new Set([...prev, ...values])]);
+                        setCustomScene("");
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="自定义"
+                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                  />
                 </div>
               </div>
 
@@ -1066,6 +1092,28 @@ function CreatePageInner() {
                       {opt}
                     </button>
                   ))}
+                  <input
+                    type="text"
+                    value={customUsage}
+                    onChange={(e) => setCustomUsage(e.target.value)}
+                    onBlur={() => {
+                      if (customUsage.trim()) {
+                        const values = customUsage.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedUsages((prev) => [...new Set([...prev, ...values])]);
+                        setCustomUsage("");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customUsage.trim()) {
+                        const values = customUsage.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedUsages((prev) => [...new Set([...prev, ...values])]);
+                        setCustomUsage("");
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="自定义"
+                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                  />
                 </div>
               </div>
 
@@ -1090,6 +1138,28 @@ function CreatePageInner() {
                       {opt}
                     </button>
                   ))}
+                  <input
+                    type="text"
+                    value={customStyle}
+                    onChange={(e) => setCustomStyle(e.target.value)}
+                    onBlur={() => {
+                      if (customStyle.trim()) {
+                        const values = customStyle.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedStyles((prev) => [...new Set([...prev, ...values])]);
+                        setCustomStyle("");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customStyle.trim()) {
+                        const values = customStyle.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedStyles((prev) => [...new Set([...prev, ...values])]);
+                        setCustomStyle("");
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="自定义"
+                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                  />
                 </div>
               </div>
 
@@ -1114,6 +1184,28 @@ function CreatePageInner() {
                       {opt}
                     </button>
                   ))}
+                  <input
+                    type="text"
+                    value={customColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    onBlur={() => {
+                      if (customColor.trim()) {
+                        const values = customColor.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedColors((prev) => [...new Set([...prev, ...values])]);
+                        setCustomColor("");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customColor.trim()) {
+                        const values = customColor.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                        setSelectedColors((prev) => [...new Set([...prev, ...values])]);
+                        setCustomColor("");
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="自定义"
+                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                  />
                 </div>
               </div>
 
@@ -1124,13 +1216,10 @@ function CreatePageInner() {
                   {ratioOptions.map((r) => (
                     <button
                       key={r.value}
-                      onClick={() => {
-                        setRatio(r.value);
-                        setCustomRatio("");
-                      }}
+                      onClick={() => setRatio(r.value)}
                       className={cn(
                         "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        ratio === r.value && !customRatio
+                        ratio === r.value
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
                       )}
@@ -1138,31 +1227,7 @@ function CreatePageInner() {
                       {r.label}
                     </button>
                   ))}
-                  <input
-                    type="text"
-                    value={customRatio}
-                    onChange={(e) => setCustomRatio(e.target.value)}
-                    onBlur={() => {
-                      if (customRatio.trim()) {
-                        setRatio(customRatio.trim());
-                      } else if (ratio === customRatio) {
-                        setRatio("auto");
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && customRatio.trim()) {
-                        setRatio(customRatio.trim());
-                        (e.target as HTMLInputElement).blur();
-                      }
-                    }}
-                    placeholder="自定义"
-                    className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 w-[72px] text-center outline-none bg-background",
-                      ratio === customRatio && customRatio
-                        ? "bg-primary/10 border-primary text-primary"
-                        : "bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
-                    )}
-                  />
+
                 </div>
               </div>
 
