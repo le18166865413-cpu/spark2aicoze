@@ -795,7 +795,8 @@ function CreatePageInner() {
                 )}
               >
                 <Sparkles className="w-4 h-4" />
-                文字生图
+                <span className="hidden sm:inline">文字生图</span>
+                <span className="sm:hidden">文生图</span>
               </button>
               <button
                 onClick={() => setMode("img2img")}
@@ -807,7 +808,8 @@ function CreatePageInner() {
                 )}
               >
                 <ImagePlus className="w-4 h-4" />
-                参考图生图
+                <span className="hidden sm:inline">参考图生图</span>
+                <span className="sm:hidden">图上图</span>
               </button>
               {canAccessBatch && (
                 <button
@@ -820,7 +822,8 @@ function CreatePageInner() {
                   )}
                 >
                   <Layers className="w-4 h-4" />
-                  批量生图
+                  <span className="hidden sm:inline">批量生图</span>
+                  <span className="sm:hidden">批量出图</span>
                 </button>
               )}
             </div>
