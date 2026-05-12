@@ -1563,13 +1563,13 @@ function CreatePageInner() {
                   )}
                   {mode === "batch" ? (
                     batchPages.filter((p) => p.status === "done" && p.imageUrl).length > 0 && (
-                      <Button variant="outline" size="sm" onClick={() => setBatchPages((prev) => prev.map((p) => ({ ...p, status: "pending", imageUrl: null, taskId: null, url: null })))} className="text-green-500 hover:text-green-600" style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}>
+                      <Button variant="outline" size="sm" onClick={() => setBatchPages((prev) => prev.map((p) => ({ ...p, status: "pending", imageUrl: null, taskId: null, url: null })))} className="text-green-500" style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}>
                         清空
                       </Button>
                     )
                   ) : (
                     results.length > 0 && (
-                      <Button variant="outline" size="sm" onClick={() => setResults([])} className="text-green-500 hover:text-green-600" style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}>
+                      <Button variant="outline" size="sm" onClick={() => setResults([])} className="text-green-500" style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}>
                         清空
                       </Button>
                     )
