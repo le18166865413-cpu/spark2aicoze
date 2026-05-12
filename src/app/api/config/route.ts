@@ -267,5 +267,7 @@ export async function GET() {
       style: Array.isArray(config.create_options_style) ? config.create_options_style : [],
       color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
     };
+    config.batchGenerateAccess = config.batch_generate_access || "admin";
+    return NextResponse.json(config);
   }
 }

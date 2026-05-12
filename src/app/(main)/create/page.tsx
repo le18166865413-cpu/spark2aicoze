@@ -236,6 +236,7 @@ function CreatePageInner() {
         if (data.createOptions?.usage?.length) setUsageOpts(data.createOptions.usage.map((item: { label: string }) => item.label));
         if (data.createOptions?.style?.length) setStyleOpts(data.createOptions.style.map((item: { label: string }) => item.label));
         if (data.createOptions?.color?.length) setColorOpts(data.createOptions.color.map((item: { label: string }) => item.label));
+        if (data.batchGenerateAccess) setBatchGenerateAccess(data.batchGenerateAccess);
       })
       .catch(() => {
         // Use defaults on error
