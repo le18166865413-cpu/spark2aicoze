@@ -906,7 +906,7 @@ function CreatePageInner() {
                 <Zap className="w-4 h-4" />
                 创作小贴士
               </h4>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <ul className="space-y-1.5 text-xs text-muted-foreground flex-1">
                   {tips.map((tip, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -916,7 +916,7 @@ function CreatePageInner() {
                   ))}
                 </ul>
                 {groupQrImage && (
-                  <div className="flex flex-col items-center gap-1 shrink-0">
+                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-5">
                     <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
@@ -1372,7 +1372,7 @@ function CreatePageInner() {
                 <Zap className="w-5 h-5" />
                 创作小贴士
               </h4>
-              <div className="flex gap-4">
+              <div className="flex gap-2">
                 <ul className="space-y-2 text-sm text-muted-foreground flex-1">
                   {tips.map((tip, i) => (
                     <li key={i} className="flex items-start gap-2">
@@ -1382,7 +1382,7 @@ function CreatePageInner() {
                   ))}
                 </ul>
                 {groupQrImage && (
-                  <div className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-6">
                     <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
