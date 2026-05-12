@@ -916,7 +916,7 @@ function CreatePageInner() {
                   ))}
                 </ul>
                 {groupQrImage && (
-                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-5">
+                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-3">
                     <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
@@ -1382,7 +1382,7 @@ function CreatePageInner() {
                   ))}
                 </ul>
                 {groupQrImage && (
-                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-6">
+                  <div className="flex flex-col items-center gap-1 shrink-0 -mt-3">
                     <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
