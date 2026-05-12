@@ -55,6 +55,45 @@ export default function CreationConfigPage() {
   const [initialized, setInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('templates');
 
+  // Drag-and-drop reorder state
+  const [dragSource, setDragSource] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const reorderList = <T,>(list: T[], from: number, to: number): T[] => {
+    const next = [...list];
+    const [removed] = next.splice(from, 1);
+    next.splice(to, 0, removed);
+    return next;
+  };
+
+  const getDragProps = (index: number, onReorder: (from: number, to: number) => void) => ({
+    draggable: true as const,
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.setData('text/plain', String(index));
+      e.dataTransfer.effectAllowed = 'move';
+      setDragSource(index);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOver(index);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (!isNaN(from) && from !== index) onReorder(from, index);
+      setDragSource(null);
+      setDragOver(null);
+    },
+    onDragEnd: () => {
+      setDragSource(null);
+      setDragOver(null);
+    },
+  });
+
+  const getSortableCls = (index: number, base: string) =>
+    `${base} transition-colors cursor-grab active:cursor-grabbing ${dragOver === index && dragSource !== null && dragSource !== index ? 'border-primary border-dashed bg-primary/5' : ''} ${dragSource === index ? 'opacity-50' : ''}`;
+
   // Templates
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   // Models
@@ -303,8 +342,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-3">
             {templates.map((t, i) => (
-              <div key={i} className="flex gap-2 items-start p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground mt-2 shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setTemplates(reorderList(templates, from, to)))} className={getSortableCls(i, "flex gap-2 items-start p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground mt-2 shrink-0 cursor-grab" />
                 <div className="flex-1 space-y-2">
                   <input type="text" value={t.label} onChange={(e) => updateTemplate(i, 'label', e.target.value)} placeholder="模板名称" className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                   <textarea value={t.prompt} onChange={(e) => updateTemplate(i, 'prompt', e.target.value)} placeholder="提示词内容" rows={2} className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
@@ -330,8 +369,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-3">
             {models.map((m, i) => (
-              <div key={i} className="flex gap-2 items-start p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground mt-2 shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setModels(reorderList(models, from, to)))} className={getSortableCls(i, "flex gap-2 items-start p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground mt-2 shrink-0 cursor-grab" />
                 <div className="flex-1 grid grid-cols-3 gap-2">
                   <input type="text" value={m.value} onChange={(e) => updateModel(i, 'value', e.target.value)} placeholder="模型ID (如 image2-vip)" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                   <input type="text" value={m.label} onChange={(e) => updateModel(i, 'label', e.target.value)} placeholder="显示名称" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -368,8 +407,8 @@ export default function CreationConfigPage() {
             </div>
             <div className="space-y-3">
               {ratios.map((r, i) => (
-                <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                  <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div key={i} {...getDragProps(i, (from, to) => setRatios(reorderList(ratios, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                  <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                   <div className="flex-1 grid grid-cols-3 gap-2">
                     <input type="text" value={r.value} onChange={(e) => updateRatio(i, 'value', e.target.value)} placeholder="比例值 (如 9:16)" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                     <input type="text" value={r.label} onChange={(e) => updateRatio(i, 'label', e.target.value)} placeholder="显示标签" className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -405,8 +444,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-3">
             {tips.map((tip, i) => (
-              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setTips(reorderList(tips, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input type="text" value={tip} onChange={(e) => updateTip(i, e.target.value)} placeholder="小贴士内容" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <button onClick={() => removeTip(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="w-4 h-4" />
@@ -486,7 +525,8 @@ export default function CreationConfigPage() {
           <h3 className="text-sm font-semibold">输出分辨率</h3>
           <div className="space-y-3">
             {imageSizes.map((size, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} {...getDragProps(i, (from, to) => setImageSizes(reorderList(imageSizes, from, to)))} className={getSortableCls(i, "flex items-center gap-3 p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input value={size.value} onChange={(e) => {
                   const next = [...imageSizes]; next[i] = { ...next[i], value: e.target.value }; setImageSizes(next);
                 }} placeholder="值 (如 1K)" className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -590,8 +630,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-2">
             {sceneOpts.map((opt, i) => (
-              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setSceneOpts(reorderList(sceneOpts, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input type="text" value={opt.label} onChange={(e) => updateScene(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <input type="text" value={opt.value} onChange={(e) => updateScene(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <button onClick={() => removeScene(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -615,8 +655,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-2">
             {usageOpts.map((opt, i) => (
-              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setUsageOpts(reorderList(usageOpts, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input type="text" value={opt.label} onChange={(e) => updateUsage(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <input type="text" value={opt.value} onChange={(e) => updateUsage(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <button onClick={() => removeUsage(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -640,8 +680,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-2">
             {styleOpts.map((opt, i) => (
-              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setStyleOpts(reorderList(styleOpts, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input type="text" value={opt.label} onChange={(e) => updateStyle(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <input type="text" value={opt.value} onChange={(e) => updateStyle(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <button onClick={() => removeStyle(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -665,8 +705,8 @@ export default function CreationConfigPage() {
           </div>
           <div className="space-y-2">
             {colorOpts.map((opt, i) => (
-              <div key={i} className="flex gap-2 items-center p-3 bg-background rounded-lg border border-border">
-                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div key={i} {...getDragProps(i, (from, to) => setColorOpts(reorderList(colorOpts, from, to)))} className={getSortableCls(i, "flex gap-2 items-center p-3 bg-background rounded-lg border border-border")}>
+                <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 cursor-grab" />
                 <input type="text" value={opt.label} onChange={(e) => updateColor(i, 'label', e.target.value)} placeholder="标签" className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <input type="text" value={opt.value} onChange={(e) => updateColor(i, 'value', e.target.value)} placeholder="值" className="w-28 px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                 <button onClick={() => removeColor(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
