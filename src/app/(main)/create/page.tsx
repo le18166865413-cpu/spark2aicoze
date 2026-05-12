@@ -246,10 +246,8 @@ function CreatePageInner() {
   }, []);
 
   // Template selection - auto-match scene/usage/style/color/ratio
-  const handleTemplateSelect = useCallback((template: { prompt: string; scenes?: string[]; usages?: string[]; styles?: string[]; colors?: string[]; ratio?: string }) => {
-    setPrompt(template.prompt);
-    promptRef.current = template.prompt;
-    // Auto-select matching options
+  const handleTemplateSelect = useCallback((template: { prompt?: string; scenes?: string[]; usages?: string[]; styles?: string[]; colors?: string[]; ratio?: string }) => {
+    // Auto-select matching options only, do not fill prompt
     setSelectedScenes(template.scenes?.filter((s) => sceneOpts.includes(s)) || []);
     setSelectedUsages(template.usages?.filter((u) => usageOpts.includes(u)) || []);
     setSelectedStyles(template.styles?.filter((s) => styleOpts.includes(s)) || []);
