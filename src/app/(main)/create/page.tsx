@@ -1022,7 +1022,10 @@ function CreatePageInner() {
 
               {/* Scene */}
               <div className="mb-5">
-                <Label className="text-sm text-muted-foreground mb-2 block">场景（使用平台/载体）</Label>
+                <Label className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+                  <span>场景（使用平台/载体）</span>
+                  <span className="text-xs text-muted-foreground/60">可多选</span>
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {sceneOpts.map((opt) => (
                     <button
@@ -1043,7 +1046,10 @@ function CreatePageInner() {
 
               {/* Usage */}
               <div className="mb-5">
-                <Label className="text-sm text-muted-foreground mb-2 block">用途（模板功能）</Label>
+                <Label className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+                  <span>用途（模板功能）</span>
+                  <span className="text-xs text-muted-foreground/60">可多选</span>
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {usageOpts.map((opt) => (
                     <button
@@ -1064,7 +1070,10 @@ function CreatePageInner() {
 
               {/* Style */}
               <div className="mb-5">
-                <Label className="text-sm text-muted-foreground mb-2 block">风格</Label>
+                <Label className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+                  <span>风格</span>
+                  <span className="text-xs text-muted-foreground/60">可多选</span>
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {styleOpts.map((opt) => (
                     <button
@@ -1085,7 +1094,10 @@ function CreatePageInner() {
 
               {/* Color */}
               <div className="mb-5">
-                <Label className="text-sm text-muted-foreground mb-2 block">颜色</Label>
+                <Label className="text-sm text-muted-foreground mb-2 flex items-center justify-between">
+                  <span>颜色</span>
+                  <span className="text-xs text-muted-foreground/60">可多选</span>
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {colorOpts.map((opt) => (
                     <button
