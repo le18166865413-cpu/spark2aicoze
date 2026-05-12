@@ -1052,19 +1052,21 @@ function CreatePageInner() {
                     type="text"
                     value={customScene}
                     onChange={(e) => setCustomScene(e.target.value)}
-                    onBlur={() => {
-                      if (customScene.trim()) {
-                        const values = customScene.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                    onBlur={(e) => {
+                      const val = e.currentTarget.value;
+                      if (val.trim()) {
+                        const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
                         setSelectedScenes((prev) => [...new Set([...prev, ...values])]);
-                        setCustomScene("");
                       }
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && customScene.trim()) {
-                        const values = customScene.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
-                        setSelectedScenes((prev) => [...new Set([...prev, ...values])]);
-                        setCustomScene("");
-                        (e.target as HTMLInputElement).blur();
+                      if (e.key === "Enter") {
+                        const val = e.currentTarget.value;
+                        if (val.trim()) {
+                          const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                          setSelectedScenes((prev) => [...new Set([...prev, ...values])]);
+                        }
+                        e.currentTarget.blur();
                       }
                     }}
                     placeholder="自定义"
@@ -1098,19 +1100,21 @@ function CreatePageInner() {
                     type="text"
                     value={customUsage}
                     onChange={(e) => setCustomUsage(e.target.value)}
-                    onBlur={() => {
-                      if (customUsage.trim()) {
-                        const values = customUsage.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                    onBlur={(e) => {
+                      const val = e.currentTarget.value;
+                      if (val.trim()) {
+                        const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
                         setSelectedUsages((prev) => [...new Set([...prev, ...values])]);
-                        setCustomUsage("");
                       }
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && customUsage.trim()) {
-                        const values = customUsage.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
-                        setSelectedUsages((prev) => [...new Set([...prev, ...values])]);
-                        setCustomUsage("");
-                        (e.target as HTMLInputElement).blur();
+                      if (e.key === "Enter") {
+                        const val = e.currentTarget.value;
+                        if (val.trim()) {
+                          const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                          setSelectedUsages((prev) => [...new Set([...prev, ...values])]);
+                        }
+                        e.currentTarget.blur();
                       }
                     }}
                     placeholder="自定义"
@@ -1144,19 +1148,21 @@ function CreatePageInner() {
                     type="text"
                     value={customStyle}
                     onChange={(e) => setCustomStyle(e.target.value)}
-                    onBlur={() => {
-                      if (customStyle.trim()) {
-                        const values = customStyle.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                    onBlur={(e) => {
+                      const val = e.currentTarget.value;
+                      if (val.trim()) {
+                        const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
                         setSelectedStyles((prev) => [...new Set([...prev, ...values])]);
-                        setCustomStyle("");
                       }
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && customStyle.trim()) {
-                        const values = customStyle.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
-                        setSelectedStyles((prev) => [...new Set([...prev, ...values])]);
-                        setCustomStyle("");
-                        (e.target as HTMLInputElement).blur();
+                      if (e.key === "Enter") {
+                        const val = e.currentTarget.value;
+                        if (val.trim()) {
+                          const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                          setSelectedStyles((prev) => [...new Set([...prev, ...values])]);
+                        }
+                        e.currentTarget.blur();
                       }
                     }}
                     placeholder="自定义"
@@ -1190,19 +1196,21 @@ function CreatePageInner() {
                     type="text"
                     value={customColor}
                     onChange={(e) => setCustomColor(e.target.value)}
-                    onBlur={() => {
-                      if (customColor.trim()) {
-                        const values = customColor.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                    onBlur={(e) => {
+                      const val = e.currentTarget.value;
+                      if (val.trim()) {
+                        const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
                         setSelectedColors((prev) => [...new Set([...prev, ...values])]);
-                        setCustomColor("");
                       }
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && customColor.trim()) {
-                        const values = customColor.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
-                        setSelectedColors((prev) => [...new Set([...prev, ...values])]);
-                        setCustomColor("");
-                        (e.target as HTMLInputElement).blur();
+                      if (e.key === "Enter") {
+                        const val = e.currentTarget.value;
+                        if (val.trim()) {
+                          const values = val.split(/[,，]/).map((v) => v.trim()).filter(Boolean);
+                          setSelectedColors((prev) => [...new Set([...prev, ...values])]);
+                        }
+                        e.currentTarget.blur();
                       }
                     }}
                     placeholder="自定义"

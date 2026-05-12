@@ -129,23 +129,23 @@ export default function BatchGeneratePanel({
           inputMode="numeric"
           value={customPageCount}
           onChange={(e) => setCustomPageCount(e.target.value)}
-          onBlur={() => {
-            const num = parseInt(customPageCount, 10);
+          onBlur={(e) => {
+            const val = e.currentTarget.value;
+            const num = parseInt(val, 10);
             if (!isNaN(num) && num >= 1 && num <= 20) {
               setPageCount(num);
-            } else if (customPageCount.trim()) {
+            } else if (val.trim()) {
               toast.error("页数需在 1-20 之间");
             }
-            setCustomPageCount("");
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              const num = parseInt(customPageCount, 10);
+              const val = e.currentTarget.value;
+              const num = parseInt(val, 10);
               if (!isNaN(num) && num >= 1 && num <= 20) {
                 setPageCount(num);
-                setCustomPageCount("");
-                (e.target as HTMLInputElement).blur();
-              } else if (customPageCount.trim()) {
+                e.currentTarget.blur();
+              } else if (val.trim()) {
                 toast.error("页数需在 1-20 之间");
               }
             }
