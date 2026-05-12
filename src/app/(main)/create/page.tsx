@@ -986,6 +986,10 @@ function CreatePageInner() {
                       setSelectedUsages([]);
                       setSelectedStyles([]);
                       setSelectedColors([]);
+                      setCustomScene("");
+                      setCustomUsage("");
+                      setCustomStyle("");
+                      setCustomColor("");
                     }}
                     className="text-xs text-green-500 transition-colors"
                     style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}
