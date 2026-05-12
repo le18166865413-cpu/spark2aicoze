@@ -1070,7 +1070,10 @@ function CreatePageInner() {
                       }
                     }}
                     placeholder="自定义"
-                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      customScene.trim() && "bg-primary/10 border-primary text-primary"
+                    )}
                   />
                 </div>
               </div>
@@ -1118,7 +1121,10 @@ function CreatePageInner() {
                       }
                     }}
                     placeholder="自定义"
-                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      customUsage.trim() && "bg-primary/10 border-primary text-primary"
+                    )}
                   />
                 </div>
               </div>
@@ -1166,7 +1172,10 @@ function CreatePageInner() {
                       }
                     }}
                     placeholder="自定义"
-                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      customStyle.trim() && "bg-primary/10 border-primary text-primary"
+                    )}
                   />
                 </div>
               </div>
@@ -1214,7 +1223,10 @@ function CreatePageInner() {
                       }
                     }}
                     placeholder="自定义"
-                    className="px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      customColor.trim() && "bg-primary/10 border-primary text-primary"
+                    )}
                   />
                 </div>
               </div>
