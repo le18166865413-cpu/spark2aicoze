@@ -1038,20 +1038,6 @@ function CreatePageInner() {
                   <span className="text-xs text-muted-foreground/60">可多选</span>
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {sceneOpts.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
-                      className={cn(
-                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        selectedScenes.includes(opt)
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-secondary border-transparent hover:border-border"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
                   <input
                     type="text"
                     value={customScene}
@@ -1075,10 +1061,24 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
                       customScene.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
+                  {sceneOpts.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedScenes, setSelectedScenes, opt)}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
+                        selectedScenes.includes(opt)
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1089,20 +1089,6 @@ function CreatePageInner() {
                   <span className="text-xs text-muted-foreground/60">可多选</span>
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {usageOpts.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
-                      className={cn(
-                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        selectedUsages.includes(opt)
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-secondary border-transparent hover:border-border"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
                   <input
                     type="text"
                     value={customUsage}
@@ -1126,10 +1112,24 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
                       customUsage.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
+                  {usageOpts.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedUsages, setSelectedUsages, opt)}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
+                        selectedUsages.includes(opt)
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1140,20 +1140,6 @@ function CreatePageInner() {
                   <span className="text-xs text-muted-foreground/60">可多选</span>
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {styleOpts.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
-                      className={cn(
-                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        selectedStyles.includes(opt)
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-secondary border-transparent hover:border-border"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
                   <input
                     type="text"
                     value={customStyle}
@@ -1177,10 +1163,24 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
                       customStyle.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
+                  {styleOpts.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedStyles, setSelectedStyles, opt)}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
+                        selectedStyles.includes(opt)
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1191,20 +1191,6 @@ function CreatePageInner() {
                   <span className="text-xs text-muted-foreground/60">可多选</span>
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {colorOpts.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
-                      className={cn(
-                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        selectedColors.includes(opt)
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-secondary border-transparent hover:border-border"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
                   <input
                     type="text"
                     value={customColor}
@@ -1228,10 +1214,24 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
                       customColor.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
+                  {colorOpts.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => toggleTag(selectedColors, setSelectedColors, opt)}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded-lg transition-all border-2",
+                        selectedColors.includes(opt)
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-secondary border-transparent hover:border-border"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1449,7 +1449,7 @@ function CreatePageInner() {
                               ref={batchEditTextareaRef}
                               value={batchEditContent}
                               onChange={(e) => setBatchEditContent(e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground"
+                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground w-10"
                               placeholder="页面内容"
                             />
                             <div className="flex gap-2">
