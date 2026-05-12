@@ -971,7 +971,22 @@ function CreatePageInner() {
 
             {/* Options */}
             <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-              <h3 className="font-semibold mb-4">生成选项</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">生成选项</h3>
+                {(selectedScenes.length > 0 || selectedUsages.length > 0 || selectedStyles.length > 0 || selectedColors.length > 0) && (
+                  <button
+                    onClick={() => {
+                      setSelectedScenes([]);
+                      setSelectedUsages([]);
+                      setSelectedStyles([]);
+                      setSelectedColors([]);
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
               
               {/* Image Count */}
               {imageCountEnabled && (
