@@ -902,24 +902,10 @@ function CreatePageInner() {
 
             {/* Tips - mobile only */}
             <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 lg:hidden">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <h4 className="font-semibold text-primary flex items-center gap-2 text-sm">
-                  <Zap className="w-4 h-4" />
-                  创作小贴士
-                </h4>
-                {groupQrImage && (
-                  <div className="flex flex-col items-center gap-0.5 shrink-0">
-                    <div className="w-14 h-14 border border-primary/20 rounded-lg overflow-hidden bg-background">
-                      <img
-                        src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                        alt="生图交流反馈群"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-[9px] text-primary/70 text-center leading-tight">生图交流反馈群</span>
-                  </div>
-                )}
-              </div>
+              <h4 className="font-semibold text-primary mb-2 flex items-center gap-2 text-sm">
+                <Zap className="w-4 h-4" />
+                创作小贴士
+              </h4>
               <ul className="space-y-1.5 text-xs text-muted-foreground">
                 {tips.map((tip, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -928,6 +914,18 @@ function CreatePageInner() {
                   </li>
                 ))}
               </ul>
+              {groupQrImage && (
+                <div className="flex flex-col items-center gap-1 mt-3 shrink-0">
+                  <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                    <img
+                      src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
+                      alt="生图交流反馈群"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="text-[10px] text-primary/70 text-center leading-tight">生图交流反馈群</span>
+                </div>
+              )}
             </div>
 
             {/* Prompt Input */}
@@ -1368,24 +1366,10 @@ function CreatePageInner() {
           <div className="lg:sticky lg:top-24 lg:h-fit space-y-6">
             {/* Tips - desktop only */}
             <div className="bg-primary/5 rounded-2xl p-6 border border-primary/10 hidden lg:block">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <h4 className="font-semibold text-primary flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  创作小贴士
-                </h4>
-                {groupQrImage && (
-                  <div className="flex flex-col items-center gap-1 shrink-0">
-                    <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
-                      <img
-                        src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                        alt="生图交流反馈群"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-xs text-primary/70 text-center leading-tight">生图交流反馈群</span>
-                  </div>
-                )}
-              </div>
+              <h4 className="font-semibold text-primary mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                创作小贴士
+              </h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {tips.map((tip, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -1394,6 +1378,18 @@ function CreatePageInner() {
                   </li>
                 ))}
               </ul>
+              {groupQrImage && (
+                <div className="flex flex-col items-center gap-1 mt-4 shrink-0">
+                  <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                    <img
+                      src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
+                      alt="生图交流反馈群"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="text-xs text-primary/70 text-center leading-tight">生图交流反馈群</span>
+                </div>
+              )}
             </div>
 
             {/* Progress */}
