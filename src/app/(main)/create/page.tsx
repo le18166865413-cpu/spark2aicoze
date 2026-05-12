@@ -139,6 +139,7 @@ function CreatePageInner() {
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
   const [ratio, setRatio] = useState("auto");
+  const [customRatio, setCustomRatio] = useState("");
   const [model, setModel] = useState("image2");
 
   // Scene / usage / style / color selectors
@@ -1123,10 +1124,13 @@ function CreatePageInner() {
                   {ratioOptions.map((r) => (
                     <button
                       key={r.value}
-                      onClick={() => setRatio(r.value)}
+                      onClick={() => {
+                        setRatio(r.value);
+                        setCustomRatio("");
+                      }}
                       className={cn(
                         "px-2 py-1 text-xs rounded-lg transition-all border-2",
-                        ratio === r.value
+                        ratio === r.value && !customRatio
                           ? "bg-primary/10 border-primary text-primary"
                           : "bg-secondary border-transparent hover:border-border"
                       )}
@@ -1134,6 +1138,31 @@ function CreatePageInner() {
                       {r.label}
                     </button>
                   ))}
+                  <input
+                    type="text"
+                    value={customRatio}
+                    onChange={(e) => setCustomRatio(e.target.value)}
+                    onBlur={() => {
+                      if (customRatio.trim()) {
+                        setRatio(customRatio.trim());
+                      } else if (ratio === customRatio) {
+                        setRatio("auto");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customRatio.trim()) {
+                        setRatio(customRatio.trim());
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    placeholder="自定义"
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 w-[72px] text-center outline-none bg-background",
+                      ratio === customRatio && customRatio
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground"
+                    )}
+                  />
                 </div>
               </div>
 
