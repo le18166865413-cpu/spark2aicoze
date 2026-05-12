@@ -13,6 +13,7 @@ export default function AdminSettingsPage() {
   const [registerEnabled, setRegisterEnabled] = useState(true);
   const [galleryTitle, setGalleryTitle] = useState('');
   const [gallerySubtitle, setGallerySubtitle] = useState('');
+  const [batchGenerateAccess, setBatchGenerateAccess] = useState<'admin' | 'user' | 'all'>('admin');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -26,6 +27,8 @@ export default function AdminSettingsPage() {
       setRegisterEnabled(getSetting('register_enabled') !== 'false');
       setGalleryTitle(getSetting('gallery_title') || '海报生成记录');
       setGallerySubtitle(getSetting('gallery_subtitle') || '查看通过 SparkAI 生成的所有海报作品');
+      const bga = getSetting('batch_generate_access') || 'admin';
+      setBatchGenerateAccess(bga === 'all' ? 'all' : bga === 'user' ? 'user' : 'admin');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -42,6 +45,7 @@ export default function AdminSettingsPage() {
         { key: 'register_enabled', value: registerEnabled ? 'true' : 'false' },
         { key: 'gallery_title', value: galleryTitle },
         { key: 'gallery_subtitle', value: gallerySubtitle },
+        { key: 'batch_generate_access', value: batchGenerateAccess },
       ]);
       setMessage({ type: 'success', text: '设置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -118,6 +122,23 @@ export default function AdminSettingsPage() {
           <button onClick={() => setRegisterEnabled(!registerEnabled)} className="text-primary">
             {registerEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
           </button>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">权限配置</h3>
+        <div className="space-y-2">
+          <label className="text-sm text-muted-foreground">批量生图访问权限</label>
+          <select
+            value={batchGenerateAccess}
+            onChange={(e) => setBatchGenerateAccess(e.target.value as 'admin' | 'user' | 'all')}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="admin">仅管理员可见</option>
+            <option value="user">注册用户可见</option>
+            <option value="all">所有人可见</option>
+          </select>
+          <p className="text-xs text-muted-foreground">控制创作中心批量生图功能的可见范围</p>
         </div>
       </div>
 

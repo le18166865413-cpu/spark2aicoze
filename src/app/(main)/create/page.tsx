@@ -132,9 +132,11 @@ function CreatePageInner() {
   const [waitMessage, setWaitMessage] = useState("请等待30-120秒，不要切换页面");
   const [waitDuration, setWaitDuration] = useState(5000);
   const [defaultRatio, setDefaultRatio] = useState("auto");
+  const [batchGenerateAccess, setBatchGenerateAccess] = useState("admin");
+  const canAccessBatch = batchGenerateAccess === "all" || isAdmin;
   
   const [mode, setMode] = useState<GenerationMode>(
-    (initialMode === "batch" && !isAdmin ? "text2img" : initialMode) as GenerationMode
+    (initialMode === "batch" && !canAccessBatch ? "text2img" : initialMode) as GenerationMode
   );
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
@@ -152,12 +154,12 @@ function CreatePageInner() {
   const [customStyle, setCustomStyle] = useState("");
   const [customColor, setCustomColor] = useState("");
 
-  // Redirect non-admin away from batch mode
+  // Redirect unauthorized users away from batch mode
   useEffect(() => {
-    if (!authLoading && mode === "batch" && !isAdmin) {
+    if (!authLoading && mode === "batch" && !canAccessBatch) {
       setMode("text2img");
     }
-  }, [authLoading, isAdmin, mode]);
+  }, [authLoading, canAccessBatch, mode]);
 
   const [imageSize, setImageSize] = useState("1K");
   const [imageCount, setImageCount] = useState(1);
@@ -804,7 +806,7 @@ function CreatePageInner() {
                 <ImagePlus className="w-4 h-4" />
                 参考图生图
               </button>
-              {isAdmin && (
+              {canAccessBatch && (
                 <button
                   onClick={() => setMode("batch")}
                   className={cn(
