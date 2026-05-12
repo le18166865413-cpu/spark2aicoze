@@ -1061,7 +1061,7 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-24",
                       customScene.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
@@ -1112,7 +1112,7 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-24",
                       customUsage.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
@@ -1163,7 +1163,7 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-24",
                       customStyle.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
@@ -1214,7 +1214,7 @@ function CreatePageInner() {
                     }}
                     placeholder="自定义"
                     className={cn(
-                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-10",
+                      "px-2 py-1 text-xs rounded-lg transition-all border-2 outline-none bg-secondary border-transparent hover:border-border text-foreground placeholder:text-muted-foreground w-24",
                       customColor.trim() && "bg-primary/10 border-primary text-primary"
                     )}
                   />
@@ -1449,7 +1449,7 @@ function CreatePageInner() {
                               ref={batchEditTextareaRef}
                               value={batchEditContent}
                               onChange={(e) => setBatchEditContent(e.target.value)}
-                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground w-10"
+                              className="w-full px-2 py-1 text-xs rounded border border-border bg-background resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground w-24"
                               placeholder="页面内容"
                             />
                             <div className="flex gap-2">
