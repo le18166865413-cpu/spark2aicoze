@@ -259,7 +259,7 @@ function CreatePageInner() {
     if (selectedStyles.length > 0) parts.push(`风格：${selectedStyles.join("、")}`);
     if (selectedColors.length > 0) parts.push(`颜色：${selectedColors.join("、")}`);
     if (parts.length === 0) return basePrompt;
-    return `${basePrompt}\n${parts.join("，")}`;
+    return `${parts.join("，")}\n${basePrompt}`; // 设计要求在前，用户 prompt 在后
   }, [selectedScenes, selectedUsages, selectedStyles, selectedColors]);
 
   // File upload handler - supports multiple files
@@ -421,7 +421,7 @@ function CreatePageInner() {
 
       if (parts.length === 0) return page.content;
 
-      return `${page.content}\n\n设计要求：${parts.join("，")}`;
+      return `设计要求：${parts.join("，")}\n\n${page.content}`;
     },
     [selectedScenes, selectedUsages, selectedStyles, selectedColors]
   );
