@@ -823,7 +823,7 @@ function CreatePageInner() {
                 >
                   <Layers className="w-4 h-4" />
                   <span className="hidden sm:inline">批量生图</span>
-                  <span className="sm:hidden">批量出图</span>
+                  <span className="sm:hidden">批量图</span>
                 </button>
               )}
             </div>
