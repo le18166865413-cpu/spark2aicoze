@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
-import { Save, Globe, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Save, Globe, ToggleLeft, ToggleRight, Upload, X } from 'lucide-react';
 
 export default function AdminSettingsPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
@@ -14,6 +14,10 @@ export default function AdminSettingsPage() {
   const [galleryTitle, setGalleryTitle] = useState('');
   const [gallerySubtitle, setGallerySubtitle] = useState('');
   const [batchGenerateAccess, setBatchGenerateAccess] = useState<'admin' | 'user' | 'all'>('admin');
+  const [groupQrImage, setGroupQrImage] = useState('');
+  const [groupQrPreview, setGroupQrPreview] = useState('');
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -29,9 +33,37 @@ export default function AdminSettingsPage() {
       setGallerySubtitle(getSetting('gallery_subtitle') || '查看通过 SparkAI 生成的所有海报作品');
       const bga = getSetting('batch_generate_access') || 'admin';
       setBatchGenerateAccess(bga === 'all' ? 'all' : bga === 'user' ? 'user' : 'admin');
+      const qr = getSetting('group_qr_image') || '';
+      setGroupQrImage(qr);
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('forGrsai', 'true');
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      if (data.key) {
+        setGroupQrImage(data.key);
+      }
+    } catch (err) {
+      console.error('QR upload error:', err);
+    } finally {
+      setUploadingQr(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleQrRemove = () => {
+    setGroupQrImage('');
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -46,6 +78,7 @@ export default function AdminSettingsPage() {
         { key: 'gallery_title', value: galleryTitle },
         { key: 'gallery_subtitle', value: gallerySubtitle },
         { key: 'batch_generate_access', value: batchGenerateAccess },
+        { key: 'group_qr_image', value: groupQrImage },
       ]);
       setMessage({ type: 'success', text: '设置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -122,6 +155,52 @@ export default function AdminSettingsPage() {
           <button onClick={() => setRegisterEnabled(!registerEnabled)} className="text-primary">
             {registerEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
           </button>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">创作中心配置</h3>
+        <div className="space-y-3">
+          <label className="text-sm text-muted-foreground">生图交流反馈群二维码</label>
+          <p className="text-xs text-muted-foreground">显示在创作中心小贴士区域，建议上传正方形二维码图片</p>
+          <div className="flex items-center gap-3">
+            {groupQrImage ? (
+              <div className="relative w-24 h-24 border border-border rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
+                <img
+                  src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
+                  alt="群二维码"
+                  className="w-full h-full object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).src = ''; }}
+                />
+                <button
+                  onClick={handleQrRemove}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/80"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-24 h-24 border-2 border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground">
+                <Upload className="w-6 h-6" />
+              </div>
+            )}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleQrUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingQr}
+                className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                {uploadingQr ? '上传中...' : groupQrImage ? '更换图片' : '上传图片'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

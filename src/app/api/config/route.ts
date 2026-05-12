@@ -155,6 +155,7 @@ const DEFAULTS: Record<string, string> = {
     { label: "米色", value: "米色" },
   ]),
   batch_generate_access: "admin",
+  group_qr_image: "",
 };
 
 export async function GET() {
@@ -236,6 +237,7 @@ export async function GET() {
     };
 
     config.batchGenerateAccess = config.batch_generate_access || "admin";
+    config.groupQrImage = config.group_qr_image || "";
 
     // Multi-site info
     const site = getCurrentSite();
@@ -268,6 +270,7 @@ export async function GET() {
       color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
     };
     config.batchGenerateAccess = config.batch_generate_access || "admin";
+    config.groupQrImage = config.group_qr_image || "";
     return NextResponse.json(config);
   }
 }
