@@ -413,13 +413,15 @@ function CreatePageInner() {
 
   const buildBatchPrompt = useCallback(
     (page: PageData) => {
-      const styleLabel = [selectedScenes.join("。"), selectedUsages.join("。"), selectedStyles.join("。"), selectedColors.join("。")]
-        .filter(Boolean)
-        .join("。") || "海报";
+      const parts: string[] = [];
+      if (selectedScenes.length > 0) parts.push(`场景：${selectedScenes.join("、")}`);
+      if (selectedUsages.length > 0) parts.push(`用途：${selectedUsages.join("、")}`);
+      if (selectedStyles.length > 0) parts.push(`风格：${selectedStyles.join("、")}`);
+      if (selectedColors.length > 0) parts.push(`颜色：${selectedColors.join("、")}`);
 
-      return `${page.content}
+      if (parts.length === 0) return page.content;
 
-设计要求：${styleLabel}风格`;
+      return `${page.content}\n\n设计要求：${parts.join("，")}`;
     },
     [selectedScenes, selectedUsages, selectedStyles, selectedColors]
   );
