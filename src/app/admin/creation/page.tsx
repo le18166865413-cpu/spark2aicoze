@@ -7,6 +7,11 @@ import { Save, Plus, Trash2, GripVertical, Sparkles, Settings2 } from 'lucide-re
 interface TemplateItem {
   label: string;
   prompt: string;
+  scenes?: string[];
+  usages?: string[];
+  styles?: string[];
+  colors?: string[];
+  ratio?: string;
 }
 
 interface ModelItem {
@@ -210,7 +215,7 @@ export default function CreationConfigPage() {
   }, [templates, models, ratios, defaultRatio, tips, waitMessage, waitDuration, pageSize, imageCountEnabled, imageCountMax, imageSizes, defaultImageSize, hdModels, violationMessages, dailyGenerateLimit, promptMaxLength, sceneOpts, usageOpts, styleOpts, colorOpts, saveSettings]);
 
   // Template helpers
-  const addTemplate = () => setTemplates([...templates, { label: '', prompt: '' }]);
+  const addTemplate = () => setTemplates([...templates, { label: '', prompt: '', scenes: [], usages: [], styles: [], colors: [] }]);
   const removeTemplate = (i: number) => setTemplates(templates.filter((_, idx) => idx !== i));
   const updateTemplate = (i: number, field: keyof TemplateItem, val: string) => {
     const next = [...templates];
@@ -347,6 +352,59 @@ export default function CreationConfigPage() {
                 <div className="flex-1 space-y-2">
                   <input type="text" value={t.label} onChange={(e) => updateTemplate(i, 'label', e.target.value)} placeholder="模板名称" className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
                   <textarea value={t.prompt} onChange={(e) => updateTemplate(i, 'prompt', e.target.value)} placeholder="提示词内容" rows={2} className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">点击模板时自动选中的选项（不选则不匹配）：</p>
+                    {[
+                      { key: 'scenes', label: '场景', opts: sceneOpts, values: t.scenes || [] },
+                      { key: 'usages', label: '用途', opts: usageOpts, values: t.usages || [] },
+                      { key: 'styles', label: '风格', opts: styleOpts, values: t.styles || [] },
+                      { key: 'colors', label: '颜色', opts: colorOpts, values: t.colors || [] },
+                    ].map(({ key, label, opts, values }) => (
+                      <div key={key} className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground w-8 shrink-0">{label}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {opts.map((opt: { label: string } | string) => {
+                            const optLabel = typeof opt === 'string' ? opt : opt.label;
+                            const isSelected = values.includes(optLabel);
+                            return (
+                              <button
+                                key={optLabel}
+                                type="button"
+                                onClick={() => {
+                                  const next = [...templates];
+                                  const currentArr = (next[i] as unknown as Record<string, string[]>)[key] || [];
+                                  (next[i] as unknown as Record<string, string[]>)[key] = isSelected
+                                    ? currentArr.filter((v: string) => v !== optLabel)
+                                    : [...currentArr, optLabel];
+                                  setTemplates(next);
+                                }}
+                                className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-background border-border text-muted-foreground hover:border-primary/50'}`}
+                              >
+                                {optLabel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground w-8 shrink-0">比例</span>
+                      <select
+                        value={t.ratio || ''}
+                        onChange={(e) => {
+                          const next = [...templates];
+                          next[i] = { ...next[i], ratio: e.target.value || undefined };
+                          setTemplates(next);
+                        }}
+                        className="px-2 py-1 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        <option value="">不指定</option>
+                        {ratios.map((r: { label: string; value: string }) => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <button onClick={() => removeTemplate(i)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="w-4 h-4" />

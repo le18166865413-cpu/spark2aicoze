@@ -17,16 +17,16 @@ import { useAutoResize } from "@/hooks/use-auto-resize";
 
 // Default fallback values (used before config loads)
 const defaultTemplates = [
-  { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出" },
-  { label: "教培代理招募", prompt: "教培代理招募海报，教育行业风格，知识图标与成长箭头，蓝绿色调，专业可信，招募信息醒目" },
-  { label: "餐饮节日宣传", prompt: "餐饮节日宣传海报，美食特写，节日装饰元素，暖色灯光，诱人菜品，促销信息突出" },
-  { label: "电商促销", prompt: "电商促销海报，鲜艳配色，折扣标签，商品展示布局，动感活力，促销信息醒目" },
-  { label: "课程成果展示", prompt: "课程成果展示海报，学员作品墙效果，成就徽章与数据亮点，简洁大气，专业教育风格" },
-  { label: "小红书封面", prompt: "小红书封面图，清新排版，吸睛标题，美感构图，柔和渐变背景，社交媒体风格" },
-  { label: "视频封面", prompt: "视频封面图，视觉冲击力强，大字标题，人物或场景特写，电影质感，高对比度色彩" },
-  { label: "图片重构", prompt: "图片重构，保留原始构图与主体，提升画质细节，优化色彩与光影，增强视觉表现力" },
-  { label: "电商主图", prompt: "电商主图，商品居中展示，纯净背景，光影立体感，卖点标签，高端产品摄影风格" },
-  { label: "公众号配图", prompt: "公众号配图，简约扁平风格，与文章主题呼应，留白充足，色彩柔和，信息图表元素" },
+  { label: "图书主编招募", prompt: "图书主编招募海报，书香气息，书架与书籍元素，优雅排版，暖色调，专业感，招募信息突出", scenes: ["教育"], usages: ["招募"], styles: ["简约"], colors: ["暖色"] },
+  { label: "教培代理招募", prompt: "教培代理招募海报，教育行业风格，知识图标与成长箭头，蓝绿色调，专业可信，招募信息醒目", scenes: ["教育"], usages: ["招募"], styles: ["专业"], colors: ["蓝"] },
+  { label: "餐饮节日宣传", prompt: "餐饮节日宣传海报，美食特写，节日装饰元素，暖色灯光，诱人菜品，促销信息突出", scenes: ["餐饮"], usages: ["节日"], styles: ["活力"], colors: ["暖色"] },
+  { label: "电商促销", prompt: "电商促销海报，鲜艳配色，折扣标签，商品展示布局，动感活力，促销信息醒目", scenes: ["电商"], usages: ["营销带货"], styles: ["活力"], colors: ["红"] },
+  { label: "课程成果展示", prompt: "课程成果展示海报，学员作品墙效果，成就徽章与数据亮点，简洁大气，专业教育风格", scenes: ["教育"], usages: ["成果展示"], styles: ["简约"], colors: [] },
+  { label: "小红书封面", prompt: "小红书封面图，清新排版，吸睛标题，美感构图，柔和渐变背景，社交媒体风格", scenes: ["社交媒体"], usages: ["封面"], styles: ["清新"], colors: ["粉"] },
+  { label: "视频封面", prompt: "视频封面图，视觉冲击力强，大字标题，人物或场景特写，电影质感，高对比度色彩", scenes: ["影视"], usages: ["封面"], styles: ["电影"], colors: [] },
+  { label: "图片重构", prompt: "图片重构，保留原始构图与主体，提升画质细节，优化色彩与光影，增强视觉表现力", scenes: [], usages: [], styles: [], colors: [] },
+  { label: "电商主图", prompt: "电商主图，商品居中展示，纯净背景，光影立体感，卖点标签，高端产品摄影风格", scenes: ["电商"], usages: ["商品展示"], styles: ["高端"], colors: [] },
+  { label: "公众号配图", prompt: "公众号配图，简约扁平风格，与文章主题呼应，留白充足，色彩柔和，信息图表元素", scenes: ["社交媒体"], usages: ["配图"], styles: ["简约"], colors: [] },
 ];
 
 const defaultModels = [
@@ -245,11 +245,17 @@ function CreatePageInner() {
       });
   }, []);
 
-  // Template selection
-  const handleTemplateSelect = useCallback((templatePrompt: string) => {
-    setPrompt(templatePrompt);
-    promptRef.current = templatePrompt;
-  }, []);
+  // Template selection - auto-match scene/usage/style/color/ratio
+  const handleTemplateSelect = useCallback((template: { prompt: string; scenes?: string[]; usages?: string[]; styles?: string[]; colors?: string[]; ratio?: string }) => {
+    setPrompt(template.prompt);
+    promptRef.current = template.prompt;
+    // Auto-select matching options
+    setSelectedScenes(template.scenes?.filter((s) => sceneOpts.includes(s)) || []);
+    setSelectedUsages(template.usages?.filter((u) => usageOpts.includes(u)) || []);
+    setSelectedStyles(template.styles?.filter((s) => styleOpts.includes(s)) || []);
+    setSelectedColors(template.colors?.filter((c) => colorOpts.includes(c)) || []);
+    if (template.ratio) setRatio(template.ratio);
+  }, [sceneOpts, usageOpts, styleOpts, colorOpts]);
 
   // Toggle multi-select tag
   const toggleTag = useCallback((list: string[], setList: (v: string[]) => void, value: string) => {
@@ -986,7 +992,7 @@ function CreatePageInner() {
                     {templates.map((template) => (
                       <button
                         key={template.label}
-                        onClick={() => handleTemplateSelect(template.prompt)}
+                        onClick={() => handleTemplateSelect(template)}
                         className="px-3 py-1.5 text-xs bg-secondary rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         {template.label}
