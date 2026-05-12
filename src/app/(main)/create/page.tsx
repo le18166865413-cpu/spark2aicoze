@@ -937,7 +937,7 @@ function CreatePageInner() {
                       setPrompt("");
                       promptRef.current = "";
                     }}
-                    className="text-xs text-muted-foreground hover:text-green-500 transition-colors"
+                    className="text-xs text-green-500 transition-colors"
                     style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}
                   >
                     清空
@@ -987,7 +987,7 @@ function CreatePageInner() {
                       setSelectedStyles([]);
                       setSelectedColors([]);
                     }}
-                    className="text-xs text-muted-foreground hover:text-green-500 transition-colors"
+                    className="text-xs text-green-500 transition-colors"
                     style={{ textShadow: "0 0 3px rgba(34,197,94,0.5), 0 0 6px rgba(34,197,94,0.3)" }}
                   >
                     清空
