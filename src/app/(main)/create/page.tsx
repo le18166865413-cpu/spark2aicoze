@@ -917,14 +917,14 @@ function CreatePageInner() {
                 </ul>
                 {groupQrImage && (
                   <div className="flex flex-col items-center gap-1 shrink-0">
-                    <div className="w-16 h-16 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                    <div className="w-14 h-14 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                        alt="生图交流反馈群"
+                        alt="交流反馈群"
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <span className="text-[10px] text-primary/70 text-center leading-tight">生图交流<br/>反馈群</span>
+                    <span className="text-[10px] text-primary/70 whitespace-nowrap">交流反馈群</span>
                   </div>
                 )}
               </div>
@@ -1383,14 +1383,14 @@ function CreatePageInner() {
                 </ul>
                 {groupQrImage && (
                   <div className="flex flex-col items-center gap-1 shrink-0">
-                    <div className="w-24 h-24 border border-primary/20 rounded-lg overflow-hidden bg-background">
+                    <div className="w-20 h-20 border border-primary/20 rounded-lg overflow-hidden bg-background">
                       <img
                         src={`/api/qr-image?key=${encodeURIComponent(groupQrImage)}`}
-                        alt="生图交流反馈群"
+                        alt="交流反馈群"
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    <span className="text-xs text-primary/70 text-center leading-tight">生图交流<br/>反馈群</span>
+                    <span className="text-xs text-primary/70 whitespace-nowrap">交流反馈群</span>
                   </div>
                 )}
               </div>
