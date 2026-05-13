@@ -50,6 +50,42 @@ export default function AdminUsersPage() {
   const [restoreText, setRestoreText] = useState('');
   const [restorePreview, setRestorePreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'admin' | 'user' | 'approved' | 'pending' | 'rejected'>('all');
+  const [anonymousGenerate, setAnonymousGenerate] = useState(false);
+  const [savingAnonymous, setSavingAnonymous] = useState(false);
+
+  const fetchAnonymousSetting = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/settings', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        const setting = data.find((s: { key: string; value: string }) => s.key === 'anonymous_generate');
+        setAnonymousGenerate(setting?.value === 'true');
+      }
+    } catch (e) {
+      console.error('Failed to fetch anonymous setting:', e);
+    }
+  }, []);
+
+  const handleToggleAnonymousGenerate = async (checked: boolean) => {
+    setSavingAnonymous(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify([{ key: 'anonymous_generate', value: checked ? 'true' : 'false' }]),
+      });
+      if (res.ok) {
+        setAnonymousGenerate(checked);
+      } else {
+        alert('保存失败');
+      }
+    } catch {
+      alert('保存失败');
+    } finally {
+      setSavingAnonymous(false);
+    }
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -67,7 +103,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchAnonymousSetting();
+  }, [fetchUsers, fetchAnonymousSetting]);
 
   const handleAddUser = async () => {
     try {
@@ -374,6 +411,26 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Anonymous Generate Switch */}
+      <Card>
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <div className="font-medium">免登录生图</div>
+            <div className="text-sm text-muted-foreground">开启后，未登录用户也可以生成图片。其他操作（删除、收藏等）仍需登录。</div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={anonymousGenerate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleToggleAnonymousGenerate(e.target.checked)}
+              disabled={savingAnonymous}
+            />
+            <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-primary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+          </label>
+        </CardContent>
+      </Card>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2">

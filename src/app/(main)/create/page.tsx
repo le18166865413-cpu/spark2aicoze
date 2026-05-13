@@ -134,6 +134,7 @@ function CreatePageInner() {
   const [defaultRatio, setDefaultRatio] = useState("auto");
   const [batchGenerateAccess, setBatchGenerateAccess] = useState("admin");
   const [groupQrImage, setGroupQrImage] = useState("");
+  const [anonymousGenerate, setAnonymousGenerate] = useState(false);
   const canAccessBatch = batchGenerateAccess === "all" || isAdmin;
   
   const [mode, setMode] = useState<GenerationMode>(
@@ -239,6 +240,7 @@ function CreatePageInner() {
         if (data.createOptions?.color?.length) setColorOpts(data.createOptions.color.map((item: { label: string }) => item.label));
         if (data.batchGenerateAccess) setBatchGenerateAccess(data.batchGenerateAccess);
         if (data.groupQrImage) setGroupQrImage(data.groupQrImage);
+        if (data.anonymousGenerate !== undefined) setAnonymousGenerate(data.anonymousGenerate);
       })
       .catch(() => {
         // Use defaults on error
@@ -562,8 +564,8 @@ function CreatePageInner() {
 
   // Generate handler - supports multiple images
   const handleGenerate = useCallback(async () => {
-    // Check login status first
-    if (!user) {
+    // Check login status first (skip if anonymous generate is enabled)
+    if (!user && !anonymousGenerate) {
       setShowLoginDialog(true);
       return;
     }

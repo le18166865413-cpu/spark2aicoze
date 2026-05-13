@@ -401,12 +401,20 @@ export async function POST(request: NextRequest) {
       return new Response(JSON.stringify({ error: "请输入提示词" }), { status: 400 });
     }
 
-    // Get user info from session - LOGIN REQUIRED
+    // Get user info from session
     const userInfo = await verifyUser();
     const userId = userInfo?.id || null;
     const creatorName = userInfo?.nickname || null;
 
-    if (!userId) {
+    // Check if anonymous generate is allowed
+    let anonymousGenerate = false;
+    try {
+      const supabase = getSupabaseClient();
+      const { data: anonData } = await supabase.from("admin_settings").select("value").eq("key", "anonymous_generate").single();
+      anonymousGenerate = anonData?.value === "true";
+    } catch { /* fallback to false */ }
+
+    if (!userId && !anonymousGenerate) {
       return new Response(JSON.stringify({ error: '请先登录后再生图' }), { status: 401 });
     }
 
