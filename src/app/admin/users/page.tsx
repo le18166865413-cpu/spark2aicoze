@@ -55,10 +55,10 @@ export default function AdminUsersPage() {
 
   const fetchAnonymousSetting = useCallback(async () => {
     try {
-      const res = await fetch('/api/config');
+      const res = await fetch('/api/admin/anonymous-generate', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setAnonymousGenerate(data.anonymousGenerate === true);
+        setAnonymousGenerate(data.enabled === true);
       }
     } catch (e) {
       console.error('Failed to fetch anonymous setting:', e);
@@ -68,18 +68,20 @@ export default function AdminUsersPage() {
   const handleToggleAnonymousGenerate = async (checked: boolean) => {
     setSavingAnonymous(true);
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin/anonymous-generate', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify([{ key: 'anonymous_generate', value: checked ? 'true' : 'false' }]),
+        body: JSON.stringify({ enabled: checked }),
       });
       if (res.ok) {
         setAnonymousGenerate(checked);
       } else {
-        const errData = await res.json().catch(() => ({}));
-        console.error('Save anonymous_generate failed:', res.status, errData);
-        alert('保存失败: ' + (errData.error || res.statusText || '未知错误'));
+        const text = await res.text().catch(() => '');
+        let errMsg = res.statusText || '未知错误';
+        try { const j = JSON.parse(text); errMsg = j.error || errMsg; } catch {}
+        console.error('Save anonymous_generate failed:', res.status, text);
+        alert('保存失败: ' + errMsg);
       }
     } catch (e) {
       console.error('Save anonymous_generate error:', e);
