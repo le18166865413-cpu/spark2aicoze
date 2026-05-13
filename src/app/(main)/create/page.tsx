@@ -1972,7 +1972,7 @@ function CreatePageInner() {
                     {mode === "img2img" && refImages.length > 0 && (
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">参考图 x{refImages.length}</span>
                     )}
-                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">模型: {model}</span>
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">模型: {modelOptions.find(m => m.value === model)?.label || model}</span>
                     <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">比例: {ratio}</span>
                     {imageSize && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">尺寸: {imageSize}</span>}
                   </div>
