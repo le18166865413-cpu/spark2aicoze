@@ -55,11 +55,10 @@ export default function AdminUsersPage() {
 
   const fetchAnonymousSetting = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/settings', { credentials: 'include' });
+      const res = await fetch('/api/config');
       if (res.ok) {
         const data = await res.json();
-        const setting = data.find((s: { key: string; value: string }) => s.key === 'anonymous_generate');
-        setAnonymousGenerate(setting?.value === 'true');
+        setAnonymousGenerate(data.anonymousGenerate === true);
       }
     } catch (e) {
       console.error('Failed to fetch anonymous setting:', e);
@@ -78,10 +77,13 @@ export default function AdminUsersPage() {
       if (res.ok) {
         setAnonymousGenerate(checked);
       } else {
-        alert('保存失败');
+        const errData = await res.json().catch(() => ({}));
+        console.error('Save anonymous_generate failed:', res.status, errData);
+        alert('保存失败: ' + (errData.error || res.statusText || '未知错误'));
       }
-    } catch {
-      alert('保存失败');
+    } catch (e) {
+      console.error('Save anonymous_generate error:', e);
+      alert('保存失败: 网络错误');
     } finally {
       setSavingAnonymous(false);
     }
