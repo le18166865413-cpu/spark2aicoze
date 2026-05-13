@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -109,6 +110,8 @@ function CreatePageInner() {
   
   // Login dialog state
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showPromptConfirm, setShowPromptConfirm] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState("");
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -585,6 +588,16 @@ function CreatePageInner() {
       return;
     }
 
+    // Show prompt confirmation dialog for text2img and img2img modes
+    const enhancedPrompt = buildEnhancedPrompt(prompt);
+    setPendingPrompt(enhancedPrompt);
+    setShowPromptConfirm(true);
+  }, [prompt, mode, refImages, user, anonymousGenerate, promptMaxLength, buildEnhancedPrompt]);
+
+  // Actual generation after user confirms the prompt
+  const handleConfirmGenerate = useCallback(async () => {
+    setShowPromptConfirm(false);
+
     const effectiveCount = imageCountEnabled ? imageCount : 1;
     setLoading(true);
     setProgress(0);
@@ -601,10 +614,8 @@ function CreatePageInner() {
           setProgress(Math.round((i / effectiveCount) * 100));
         }
 
-        const enhancedPrompt = buildEnhancedPrompt(prompt);
-
         const body: Record<string, unknown> = {
-          prompt: enhancedPrompt,
+          prompt: pendingPrompt,
           ratio,
           model,
           imageSize,
@@ -752,7 +763,7 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, user, buildEnhancedPrompt]);
+  }, [pendingPrompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, imageSize]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
@@ -1942,6 +1953,40 @@ function CreatePageInner() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Prompt Confirmation Dialog */}
+        <AlertDialog open={showPromptConfirm} onOpenChange={setShowPromptConfirm}>
+          <AlertDialogContent className="sm:max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                确认生成提示词
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">请确认以下提示词无误后开始生成：</p>
+                  <div className="bg-muted/50 rounded-lg p-4 text-sm whitespace-pre-wrap break-words max-h-60 overflow-y-auto border">
+                    {pendingPrompt}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {mode === "img2img" && refImages.length > 0 && (
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">参考图 x{refImages.length}</span>
+                    )}
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">模型: {model}</span>
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">比例: {ratio}</span>
+                    {imageSize && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">尺寸: {imageSize}</span>}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmGenerate} className="bg-primary hover:bg-primary/90">
+                确认生成
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
