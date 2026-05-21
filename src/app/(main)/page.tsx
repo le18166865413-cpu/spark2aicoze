@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ImageCard } from "@/components/ImageCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +50,7 @@ export default function Home() {
   const [galleryTitle, setGalleryTitle] = useState("海报生成记录");
   const [gallerySubtitle, setGallerySubtitle] = useState("查看通过 SparkAI 生成的所有海报作品");
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role: string; nickname?: string } | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   // Load current user
   useEffect(() => {
@@ -82,7 +83,14 @@ export default function Home() {
   }, [search]);
 
   const fetchImages = useCallback(async () => {
-    setLoading(true);
+    // Only show loading spinner on initial load (no images yet)
+    // On subsequent fetches (filter change, visibility change), keep showing stale data
+    const isInitialLoad = !hasLoadedOnce.current;
+    if (isInitialLoad) setLoading(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     try {
       const queryParams = new URLSearchParams();
       if (sortBy) queryParams.set("sortBy", sortBy);
@@ -91,8 +99,10 @@ export default function Home() {
       if (debouncedSearch) queryParams.set("search", debouncedSearch);
       queryParams.set("limit", String(pageSize));
 
-      const res = await fetch(`/api/images?${queryParams.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/images?${queryParams.toString()}`, { credentials: "include", signal: controller.signal });
+      clearTimeout(timeoutId);
       const rawData = await res.json();
+      hasLoadedOnce.current = true;
       const data: GalleryImage[] = rawData.map((item: Record<string, unknown>) => ({
         id: item.id as string,
         url: item.url as string,
@@ -112,7 +122,13 @@ export default function Home() {
       }));
       setImages(data);
     } catch (error) {
-      console.error(error);
+      clearTimeout(timeoutId);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        console.warn("fetchImages timed out after 15s");
+      } else {
+        console.error(error);
+      }
+      // On error, keep existing images (don't clear them)
     } finally {
       setLoading(false);
     }
@@ -123,14 +139,22 @@ export default function Home() {
   }, [fetchImages]);
 
   // Refresh when page becomes visible (user navigates back from create page)
+  // Add debounce to avoid rapid re-fetches when switching tabs frequently
   useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        fetchImages();
+        // Delay 300ms to avoid rapid re-fetches
+        refreshTimer = setTimeout(() => {
+          fetchImages();
+        }, 300);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (refreshTimer) clearTimeout(refreshTimer);
+    };
   }, [fetchImages]);
 
   // Responsive column count
