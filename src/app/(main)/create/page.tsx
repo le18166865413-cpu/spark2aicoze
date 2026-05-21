@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil, Square } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import BatchGeneratePanel, { PageData } from "@/components/BatchGeneratePanel";
 import { useAutoResize } from "@/hooks/use-auto-resize";
+import { Switch } from "@/components/ui/switch";
 
 
 // Default fallback values (used before config loads)
@@ -88,7 +89,7 @@ const colorOptions = [
   "棕", "紫", "黑", "灰", "米色",
 ];
 
-type GenerationMode = "text2img" | "img2img" | "batch";
+type GenerationMode = "text2img" | "batch";
 
 interface RefImage {
   url: string; // S3 key or HTTP URL
@@ -141,7 +142,7 @@ function CreatePageInner() {
   const canAccessBatch = batchGenerateAccess === "all" || isAdmin;
   
   const [mode, setMode] = useState<GenerationMode>(
-    (initialMode === "batch" && !canAccessBatch ? "text2img" : initialMode) as GenerationMode
+    (initialMode === "batch" && !canAccessBatch ? "text2img" : (initialMode === "batch" ? "batch" : "text2img")) as GenerationMode
   );
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
@@ -202,6 +203,7 @@ function CreatePageInner() {
 
   // Image-to-image state - support multiple images
   const [refImages, setRefImages] = useState<RefImage[]>([]);
+  const [refImageEnabled, setRefImageEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,6 +211,7 @@ function CreatePageInner() {
   useEffect(() => {
     if (initialRefImageUrl && initialMode === "img2img") {
       setRefImages([{ url: initialRefImageUrl, preview: initialRefImageUrl }]);
+      setRefImageEnabled(true);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -583,16 +586,16 @@ function CreatePageInner() {
       return;
     }
     
-    if (mode === "img2img" && refImages.length === 0) {
+    if (refImageEnabled && refImages.length === 0) {
       toast.error("请先上传参考图片");
       return;
     }
 
-    // Show prompt confirmation dialog for text2img and img2img modes
+    // Show prompt confirmation dialog
     const enhancedPrompt = buildEnhancedPrompt(prompt);
     setPendingPrompt(enhancedPrompt);
     setShowPromptConfirm(true);
-  }, [prompt, mode, refImages, user, anonymousGenerate, promptMaxLength, buildEnhancedPrompt]);
+  }, [prompt, refImageEnabled, refImages, user, anonymousGenerate, promptMaxLength, buildEnhancedPrompt]);
 
   // Actual generation after user confirms the prompt
   const handleConfirmGenerate = useCallback(async () => {
@@ -621,7 +624,7 @@ function CreatePageInner() {
           imageSize,
         };
 
-        if (mode === "img2img" && refImages.length > 0) {
+        if (refImageEnabled && refImages.length > 0) {
           const refImgs = refImages
             .map((img) => {
               if (!img.url.startsWith("http") && !img.url.startsWith("data:")) {
@@ -763,7 +766,7 @@ function CreatePageInner() {
     } finally {
       setLoading(false);
     }
-  }, [pendingPrompt, mode, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, imageSize]);
+  }, [pendingPrompt, refImageEnabled, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, imageSize]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
@@ -812,21 +815,8 @@ function CreatePageInner() {
                 )}
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="hidden sm:inline">文字生图</span>
-                <span className="sm:hidden">文生图</span>
-              </button>
-              <button
-                onClick={() => setMode("img2img")}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
-                  mode === "img2img"
-                    ? "bg-primary text-white shadow-md"
-                    : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
-                )}
-              >
-                <ImagePlus className="w-4 h-4" />
-                <span className="hidden sm:inline">参考图生图</span>
-                <span className="sm:hidden">图上图</span>
+                <span className="hidden sm:inline">创作海报</span>
+                <span className="sm:hidden">创作</span>
               </button>
               {canAccessBatch && (
                 <button
@@ -845,77 +835,98 @@ function CreatePageInner() {
               )}
             </div>
 
-            {/* Reference Image Upload (for img2img) - Multiple images */}
-            {mode === "img2img" && (
+            {/* Reference Image Upload - with toggle switch */}
+            {mode !== "batch" && (
               <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
-                <Label className="text-base font-semibold mb-4 block">
-                  上传参考图片
-                  <span className="text-sm font-normal text-muted-foreground ml-2">最多 4 张</span>
-                </Label>
-                
-                {/* Image grid */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {refImages.map((img, index) => (
-                    <div key={index} className="relative group rounded-xl overflow-hidden border border-border aspect-square">
-                      <img
-                        src={img.preview}
-                        alt={`参考图 ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => removeRefImage(index)}
-                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2">
-                        <span className="text-white text-xs">参考图 {index + 1}</span>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Add more button */}
-                  {refImages.length < 4 && (
-                    <div
-                      className="rounded-xl overflow-hidden border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {uploading ? (
-                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                      ) : (
-                        <>
-                          <Plus className="w-8 h-8 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground mt-1">添加图片</span>
-                        </>
-                      )}
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-0">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <ImagePlus className="w-4 h-4" />
+                    参考图
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{refImageEnabled ? "已开启" : "关闭"}</span>
+                    <Switch
+                      checked={refImageEnabled}
+                      onCheckedChange={(checked: boolean) => {
+                        setRefImageEnabled(checked);
+                        if (!checked) {
+                          // Clear ref images when turning off
+                          refImages.forEach((img) => {
+                            if (img.preview.startsWith("blob:")) URL.revokeObjectURL(img.preview);
+                          });
+                          setRefImages([]);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
+                {refImageEnabled && (
+                  <>
+                    <p className="text-xs text-muted-foreground mt-2 mb-3">上传参考图，AI 将基于参考图风格生成海报（最多 4 张）</p>
+                    
+                    {/* Image grid */}
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      {refImages.map((img, index) => (
+                        <div key={index} className="relative group rounded-xl overflow-hidden border border-border aspect-square">
+                          <img
+                            src={img.preview}
+                            alt={`参考图 ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() => removeRefImage(index)}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {/* Add more button */}
+                      {refImages.length < 4 && (
+                        <div
+                          className="rounded-xl overflow-hidden border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {uploading ? (
+                            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="w-6 h-6 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground mt-1">添加</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                {refImages.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-muted-foreground"
-                    onClick={() => {
-                      refImages.forEach((img) => {
-                        if (img.preview.startsWith("blob:")) URL.revokeObjectURL(img.preview);
-                      });
-                      setRefImages([]);
-                    }}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    清空所有参考图
-                  </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+
+                    {refImages.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-muted-foreground"
+                        onClick={() => {
+                          refImages.forEach((img) => {
+                            if (img.preview.startsWith("blob:")) URL.revokeObjectURL(img.preview);
+                          });
+                          setRefImages([]);
+                        }}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        清空所有参考图
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -969,7 +980,7 @@ function CreatePageInner() {
               <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
                 <div className="flex items-center justify-between mb-4">
                   <Label className="text-base font-semibold" htmlFor="prompt">
-                    {mode === "text2img" ? "海报描述" : "图片描述"}
+                    海报描述
                   </Label>
                   <button
                     onClick={() => {
@@ -990,9 +1001,7 @@ function CreatePageInner() {
                     setPrompt(e.target.value);
                     promptRef.current = e.target.value;
                   }}
-                  placeholder={mode === "text2img"
-                    ? "输入你想要的文案/内容/联系方式/地址等主体内容..."
-                    : "描述你想要生成的图片内容..."}
+                  placeholder="输入你想要的文案/内容/联系方式/地址等主体内容..."
                   className="min-h-[120px] resize-none border-input focus:ring-2 focus:ring-ring"
                 />
 
@@ -1358,7 +1367,7 @@ function CreatePageInner() {
             {mode !== "batch" && (
             <Button
               onClick={handleGenerate}
-              disabled={loading || !prompt.trim() || (mode === "img2img" && refImages.length === 0)}
+              disabled={loading || !prompt.trim() || (refImageEnabled && refImages.length === 0)}
               className={cn(
                 "w-full py-6 text-lg font-bold rounded-2xl transition-all shadow-lg",
                 loading
@@ -1374,7 +1383,7 @@ function CreatePageInner() {
               ) : (
                 <div className="flex items-center gap-3">
                   <Wand2 className="w-6 h-6" />
-                  {mode === "img2img" ? "基于参考图生成" : "立即生成"}
+                  {refImageEnabled && refImages.length > 0 ? "基于参考图生成" : "立即生成"}
                   {imageCountEnabled && imageCount > 1 && ` (${imageCount}张)`}
                 </div>
               )}
@@ -1768,7 +1777,7 @@ function CreatePageInner() {
                                 size="sm"
                                 className="opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={() => {
-                                  setMode("img2img");
+                                  setRefImageEnabled(true);
                                   setRefImages((prev) => {
                                     const alreadyAdded = prev.some((img) => img.url === result.url);
                                     if (alreadyAdded) {
@@ -1800,7 +1809,7 @@ function CreatePageInner() {
                                 size="sm"
                                 className="flex-1 h-8 text-white bg-white/20 hover:bg-white/30 text-xs"
                                 onClick={() => {
-                                  setMode("img2img");
+                                  setRefImageEnabled(true);
                                   setRefImages((prev) => {
                                     const alreadyAdded = prev.some((img) => img.url === result.url);
                                     if (alreadyAdded) {
@@ -1876,9 +1885,9 @@ function CreatePageInner() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
-                      setMode("img2img");
+                      setRefImageEnabled(true);
                       setRefImages([{ url: results[0].url as string, preview: results[0].url as string }]);
-                      toast.success("已切换为参考图生图模式，当前图片已设为参考图");
+                      toast.success("已开启参考图，当前图片已设为参考图");
                     }}
                   >
                     <ImagePlus className="w-4 h-4 mr-2" />
@@ -1969,7 +1978,7 @@ function CreatePageInner() {
                     {pendingPrompt}
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {mode === "img2img" && refImages.length > 0 && (
+                    {refImageEnabled && refImages.length > 0 && (
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">参考图 x{refImages.length}</span>
                     )}
                     <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">模型: {modelOptions.find(m => m.value === model)?.label || model}</span>
