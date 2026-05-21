@@ -14,6 +14,7 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Heart, BookOpen, Search,
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { toast } from "sonner";
 
 type SortBy = "likes" | "references" | "created_at";
 type SortOrder = "asc" | "desc";
@@ -195,6 +196,48 @@ export default function Home() {
     setImages(prev => prev.filter(img => img.id !== deletedId));
   };
 
+  // Handle image hide - call API then remove from local state
+  const handleHideImage = async (imageId: string) => {
+    try {
+      const res = await fetch(`/api/images/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isHidden: true }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        toast.success("已隐藏");
+        setImages(prev => prev.filter(img => img.id !== imageId));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as Record<string, string>).error || "隐藏失败");
+      }
+    } catch {
+      toast.error("隐藏失败");
+    }
+  };
+
+  // Handle image unhide - call API then refresh
+  const handleUnhideImage = async (imageId: string) => {
+    try {
+      const res = await fetch(`/api/images/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isHidden: false }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        toast.success("已恢复显示");
+        setImages(prev => prev.filter(img => img.id !== imageId));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as Record<string, string>).error || "恢复失败");
+      }
+    } catch {
+      toast.error("恢复失败");
+    }
+  };
+
   return (
     <div className="pt-6 px-4 pb-8 max-w-[1800px] mx-auto">
       {/* Hero Section */}
@@ -316,7 +359,8 @@ export default function Home() {
                     image={img}
                     isAdmin={currentUser?.role === "admin"}
                     onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
-                    onHide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleDeleteImage : undefined}
+                    onHide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleHideImage : undefined}
+                    onUnhide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleUnhideImage : undefined}
                     priority={globalIndex < 4}
                   />
                 );
