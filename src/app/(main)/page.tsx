@@ -247,7 +247,7 @@ export default function Home() {
         const res = await fetch("/api/pending-tasks");
         if (res.ok) {
           const data = await res.json();
-          const pending = data.pending?.length ?? 0;
+          const pending = data.tasks?.filter((t: { status: string }) => t.status === "pending" || t.status === "running").length ?? 0;
           setPendingTaskCount(pending);
           if (pending > 0) {
             toast.info(`有 ${pending} 张海报正在生成中，完成后将自动出现在广场`, { duration: 5000 });

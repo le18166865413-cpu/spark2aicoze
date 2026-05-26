@@ -562,10 +562,27 @@ function CreatePageInner() {
             });
             clearTimeout(timeoutId);
 
-            const result = await res.json().catch(() => ({}));
+            // Parse SSE response to extract task IDs for batch generation
+            const sseText = await res.text();
+            let batchTaskId = "";
+            let batchError = "";
+            for (const line of sseText.split("\n")) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const event = JSON.parse(line.slice(6));
+                  if (event.type === "task_submitted" && event.taskId) {
+                    batchTaskId = event.taskId as string;
+                  } else if (event.type === "error" && event.error) {
+                    batchError = event.error as string;
+                  }
+                } catch {
+                  // Ignore unparseable lines
+                }
+              }
+            }
 
-            if (!res.ok || !result.success) {
-              const errMsg = result.error || result.results?.[0]?.error || `第 ${page.index + 1} 页生成失败`;
+            if (!res.ok || batchError) {
+              const errMsg = batchError || `第 ${page.index + 1} 页生成失败`;
               const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
               if (isViolation && attempt < 3) {
                 toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
@@ -574,21 +591,36 @@ function CreatePageInner() {
               throw new Error(errMsg);
             }
 
-            const firstResult = result.results?.[0];
-            if (firstResult?.success && firstResult.data?.url) {
-              const resultUrl = firstResult.data.url as string;
-              const taskId = (firstResult.data.taskId as string) || "";
-              pageSuccess = true;
-              succeeded++;
-              setBatchPages((prev) =>
-                prev.map((p) =>
-                  p.index === page.index
-                    ? { ...p, status: "done", imageUrl: resultUrl, taskId }
-                    : p
-                )
-              );
+            if (batchTaskId) {
+              // Wait for result via polling
+              const maxWait = 180000; // 3 minutes
+              const pollStart = Date.now();
+              let pollDone = false;
+              while (!pollDone && Date.now() - pollStart < maxWait) {
+                await new Promise(r => setTimeout(r, 3000));
+                const pollRes = await fetch("/api/pending-tasks", { credentials: "include" });
+                const pollData = await pollRes.json();
+                const task = (pollData.tasks as Array<Record<string, unknown>>)?.find(
+                  (t: Record<string, unknown>) => t.taskId === batchTaskId
+                );
+                if (task?.status === "completed" && task.imageUrl) {
+                  pageSuccess = true;
+                  succeeded++;
+                  setBatchPages((prev) =>
+                    prev.map((p) =>
+                      p.index === page.index
+                        ? { ...p, status: "done", imageUrl: task.imageUrl as string, taskId: batchTaskId }
+                        : p
+                    )
+                  );
+                  pollDone = true;
+                } else if (task?.status === "failed") {
+                  throw new Error((task.error as string) || "生成失败");
+                }
+              }
+              if (!pollDone) throw new Error("生成超时");
             } else {
-              throw new Error(firstResult?.error || "未获取到图片地址");
+              throw new Error("未获取到任务ID");
             }
           } catch (err: unknown) {
             clearTimeout(timeoutId);
@@ -722,12 +754,26 @@ function CreatePageInner() {
           continue;
         }
 
-        const data = await response.json();
-        if (data.taskId) {
-          submittedTaskIds.push(data.taskId as string);
-        } else if (data.error) {
-          taskErrors.push(data.error as string);
+        // Parse SSE response to extract task IDs
+        const sseText = await response.text();
+        let taskIds: string[] = [];
+        for (const line of sseText.split("\n")) {
+          if (line.startsWith("data: ")) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === "task_submitted" && event.taskId) {
+                taskIds.push(event.taskId as string);
+              } else if (event.type === "tasks_submitted" && event.taskIds) {
+                taskIds = event.taskIds as string[];
+              } else if (event.type === "error" && event.error) {
+                taskErrors.push(event.error as string);
+              }
+            } catch {
+              // Ignore unparseable lines
+            }
+          }
         }
+        submittedTaskIds.push(...taskIds);
       }
 
       // Show submission errors
