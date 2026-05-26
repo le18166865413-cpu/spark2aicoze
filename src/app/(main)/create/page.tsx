@@ -129,12 +129,6 @@ function CreatePageInner() {
   const [ratioOptions, setRatioOptions] = useState(defaultRatios);
   // Ratios exceeding 3:1 are not supported by gpt-image-2 models
   const UNSUPPORTED_VIP_RATIOS = ["1:4", "4:1", "1:8", "8:1"];
-  const filteredRatioOptions = ratioOptions.filter((r) => {
-    if (model === "image2-vip" || model === "image2") {
-      return !UNSUPPORTED_VIP_RATIOS.includes(r.value);
-    }
-    return true;
-  });
   const [tips, setTips] = useState(defaultTips);
   // Dynamic options from database (/api/options)
   const [sceneOpts, setSceneOpts] = useState<string[]>(sceneOptions);
@@ -157,6 +151,12 @@ function CreatePageInner() {
   const [ratio, setRatio] = useState("auto");
 
   const [model, setModel] = useState("image2");
+  const filteredRatioOptions = ratioOptions.filter((r) => {
+    if (model === "image2-vip" || model === "image2") {
+      return !UNSUPPORTED_VIP_RATIOS.includes(r.value);
+    }
+    return true;
+  });
 
   // Scene / usage / style / color selectors
   const [selectedScenes, setSelectedScenes] = useState<string[]>([]);
