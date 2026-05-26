@@ -127,6 +127,14 @@ function CreatePageInner() {
   const [templates, setTemplates] = useState(defaultTemplates);
   const [modelOptions, setModelOptions] = useState(defaultModels);
   const [ratioOptions, setRatioOptions] = useState(defaultRatios);
+  // Ratios exceeding 3:1 are not supported by gpt-image-2 models
+  const UNSUPPORTED_VIP_RATIOS = ["1:4", "4:1", "1:8", "8:1"];
+  const filteredRatioOptions = ratioOptions.filter((r) => {
+    if (model === "image2-vip" || model === "image2") {
+      return !UNSUPPORTED_VIP_RATIOS.includes(r.value);
+    }
+    return true;
+  });
   const [tips, setTips] = useState(defaultTips);
   // Dynamic options from database (/api/options)
   const [sceneOpts, setSceneOpts] = useState<string[]>(sceneOptions);
@@ -1287,7 +1295,7 @@ function CreatePageInner() {
               <div className="mb-6">
                 <Label className="text-sm text-muted-foreground mb-3 block">图片比例</Label>
                 <div className="flex flex-wrap gap-2">
-                  {ratioOptions.map((r) => (
+                  {filteredRatioOptions.map((r) => (
                     <button
                       key={r.value}
                       onClick={() => setRatio(r.value)}
@@ -1312,7 +1320,13 @@ function CreatePageInner() {
                   {modelOptions.map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => setModel(opt.value)}
+                      onClick={() => {
+                        setModel(opt.value);
+                        // Reset ratio if current ratio is unsupported by the new model
+                        if ((opt.value === "image2-vip" || opt.value === "image2") && UNSUPPORTED_VIP_RATIOS.includes(ratio)) {
+                          setRatio("auto");
+                        }
+                      }}
                       className={cn(
                         "w-full p-3 rounded-xl text-left transition-all flex items-center justify-between",
                         model === opt.value

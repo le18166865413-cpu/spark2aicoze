@@ -210,10 +210,14 @@ export async function POST(request: NextRequest) {
       shutProgress: false,
     };
 
-    // image2-vip requires pixel dimensions instead of aspectRatio
+    // image2-vip requires pixel value in aspectRatio field (e.g. "1024x768") instead of ratio string
     if (modelConfig.usePixelSize) {
-      requestBody.width = dims.width;
-      requestBody.height = dims.height;
+      // Validate: gpt-image-2 has max aspect ratio 3:1
+      const maxRatio = Math.max(dims.width / dims.height, dims.height / dims.width);
+      if (maxRatio > 3) {
+        return NextResponse.json({ error: `image2-vip 模型不支持 ${ratio} 比例（长宽比不能超过3:1），请选择其他比例` }, { status: 400 });
+      }
+      requestBody.aspectRatio = `${dims.width}x${dims.height}`;
     } else {
       requestBody.aspectRatio = ratio;
     }
