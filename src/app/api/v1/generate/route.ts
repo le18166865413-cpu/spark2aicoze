@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyApiToken } from "@/lib/admin-auth";
 
+// Precise pixel dimensions for image2-vip (which requires pixel values)
+function estimateDimensions(ratio: string): { width: number; height: number } {
+  const dimMap: Record<string, { width: number; height: number }> = {
+    "auto": { width: 1024, height: 1024 },
+    "1:1": { width: 1024, height: 1024 },
+    "16:9": { width: 1280, height: 720 },
+    "9:16": { width: 720, height: 1280 },
+    "4:3": { width: 1024, height: 768 },
+    "3:4": { width: 768, height: 1024 },
+    "3:2": { width: 1536, height: 1024 },
+    "2:3": { width: 1024, height: 1536 },
+    "5:4": { width: 1280, height: 1024 },
+    "4:5": { width: 1024, height: 1280 },
+    "21:9": { width: 2048, height: 880 },
+    "9:21": { width: 880, height: 2048 },
+    "1:3": { width: 688, height: 2048 },
+    "3:1": { width: 2048, height: 688 },
+    "2:1": { width: 2048, height: 1024 },
+    "1:2": { width: 1024, height: 2048 },
+    "1:4": { width: 512, height: 2048 },
+    "4:1": { width: 2048, height: 512 },
+    "1:8": { width: 256, height: 2048 },
+    "8:1": { width: 2048, height: 256 },
+  };
+  return dimMap[ratio] || dimMap["auto"];
+}
+
 /**
  * POST /api/v1/generate
  *
@@ -22,12 +49,12 @@ import { verifyApiToken } from "@/lib/admin-auth";
  *   { success: boolean, results: [{ success, data?, error? }] }
  */
 
-const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean }> = {
-  "image2-vip": { apiModel: "image2-vip", supportsImageSize: true },
-  "image2": { apiModel: "image2", supportsImageSize: true },
-  "nano-banana-fast": { apiModel: "nano-banana-fast", supportsImageSize: false },
-  "nano-banana-2": { apiModel: "nano-banana-2", supportsImageSize: false },
-  "nano-banana-pro-vip": { apiModel: "nano-banana-pro-vip", supportsImageSize: true },
+const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean; usePixelSize: boolean }> = {
+  "image2-vip": { apiModel: "image2-vip", supportsImageSize: true, usePixelSize: true },
+  "image2": { apiModel: "image2", supportsImageSize: true, usePixelSize: false },
+  "nano-banana-fast": { apiModel: "nano-banana-fast", supportsImageSize: false, usePixelSize: false },
+  "nano-banana-2": { apiModel: "nano-banana-2", supportsImageSize: false, usePixelSize: false },
+  "nano-banana-pro-vip": { apiModel: "nano-banana-pro-vip", supportsImageSize: true, usePixelSize: false },
 };
 
 const GRSAI_BASE_URL = "https://grsai.dakka.com.cn";
@@ -175,13 +202,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Build GrsAI request
+    const dims = estimateDimensions(ratio);
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModel,
       prompt,
-      aspectRatio: ratio,
       replyType: "stream",
       shutProgress: false,
     };
+
+    // image2-vip requires pixel dimensions instead of aspectRatio
+    if (modelConfig.usePixelSize) {
+      requestBody.width = dims.width;
+      requestBody.height = dims.height;
+    } else {
+      requestBody.aspectRatio = ratio;
+    }
 
     if (refImageUrl && typeof refImageUrl === "string") {
       requestBody.images = [refImageUrl];

@@ -160,12 +160,12 @@ function translateGrsaiError(message: string): string {
 }
 
 // Unified endpoint: both gpt-image-2 and nano-banana use /v1/api/generate
-const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean }> = {
-  "image2-vip": { apiModel: "gpt-image-2-vip", supportsImageSize: true },
-  "image2": { apiModel: "gpt-image-2", supportsImageSize: false },
-  "nano-banana-fast": { apiModel: "nano-banana-fast", supportsImageSize: false },
-  "nano-banana-2": { apiModel: "nano-banana-2", supportsImageSize: true },
-  "nano-banana-pro-vip": { apiModel: "nano-banana-pro-vip", supportsImageSize: true },
+const MODEL_CONFIG: Record<string, { apiModel: string; supportsImageSize: boolean; usePixelSize: boolean }> = {
+  "image2-vip": { apiModel: "gpt-image-2-vip", supportsImageSize: true, usePixelSize: true },
+  "image2": { apiModel: "gpt-image-2", supportsImageSize: false, usePixelSize: false },
+  "nano-banana-fast": { apiModel: "nano-banana-fast", supportsImageSize: false, usePixelSize: false },
+  "nano-banana-2": { apiModel: "nano-banana-2", supportsImageSize: true, usePixelSize: false },
+  "nano-banana-pro-vip": { apiModel: "nano-banana-pro-vip", supportsImageSize: true, usePixelSize: false },
 };
 
 // Precise pixel dimensions from official API docs
@@ -453,13 +453,21 @@ export async function POST(request: NextRequest) {
     const isJsonMode = replyType === "json";
 
     // Build request body using unified /v1/api/generate endpoint
+    const dims = estimateDimensions(ratio, imageSize);
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModel,
       prompt: prompt,
-      aspectRatio: ratio,
       replyType: isJsonMode ? "json" : "stream",
       shutProgress: false,
     };
+
+    // image2-vip requires pixel dimensions instead of aspectRatio
+    if (modelConfig.usePixelSize) {
+      requestBody.width = dims.width;
+      requestBody.height = dims.height;
+    } else {
+      requestBody.aspectRatio = ratio;
+    }
 
     // Add imageSize for models that support it
     if (modelConfig.supportsImageSize && imageSize && imageSize !== "1K") {
