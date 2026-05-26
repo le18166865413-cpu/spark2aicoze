@@ -78,7 +78,7 @@ export default function ApiTokensPage() {
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Key className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">GrsAI API 配置</h3>
+          <h3 className="text-sm font-semibold text-foreground">API 配置</h3>
         </div>
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">API Key</label>

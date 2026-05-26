@@ -368,16 +368,16 @@ export default function AdminImportPage() {
         )}
       </div>
 
-      {/* GrsAI Dashboard 任务抓取 */}
+      {/* Dashboard 任务抓取 */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CloudDownload className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">GrsAI Dashboard 任务抓取</h3>
+            <h3 className="text-sm font-semibold text-foreground">Dashboard 任务抓取</h3>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          从你的 GrsAI 网站控制台自动抓取历史生成任务并导入到海报广场。配置 Dashboard Token 后，点击抓取即可自动导入所有未入库的任务。
+          从你的网站控制台自动抓取历史生成任务并导入到海报广场。配置 Dashboard Token 后，点击抓取即可自动导入所有未入库的任务。
         </p>
 
         <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
