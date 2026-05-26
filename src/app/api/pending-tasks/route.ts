@@ -6,7 +6,7 @@ import { buildSiteInsertData } from "@/lib/multi-site";
 
 interface PendingTask {
   taskId: string;
-  status: "pending" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed";
   progress?: number;
   prompt?: string;
   model?: string;
@@ -116,11 +116,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
-    // Find pending tasks from auto_sync_tasks
+    // Find pending AND processing tasks from auto_sync_tasks
+    // (processing = another request is handling the download, but we still return progress info)
     let query = supabase
       .from("auto_sync_tasks")
       .select("*")
-      .eq("status", "pending")
+      .in("status", ["pending", "processing"])
       .eq("source", "generate")
       .order("created_at", { ascending: false })
       .limit(20);
@@ -148,6 +149,7 @@ export async function GET(request: NextRequest) {
 
     for (const task of tasks) {
       const taskId = task.task_id as string;
+      const taskStatus = task.status as string;
       const prompt = task.prompt as string || "";
       const model = task.model as string || "";
       const ratio = task.ratio as string || "auto";
@@ -162,17 +164,8 @@ export async function GET(request: NextRequest) {
       const taskCreatorName = extra.creatorName as string | undefined;
       const imageSize = extra.imageSize as string || "1K";
 
-      // Atomic lock: mark as "processing" to prevent concurrent handlers from duplicating
-      const { data: lockResult } = await supabase
-        .from("auto_sync_tasks")
-        .update({ status: "processing", updated_at: new Date().toISOString() })
-        .eq("task_id", taskId)
-        .eq("status", "pending")
-        .select("task_id");
-
-      if (!lockResult || lockResult.length === 0) {
-        // Another request is already processing this task, or it's already done
-        // Check if it's already completed in gallery_images
+      // Helper: check if already completed in gallery_images and push result
+      const checkGalleryAndPush = async (): Promise<boolean> => {
         const { count: existingCount } = await supabase
           .from("gallery_images")
           .select("*", { count: "exact", head: true })
@@ -205,9 +198,101 @@ export async function GET(request: NextRequest) {
             height: extra?.height || estimateDimensions(ratio).height,
             message: "已完成",
           });
+          return true;
+        }
+        return false;
+      };
+
+      // If already "processing" — check if lock is stale (> 3 min), or just report progress
+      if (taskStatus === "processing") {
+        const alreadyDone = await checkGalleryAndPush();
+        if (alreadyDone) continue;
+
+        // Check if the lock is stale (processing for > 3 minutes = crashed request)
+        const updatedAt = task.updated_at ? new Date(task.updated_at as string) : null;
+        const lockAgeMs = updatedAt ? Date.now() - updatedAt.getTime() : Infinity;
+        const STALE_LOCK_MS = 3 * 60 * 1000; // 3 minutes
+
+        if (lockAgeMs > STALE_LOCK_MS) {
+          // Stale lock — reset to pending so we can re-process below
+          console.log(`[pending-tasks] Stale lock for ${taskId} (${Math.round(lockAgeMs / 1000)}s old), resetting to pending`);
+          await supabase
+            .from("auto_sync_tasks")
+            .update({ status: "pending", updated_at: new Date().toISOString() })
+            .eq("task_id", taskId)
+            .eq("status", "processing");
+          // Fall through to the pending logic below (don't continue)
         } else {
-          // Still processing by another request
-          results.push({ taskId, status: "pending", progress: 50, prompt, model, ratio, message: "正在处理中..." });
+          // Active lock — query GrsAI for progress
+          // If GrsAI says succeeded, force-reset the lock so we can download the image
+          try {
+            const resultUrl = baseUrl + "/v1/api/result?id=" + encodeURIComponent(taskId);
+            const resultRes = await fetch(resultUrl, {
+              headers: { Authorization: "Bearer " + apiKey },
+            });
+            const resultData = await resultRes.json();
+
+            if (resultData.status === "succeeded" && resultData.results?.length > 0) {
+              // Image is ready! Reset lock so we can process it below
+              console.log(`[pending-tasks] Task ${taskId} succeeded but locked, force-resetting to pending`);
+              await supabase
+                .from("auto_sync_tasks")
+                .update({ status: "pending", updated_at: new Date().toISOString() })
+                .eq("task_id", taskId)
+                .eq("status", "processing");
+              // Fall through to pending logic below
+            } else if (resultData.status === "running") {
+              // Still generating — release the lock so next poll can re-check
+              // (don't hold the lock while waiting for GrsAI to finish)
+              await supabase
+                .from("auto_sync_tasks")
+                .update({ status: "pending", updated_at: new Date().toISOString() })
+                .eq("task_id", taskId)
+                .eq("status", "processing");
+
+              const progress = resultData.progress ?? 50;
+              results.push({ taskId, status: "running", progress, prompt, model, ratio, message: `正在生成... ${progress}%` });
+              continue;
+            } else if (resultData.status === "failed" || resultData.status === "violation") {
+              await supabase.from("auto_sync_tasks").update({ status: "failed", updated_at: new Date().toISOString() }).eq("task_id", taskId);
+              results.push({ taskId, status: "failed", prompt, model, ratio, message: resultData.error || "生成失败" });
+              continue;
+            } else {
+              // Unknown status — release lock and report
+              await supabase
+                .from("auto_sync_tasks")
+                .update({ status: "pending", updated_at: new Date().toISOString() })
+                .eq("task_id", taskId)
+                .eq("status", "processing");
+              results.push({ taskId, status: "running", progress: 50, prompt, model, ratio, message: "正在处理中..." });
+              continue;
+            }
+          } catch {
+            // Query failed — release lock so next poll can retry
+            await supabase
+              .from("auto_sync_tasks")
+              .update({ status: "pending", updated_at: new Date().toISOString() })
+              .eq("task_id", taskId)
+              .eq("status", "processing");
+            results.push({ taskId, status: "running", progress: 50, prompt, model, ratio, message: "正在处理中..." });
+            continue;
+          }
+        }
+      }
+
+      // status === "pending": try to acquire lock
+      const { data: lockResult } = await supabase
+        .from("auto_sync_tasks")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("task_id", taskId)
+        .eq("status", "pending")
+        .select("task_id");
+
+      if (!lockResult || lockResult.length === 0) {
+        // Another request just grabbed the lock
+        const alreadyDone = await checkGalleryAndPush();
+        if (!alreadyDone) {
+          results.push({ taskId, status: "running", progress: 50, prompt, model, ratio, message: "正在处理中..." });
         }
         continue;
       }
@@ -299,6 +384,8 @@ export async function GET(request: NextRequest) {
             key = await storage.uploadFromUrl({ url: imageUrl, timeout: 120000 });
           } catch (uploadError) {
             console.error("[PendingTasks] S3 upload failed:", uploadError);
+            // Release lock so it can be retried
+            await supabase.from("auto_sync_tasks").update({ status: "pending", updated_at: new Date().toISOString() }).eq("task_id", taskId);
             results.push({ taskId, status: "pending", prompt, model, ratio, message: "S3上传失败，稍后重试" });
             continue;
           }
@@ -335,6 +422,8 @@ export async function GET(request: NextRequest) {
 
           if (dbError) {
             console.error("[PendingTasks] DB insert error:", dbError);
+            // Release lock so it can be retried
+            await supabase.from("auto_sync_tasks").update({ status: "pending", updated_at: new Date().toISOString() }).eq("task_id", taskId);
             results.push({ taskId, status: "pending", prompt, model, ratio, message: "保存失败，稍后重试" });
             continue;
           }
@@ -359,14 +448,26 @@ export async function GET(request: NextRequest) {
           const reason = status === "violation" ? "内容违规" : "生成失败";
           results.push({ taskId, status: "failed", prompt, model, ratio, message: reason });
         } else {
-          // Still running / processing
+          // Still running / processing — release the lock so next poll can re-check
+          await supabase
+            .from("auto_sync_tasks")
+            .update({ status: "pending", updated_at: new Date().toISOString() })
+            .eq("task_id", taskId)
+            .eq("status", "processing");
+
           const progress = (data.progress as number) || 0;
           const statusText = status === "running" ? "正在生成" : status === "submitted" ? "等待处理" : "处理中";
-          results.push({ taskId, status: "pending", progress, prompt, model, ratio, message: `${statusText} ${progress}%` });
+          results.push({ taskId, status: "running", progress, prompt, model, ratio, message: `${statusText} ${progress}%` });
         }
       } catch (err) {
         console.error("[PendingTasks] Query error:", err);
-        results.push({ taskId, status: "pending", prompt, model, ratio, message: "查询异常" });
+        // Release lock so it can be retried
+        await supabase
+          .from("auto_sync_tasks")
+          .update({ status: "pending", updated_at: new Date().toISOString() })
+          .eq("task_id", taskId)
+          .eq("status", "processing");
+        results.push({ taskId, status: "running", progress: 0, prompt, model, ratio, message: "查询异常，稍后重试" });
       }
     }
 

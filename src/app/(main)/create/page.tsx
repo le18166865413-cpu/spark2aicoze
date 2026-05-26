@@ -812,10 +812,33 @@ function CreatePageInner() {
             );
 
             if (!task) {
-              // Task not in pending list anymore - might have been completed and imported
-              // Check if it appeared in results
-              completedCount++;
-              totalProgress += 100;
+              // Task not returned by API - could be completed & imported earlier, or processing
+              // Check if it was already imported to gallery
+              try {
+                const checkRes = await fetch(`/api/images?search=${encodeURIComponent(taskId)}&limit=1`);
+                const checkData = await checkRes.json();
+                const existing = checkData.images?.find((img: Record<string, unknown>) => img.taskId === taskId);
+                if (existing) {
+                  completedCount++;
+                  totalProgress += 100;
+                  if (!allResultsRef.current.some(r => r.url === existing.url)) {
+                    allResultsRef.current.push({
+                      url: existing.url,
+                      width: existing.width || 1024,
+                      height: existing.height || 1024,
+                    });
+                    setResults([...allResultsRef.current]);
+                  }
+                } else {
+                  // Still processing, keep polling
+                  allDone = false;
+                  totalProgress += 10;
+                }
+              } catch {
+                // Can't check, assume still processing
+                allDone = false;
+                totalProgress += 10;
+              }
               continue;
             }
 
