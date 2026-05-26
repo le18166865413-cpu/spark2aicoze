@@ -162,7 +162,57 @@ export async function GET(request: NextRequest) {
       const taskCreatorName = extra.creatorName as string | undefined;
       const imageSize = extra.imageSize as string || "1K";
 
-      // Check if already imported in gallery_images
+      // Atomic lock: mark as "processing" to prevent concurrent handlers from duplicating
+      const { data: lockResult } = await supabase
+        .from("auto_sync_tasks")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("task_id", taskId)
+        .eq("status", "pending")
+        .select("task_id");
+
+      if (!lockResult || lockResult.length === 0) {
+        // Another request is already processing this task, or it's already done
+        // Check if it's already completed in gallery_images
+        const { count: existingCount } = await supabase
+          .from("gallery_images")
+          .select("*", { count: "exact", head: true })
+          .eq("task_id", taskId)
+          .is("deleted_at", null);
+
+        if ((existingCount ?? 0) > 0) {
+          const { data: img } = await supabase
+            .from("gallery_images")
+            .select("id, url, image_key")
+            .eq("task_id", taskId)
+            .is("deleted_at", null)
+            .limit(1)
+            .single();
+
+          let imageUrl = img?.url || "";
+          if (img?.image_key) {
+            try { imageUrl = await getSignedUrl(img.image_key as string); } catch { /* keep existing */ }
+          }
+
+          results.push({
+            taskId,
+            status: "completed",
+            prompt,
+            model,
+            ratio,
+            imageUrl,
+            imageId: (img?.id as string) || undefined,
+            width: extra?.width || estimateDimensions(ratio).width,
+            height: extra?.height || estimateDimensions(ratio).height,
+            message: "已完成",
+          });
+        } else {
+          // Still processing by another request
+          results.push({ taskId, status: "pending", progress: 50, prompt, model, ratio, message: "正在处理中..." });
+        }
+        continue;
+      }
+
+      // We got the lock. Check if already imported in gallery_images (safety check)
       const { count: existingCount } = await supabase
         .from("gallery_images")
         .select("*", { count: "exact", head: true })
