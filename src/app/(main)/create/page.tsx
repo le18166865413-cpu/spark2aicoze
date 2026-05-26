@@ -261,6 +261,51 @@ function CreatePageInner() {
       });
   }, []);
 
+  // Check for pending generation tasks (recovery after disconnect/refresh)
+  const [pendingTasks, setPendingTasks] = useState<Array<{ taskId: string; prompt: string; status: string; message: string; imageUrl?: string; imageId?: string }>>([]);
+  const [showPendingToast, setShowPendingToast] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let pollInterval: ReturnType<typeof setInterval>;
+
+    async function checkPendingTasks() {
+      try {
+        const res = await fetch("/api/pending-tasks", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        const tasks = data.tasks || [];
+        if (tasks.length > 0) {
+          setPendingTasks(tasks);
+          setShowPendingToast(true);
+
+          // Auto-dismiss after 10 seconds if all completed
+          const allCompleted = tasks.every((t: { status: string }) => t.status === "completed" || t.status === "failed");
+          if (allCompleted) {
+            setTimeout(() => setShowPendingToast(false), 10000);
+          }
+        }
+
+        // If there are still pending tasks, keep polling every 10 seconds
+        const hasPending = tasks.some((t: { status: string }) => t.status === "pending");
+        if (hasPending) {
+          pollInterval = setInterval(checkPendingTasks, 10000);
+        }
+      } catch {
+        // Silently fail
+      }
+    }
+
+    checkPendingTasks();
+
+    return () => {
+      cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, []);
+
   // Template selection - auto-match scene/usage/style/color/ratio
   const handleTemplateSelect = useCallback((template: { prompt?: string; scenes?: string[]; usages?: string[]; styles?: string[]; colors?: string[]; ratio?: string }) => {
     // Auto-select matching options only, do not fill prompt
@@ -807,6 +852,48 @@ function CreatePageInner() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 dark:from-background dark:to-background">
+      {/* Pending tasks recovery toast */}
+      {showPendingToast && pendingTasks.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm">
+          <div className="bg-card border border-border rounded-xl shadow-lg p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {pendingTasks.some(t => t.status === "pending") ? "生成中的任务" : "任务完成通知"}
+              </span>
+              <button onClick={() => setShowPendingToast(false)} className="text-muted-foreground hover:text-foreground">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            {pendingTasks.map((task) => (
+              <div key={task.taskId} className="flex items-center gap-2 text-xs">
+                {task.status === "pending" && (
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse shrink-0" />
+                )}
+                {task.status === "completed" && (
+                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                )}
+                {task.status === "failed" && (
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                )}
+                <span className="text-muted-foreground truncate flex-1">
+                  {task.prompt ? (task.prompt.length > 30 ? task.prompt.slice(0, 30) + "..." : task.prompt) : "生成任务"}
+                </span>
+                <span className={cn(
+                  "shrink-0",
+                  task.status === "completed" ? "text-green-600" : task.status === "failed" ? "text-red-500" : "text-yellow-600"
+                )}>
+                  {task.message || (task.status === "pending" ? "生成中..." : task.status === "completed" ? "已完成" : "失败")}
+                </span>
+              </div>
+            ))}
+            {pendingTasks.some(t => t.status === "completed") && (
+              <a href="/" className="block text-center text-xs text-primary hover:underline mt-1">
+                查看广场 →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
       <main className="container mx-auto px-4 py-6">
         <div className="grid lg:grid-cols-[55fr_45fr] gap-8">
           {/* Left: Input Panel */}

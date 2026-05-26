@@ -238,6 +238,28 @@ export default function Home() {
     }
   };
 
+  const [pendingTaskCount, setPendingTaskCount] = useState(0);
+
+  // Check for pending generation tasks
+  useEffect(() => {
+    const checkPendingTasks = async () => {
+      try {
+        const res = await fetch("/api/pending-tasks");
+        if (res.ok) {
+          const data = await res.json();
+          const pending = data.pending?.length ?? 0;
+          setPendingTaskCount(pending);
+          if (pending > 0) {
+            toast.info(`有 ${pending} 张海报正在生成中，完成后将自动出现在广场`, { duration: 5000 });
+          }
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    checkPendingTasks();
+  }, []);
+
   return (
     <div className="pt-6 px-4 pb-8 max-w-[1800px] mx-auto">
       {/* Hero Section */}
@@ -249,6 +271,15 @@ export default function Home() {
           {gallerySubtitle}
         </p>
       </div>
+
+      {/* Pending Tasks Banner */}
+      {pendingTaskCount > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 mb-6 flex items-center justify-center gap-2 text-sm text-primary">
+          <Sparkles className="w-4 h-4 animate-pulse" />
+          <span>有 {pendingTaskCount} 张海报正在生成中，完成后将自动出现在广场</span>
+          <Link href="/create" className="underline underline-offset-2 hover:text-primary/80">去创作中心查看</Link>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="bg-card border rounded-2xl shadow-sm p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">

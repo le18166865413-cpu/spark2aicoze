@@ -308,6 +308,27 @@ export function startGrsaiCron() {
   tick();
   // Then every 1 hour
   cronInterval = setInterval(tick, 60 * 60 * 1000);
+
+  // Separate faster interval for generate-source pending tasks (every 3 minutes)
+  setInterval(async () => {
+    try {
+      const supabase = getSupabaseClient();
+      const { count } = await supabase
+        .from("auto_sync_tasks")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending")
+        .eq("source", "generate");
+
+      if ((count ?? 0) > 0) {
+        console.log(`[GrsAI Cron] Found ${count} pending generate tasks, triggering pending-tasks API...`);
+        // Call the pending-tasks API which handles GrsAI result checking
+        const baseUrl = process.env.DEPLOY_RUN_PORT ? `http://localhost:${process.env.DEPLOY_RUN_PORT}` : "http://localhost:5000";
+        await fetch(`${baseUrl}/api/pending-tasks`, { cache: "no-store" }).catch(() => {});
+      }
+    } catch {
+      // Silently fail
+    }
+  }, 3 * 60 * 1000);
 }
 
 export function stopGrsaiCron() {

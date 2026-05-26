@@ -5,6 +5,38 @@ import { getStorageErrorMessage } from "@/utils/storage-error";
 import { verifyUser } from "@/lib/admin-auth";
 import { buildSiteInsertData } from "@/lib/multi-site";
 
+// Save task_id to auto_sync_tasks immediately so results can be recovered if user disconnects
+async function saveTaskToSyncQueue(
+  taskId: string,
+  model: string,
+  prompt: string,
+  ratio: string,
+  imageSize: string,
+  userId?: string,
+  creatorName?: string
+): Promise<void> {
+  try {
+    const supabase = getSupabaseClient();
+    await supabase.from("auto_sync_tasks").upsert(
+      {
+        task_id: taskId,
+        status: "pending",
+        model,
+        prompt,
+        ratio,
+        source: "generate",
+        extra: JSON.stringify({ imageSize, userId, creatorName }),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "task_id" }
+    );
+    console.log(`[Generate] Task ${taskId} saved to sync queue`);
+  } catch (err) {
+    console.error("[Generate] Failed to save task to sync queue:", err);
+  }
+}
+
 const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
 
 async function getGrsaiApiKey(): Promise<string> {
@@ -204,7 +236,8 @@ function estimateDimensions(ratio: string, imageSize: string = "1K"): { width: n
 async function callGrsaiAndGetResult(
   apiUrl: string,
   requestBody: Record<string, unknown>,
-  apiKey: string
+  apiKey: string,
+  meta?: { model: string; prompt: string; ratio: string; imageSize: string; userId?: string; creatorName?: string }
 ): Promise<{ imageUrl: string; taskId: string }> {
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -253,6 +286,10 @@ async function callGrsaiAndGetResult(
 
       if (result.id && !taskId) {
         taskId = result.id;
+        // Save immediately for recovery if connection drops
+        if (meta) {
+          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName).catch(() => {});
+        }
       }
 
       if (result.status === "succeeded" && result.results) {
@@ -281,6 +318,9 @@ async function callGrsaiAndGetResult(
     if (result) {
       if (result.id && !taskId) {
         taskId = result.id;
+        if (meta) {
+          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName).catch(() => {});
+        }
       }
       if (result.status === "succeeded" && result.results) {
         imageUrl = result.results[0]?.url || result.url || "";
@@ -569,8 +609,16 @@ export async function POST(request: NextRequest) {
 
       for (let imgIndex = 0; imgIndex < imageCount; imgIndex++) {
         try {
-          const { imageUrl, taskId } = await callGrsaiAndGetResult(url, requestBody, await getGrsaiApiKey());
+          const { imageUrl, taskId } = await callGrsaiAndGetResult(url, requestBody, await getGrsaiApiKey(), { model, prompt, ratio, imageSize, userId: userId ?? undefined, creatorName: creatorName ?? undefined });
           const saved = await saveGeneratedImage(imageUrl, taskId, prompt, ratio, model, imageSize, userId, creatorName);
+
+          // Mark task as done in sync queue
+          if (taskId) {
+            try {
+              const supabase = getSupabaseClient();
+              await supabase.from("auto_sync_tasks").update({ status: "done", updated_at: new Date().toISOString() }).eq("task_id", taskId);
+            } catch { /* ignore */ }
+          }
 
           results.push({
             success: true,
@@ -668,9 +716,11 @@ export async function POST(request: NextRequest) {
                 const result = parseStreamLine(line);
                 if (!result) continue;
 
-                // Capture task ID
+                // Capture task ID and immediately save to sync queue
                 if (result.id && !taskId) {
                   taskId = result.id;
+                  // Save immediately so the task can be recovered if user disconnects
+                  saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined).catch(() => {});
                 }
 
                 // Forward progress
@@ -713,6 +763,7 @@ export async function POST(request: NextRequest) {
               if (result) {
                 if (result.id && !taskId) {
                   taskId = result.id;
+                  saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined).catch(() => {});
                 }
                 if (result.status === "succeeded" && result.results) {
                   imageUrl = result.results[0]?.url || result.url || "";
@@ -801,6 +852,13 @@ export async function POST(request: NextRequest) {
                 console.error("Failed to save to Supabase:", dbError);
               } else {
                 console.log("Saved to Supabase, id:", imageId);
+                // Mark task as done in sync queue since we already saved the result
+                if (taskId) {
+                  try {
+                    const supabase2 = getSupabaseClient();
+                    await supabase2.from("auto_sync_tasks").update({ status: "done", updated_at: new Date().toISOString() }).eq("task_id", taskId);
+                  } catch { /* ignore */ }
+                }
               }
             } catch (dbErr) {
               console.error("Supabase save error:", dbErr);
