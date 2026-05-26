@@ -10,6 +10,7 @@ export default function ApiTokensPage() {
   const [baseUrl, setBaseUrl] = useState('');
   const [defaultModel, setDefaultModel] = useState('image2');
   const [showKey, setShowKey] = useState(false);
+  const [showBaseUrl, setShowBaseUrl] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
@@ -90,7 +91,12 @@ export default function ApiTokensPage() {
         </div>
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">Base URL</label>
-          <input type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="https://grsai.dakka.com.cn" />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input type={showBaseUrl ? 'text' : 'password'} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="w-full px-3 py-2 pr-10 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="https://grsai.dakka.com.cn" />
+              <button onClick={() => setShowBaseUrl(!showBaseUrl)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{showBaseUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+            </div>
+          </div>
         </div>
       </div>
 
