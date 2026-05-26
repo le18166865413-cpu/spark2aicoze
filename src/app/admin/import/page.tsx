@@ -436,13 +436,13 @@ export default function AdminImportPage() {
               }}
               placeholder="登录 grsai.ai 后，在浏览器开发者工具 Network 面板中找到 getCreditsLogList 请求，复制 authorization header 的 JWT token"
               rows={2}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none [-webkit-text-security:disc] [text-security:disc]"
             />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground">xtx Header</label>
             <input
-              type="text"
+              type="password"
               value={grsaiXtx}
               onChange={(e) => {
                 setGrsaiXtx(e.target.value);
