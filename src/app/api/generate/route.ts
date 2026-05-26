@@ -497,7 +497,7 @@ export async function POST(request: NextRequest) {
     const requestBody: Record<string, unknown> = {
       model: modelConfig.apiModel,
       prompt: prompt,
-      replyType: isJsonMode ? "json" : "stream",
+      replyType: "async", // Always use async mode so Result API can recover tasks
       shutProgress: false,
     };
 
@@ -652,7 +652,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Stream mode: SSE streaming
+    // Stream/Async mode: Submit tasks to GrsAI with async mode, return task IDs for polling
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
@@ -661,229 +661,78 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          sendSSE({ type: "progress", progress: 0, status: "submitted", total: imageCount, current: 0 });
+          sendSSE({ type: "progress", progress: 0, status: "正在提交任务...", total: imageCount, current: 0 });
+
+          const taskIds: string[] = [];
 
           for (let imgIndex = 0; imgIndex < imageCount; imgIndex++) {
-            sendSSE({ type: "progress", progress: 0, status: imageCount > 1 ? `正在生成第 ${imgIndex + 1}/${imageCount} 张...` : "submitted", total: imageCount, current: imgIndex });
+            try {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${await getGrsaiApiKey()}`,
+                },
+                body: JSON.stringify(requestBody),
+              });
 
-            const response = await fetch(url, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${await getGrsaiApiKey()}`,
-              },
-              body: JSON.stringify(requestBody),
-            });
+              const responseText = await response.text();
 
-            if (!response.ok) {
-              const errorText = await response.text();
-              let errorMessage = `GrsAI API error: ${response.status}`;
+              if (!response.ok) {
+                let errorMessage = `GrsAI API error: ${response.status}`;
+                try {
+                  const errorJson = JSON.parse(responseText);
+                  errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+                } catch {
+                  // ignore parse error
+                }
+                console.error("GrsAI error:", responseText);
+                sendSSE({ type: "error", error: errorMessage, index: imgIndex });
+                continue;
+              }
+
+              let taskId = "";
               try {
-                const errorJson = JSON.parse(errorText);
-                errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
+                const data = JSON.parse(responseText);
+                taskId = data.id || "";
               } catch {
                 // ignore parse error
               }
-              console.error("GrsAI error:", errorText);
-              sendSSE({ type: "error", error: errorMessage });
-              controller.close();
-              return;
-            }
 
-            // Parse SSE stream
-            const reader = response.body?.getReader();
-            if (!reader) {
-              sendSSE({ type: "error", error: "服务响应异常" });
-              controller.close();
-              return;
-            }
-
-            const decoder = new TextDecoder();
-            let buffer = "";
-            let imageUrl = "";
-            let taskId = "";
-            let lastError = "";
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                const result = parseStreamLine(line);
-                if (!result) continue;
-
-                // Capture task ID and immediately save to sync queue
-                if (result.id && !taskId) {
-                  taskId = result.id;
-                  // Save immediately so the task can be recovered if user disconnects
-                  saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined).catch(() => {});
-                }
-
-                // Forward progress
-                if (result.progress !== undefined) {
-                  const baseProgress = imageCount > 1 ? Math.round((imgIndex / imageCount) * 100) : 0;
-                  const stepProgress = imageCount > 1
-                    ? Math.round((result.progress / 100) * (100 / imageCount))
-                    : result.progress;
-                  const statusText = imageCount > 1
-                    ? `第 ${imgIndex + 1}/${imageCount} 张 - ${result.status === "submitted" ? "等待处理" : result.status === "running" ? "正在生成" : result.status === "uploading" ? "上传中" : result.status || "处理中"}`
-                    : (result.status === "submitted" ? "等待处理" : result.status === "running" ? "正在生成" : result.status === "uploading" ? "上传中" : result.status || "处理中");
-                  sendSSE({ type: "progress", progress: Math.min(baseProgress + stepProgress, 99), status: statusText, total: imageCount, current: imgIndex });
-                }
-
-                // Capture final result
-                if (result.status === "succeeded" && result.results) {
-                  imageUrl = result.results[0]?.url || result.url || "";
-                }
-
-                // Record error but do NOT close stream immediately — GrsAI may retry and succeed later
-                if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
-                  let reason: string;
-                  if (result.error && typeof result.error === "string") {
-                    reason = translateGrsaiError(result.error);
-                  } else if (result.failure_reason && typeof result.failure_reason === "string") {
-                    reason = translateGrsaiError(result.failure_reason);
-                  } else if (result.status === "violation") {
-                    reason = "生成内容违规，请修改提示词后重试";
-                  } else {
-                    reason = "生成失败，请重试";
-                  }
-                  lastError = reason;
-                }
+              if (!taskId) {
+                sendSSE({ type: "error", error: "未获取到任务ID，请重试", index: imgIndex });
+                continue;
               }
-            }
 
-            // Process remaining buffer (for non-SSE JSON responses without trailing newline)
-            if (buffer.trim()) {
-              const result = parseStreamLine(buffer);
-              if (result) {
-                if (result.id && !taskId) {
-                  taskId = result.id;
-                  saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined).catch(() => {});
-                }
-                if (result.status === "succeeded" && result.results) {
-                  imageUrl = result.results[0]?.url || result.url || "";
-                }
-                if (result.status === "failed" || result.status === "violation" || result.status === "error" || result.error) {
-                  let reason: string;
-                  if (result.error && typeof result.error === "string") {
-                    reason = translateGrsaiError(result.error);
-                  } else if (result.failure_reason && typeof result.failure_reason === "string") {
-                    reason = translateGrsaiError(result.failure_reason);
-                  } else if (result.status === "violation") {
-                    reason = "生成内容违规，请修改提示词后重试";
-                  } else {
-                    reason = "生成失败，请重试";
-                  }
-                  lastError = reason;
-                }
-              }
-            }
+              taskIds.push(taskId);
 
-            if (!imageUrl) {
-              const errMsg = lastError || `第 ${imgIndex + 1} 张生成失败，未获取到图片结果，请重试`;
-              sendSSE({ type: "error", error: errMsg });
-              controller.close();
-              return;
-            }
+              // Save task to sync queue immediately for recovery
+              await saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined);
 
-            sendSSE({ type: "progress", progress: imageCount > 1 ? Math.round(((imgIndex + 0.95) / imageCount) * 100) : 95, status: imageCount > 1 ? `第 ${imgIndex + 1} 张上传中...` : "uploading", total: imageCount, current: imgIndex });
-
-            // Upload to S3
-            let key: string;
-            try {
-              key = await storage.uploadFromUrl({
-                url: imageUrl,
-                timeout: 120000,
+              sendSSE({
+                type: "task_submitted",
+                taskId: taskId,
+                index: imgIndex,
+                total: imageCount,
+                progress: Math.round(((imgIndex + 1) / imageCount) * 10), // 0-10% for submission
+                status: imageCount > 1 ? `第 ${imgIndex + 1}/${imageCount} 张任务已提交` : "任务已提交，正在生成中...",
               });
-            } catch (uploadError) {
-              console.error("S3 upload failed:", uploadError);
-              sendSSE({ type: "error", error: getStorageErrorMessage(uploadError) });
-              controller.close();
-              return;
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : "提交任务失败";
+              console.error(`Task ${imgIndex + 1} submit failed:`, msg);
+              sendSSE({ type: "error", error: msg, index: imgIndex });
             }
-
-            const { width, height } = estimateDimensions(ratio, imageSize);
-            const imageId = generateId();
-            const now = new Date().toISOString();
-
-            // Create new image entry
-            const newImage: GalleryImage = {
-              id: imageId,
-              imageKey: key,
-              prompt: prompt,
-              url: "",
-              width: width,
-              height: height,
-              views: 0,
-              downloads: 0,
-              model: model,
-              ratio: ratio,
-              taskId: taskId,
-              createdAt: now,
-            };
-
-            // Save to Supabase
-            try {
-              const supabase = getSupabaseClient();
-              const insertData = await buildSiteInsertData({
-                id: imageId,
-                prompt: prompt,
-                url: "",
-                image_key: key,
-                width: width,
-                height: height,
-                views: 0,
-                downloads: 0,
-                model: model,
-                ratio: ratio,
-                task_id: taskId,
-                user_id: userId,
-                creator_name: creatorName,
-                created_at: now,
-              });
-              const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
-
-              if (dbError) {
-                console.error("Failed to save to Supabase:", dbError);
-              } else {
-                console.log("Saved to Supabase, id:", imageId);
-                // Mark task as done in sync queue since we already saved the result
-                if (taskId) {
-                  try {
-                    const supabase2 = getSupabaseClient();
-                    await supabase2.from("auto_sync_tasks").update({ status: "done", updated_at: new Date().toISOString() }).eq("task_id", taskId);
-                  } catch { /* ignore */ }
-                }
-              }
-            } catch (dbErr) {
-              console.error("Supabase save error:", dbErr);
-            }
-
-            // Get permanent signed URL for the uploaded image
-            let signedUrl = "";
-            try {
-              signedUrl = await getSignedUrl(key);
-            } catch (err) {
-              console.error("Failed to get signed URL:", err);
-              // Fallback to presigned URL
-              try {
-                signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
-              } catch {
-                signedUrl = key;
-              }
-            }
-
-            // Return complete with URL for preview
-            sendSSE({ type: "complete", data: { ...newImage, url: signedUrl, taskId }, index: imgIndex, total: imageCount });
           }
 
-          // All images done
-          sendSSE({ type: "all_complete", total: imageCount });
+          // Return all task IDs so frontend can poll for results
+          sendSSE({
+            type: "tasks_submitted",
+            taskIds: taskIds,
+            total: imageCount,
+            progress: 10,
+            status: "任务已提交，请等待生成完成...",
+          });
+
           controller.close();
         } catch (error: unknown) {
           console.error("Generate error:", error);

@@ -7,11 +7,14 @@ import { buildSiteInsertData } from "@/lib/multi-site";
 interface PendingTask {
   taskId: string;
   status: "pending" | "completed" | "failed";
+  progress?: number;
   prompt?: string;
   model?: string;
   ratio?: string;
   imageUrl?: string;
   imageId?: string;
+  width?: number;
+  height?: number;
   message?: string;
 }
 
@@ -192,6 +195,8 @@ export async function GET(request: NextRequest) {
           ratio,
           imageUrl,
           imageId: (img?.id as string) || undefined,
+          width: extra?.width || estimateDimensions(ratio).width,
+          height: extra?.height || estimateDimensions(ratio).height,
           message: "已完成",
         });
         continue;
@@ -207,23 +212,30 @@ export async function GET(request: NextRequest) {
         });
 
         if (!response.ok) {
-          results.push({ taskId, status: "pending", prompt, model, ratio, message: "查询失败" });
+          if (response.status === 404) {
+            // Task result expired (>2 hours) or not found
+            // Check how old the task is - if >2 hours, mark as failed
+            const createdAt = task.created_at as string;
+            const taskAge = Date.now() - new Date(createdAt).getTime();
+            if (taskAge > 2 * 60 * 60 * 1000) {
+              await supabase.from("auto_sync_tasks").update({ status: "failed", updated_at: new Date().toISOString() }).eq("task_id", taskId);
+              results.push({ taskId, status: "failed", prompt, model, ratio, message: "任务结果已过期" });
+            } else {
+              results.push({ taskId, status: "pending", progress: 0, prompt, model, ratio, message: "正在生成中..." });
+            }
+          } else {
+            results.push({ taskId, status: "pending", progress: 0, prompt, model, ratio, message: "查询失败" });
+          }
           continue;
         }
 
-        const result = await response.json();
-        const data = result.data as Record<string, unknown> | undefined;
-
-        if (!data) {
-          results.push({ taskId, status: "pending", prompt, model, ratio, message: "查询无数据" });
-          continue;
-        }
-
+        const data = await response.json();
+        // GrsAI Result API returns: { id, status, progress?, results?: [{ url }], error? }
         const status = (data.status as string) || "unknown";
 
         if (status === "succeeded") {
           const results_arr = data.results as Array<Record<string, unknown>> | undefined;
-          const imageUrl = results_arr?.[0]?.url as string || (data.url as string) || "";
+          const imageUrl = results_arr?.[0]?.url as string || "";
 
           if (!imageUrl) {
             await supabase.from("auto_sync_tasks").update({ status: "failed", updated_at: new Date().toISOString() }).eq("task_id", taskId);
@@ -288,6 +300,8 @@ export async function GET(request: NextRequest) {
             ratio,
             imageUrl: signedUrl,
             imageId,
+            width,
+            height,
             message: "已完成",
           });
         } else if (status === "failed" || status === "violation") {
@@ -297,7 +311,8 @@ export async function GET(request: NextRequest) {
         } else {
           // Still running / processing
           const progress = (data.progress as number) || 0;
-          results.push({ taskId, status: "pending", prompt, model, ratio, message: `生成中 ${progress}%` });
+          const statusText = status === "running" ? "正在生成" : status === "submitted" ? "等待处理" : "处理中";
+          results.push({ taskId, status: "pending", progress, prompt, model, ratio, message: `${statusText} ${progress}%` });
         }
       } catch (err) {
         console.error("[PendingTasks] Query error:", err);

@@ -480,6 +480,7 @@ function CreatePageInner() {
 
   // Batch generate handlers
   const batchStopRef = useRef(false);
+  const allResultsRef = useRef<GenerationResult[]>([]);
 
   const buildBatchPrompt = useCallback(
     (page: PageData) => {
@@ -659,15 +660,18 @@ function CreatePageInner() {
     setProgress(0);
     setProgressStatus("正在提交任务...");
     setResults([]);
+    allResultsRef.current = [];
     toast(waitMessage, { duration: waitDuration });
 
     try {
-      const allResults: GenerationResult[] = [];
+      // Phase 1: Submit all tasks
+      const submittedTaskIds: string[] = [];
+      const taskErrors: string[] = [];
 
       for (let i = 0; i < effectiveCount; i++) {
         if (effectiveCount > 1) {
-          setProgressStatus(`正在生成第 ${i + 1}/${effectiveCount} 张...`);
-          setProgress(Math.round((i / effectiveCount) * 100));
+          setProgressStatus(`正在提交第 ${i + 1}/${effectiveCount} 个任务...`);
+          setProgress(Math.round((i / effectiveCount) * 10));
         }
 
         const body: Record<string, unknown> = {
@@ -681,14 +685,13 @@ function CreatePageInner() {
           const refImgs = refImages
             .map((img) => {
               if (!img.url.startsWith("http") && !img.url.startsWith("data:")) {
-                return img.url; // S3 key - backend will handle
+                return img.url;
               }
               return img.url;
             })
             .filter((url) => url.length > 0);
           
           if (refImgs.length === 1) {
-            // Single ref image - use legacy field for backward compat
             if (!refImgs[0].startsWith("http") && !refImgs[0].startsWith("data:")) {
               body.refImageKey = refImgs[0];
               body.refImageContentType = "image/jpeg";
@@ -696,8 +699,6 @@ function CreatePageInner() {
               body.refImageUrl = refImgs[0];
             }
           } else {
-            // Multiple ref images - use refImgs array
-            // For S3 keys, backend needs to convert them to URLs
             body.refImgs = refImgs;
             body.refImageKeys = refImages
               .filter((img) => !img.url.startsWith("http") && !img.url.startsWith("data:"))
@@ -717,109 +718,141 @@ function CreatePageInner() {
           if (response.status === 401) {
             setShowLoginDialog(true);
           }
-          allResults.push({ url: "", error: (error as Record<string, string>).error || "Generation failed" });
-          setResults([...allResults]);
+          taskErrors.push((error as Record<string, string>).error || "任务提交失败");
           continue;
         }
 
-        // Handle SSE stream
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error("No response body");
+        const data = await response.json();
+        if (data.taskId) {
+          submittedTaskIds.push(data.taskId as string);
+        } else if (data.error) {
+          taskErrors.push(data.error as string);
+        }
+      }
 
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let streamError = false;
+      // Show submission errors
+      if (taskErrors.length > 0) {
+        for (const err of taskErrors) {
+          allResultsRef.current.push({ url: "", error: err });
+        }
+        setResults([...allResultsRef.current]);
+      }
 
-        readStream: while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // If no tasks submitted, finish
+      if (submittedTaskIds.length === 0) {
+        setProgress(100);
+        setProgressStatus("任务提交失败");
+        setLoading(false);
+        return;
+      }
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+      setProgressStatus("任务已提交，等待生成...");
+      setProgress(10);
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data: ")) continue;
+      // Phase 2: Poll pending-tasks for progress and results
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch("/api/pending-tasks", { credentials: "include" });
+          const data = await res.json();
 
-            const jsonStr = trimmed.slice(6);
-            if (jsonStr === "[DONE]") continue;
+          // Check our submitted tasks
+          let allDone = true;
+          let totalProgress = 0;
+          let completedCount = 0;
 
-            try {
-              const data = JSON.parse(jsonStr);
+          for (const taskId of submittedTaskIds) {
+            const task = (data.tasks as Array<Record<string, unknown>>)?.find(
+              (t: Record<string, unknown>) => t.taskId === taskId
+            );
 
-              if (data.type === "progress") {
-                if (effectiveCount <= 1) {
-                  setProgress(data.progress || 0);
-                  setProgressStatus(
-                    data.status === "submitted" ? "等待处理..." :
-                    data.status === "running" ? "正在生成..." :
-                    data.status === "uploading" ? "上传中..." :
-                    data.status || "处理中..."
-                  );
-                } else {
-                  // Multi-image: show combined progress
-                  const baseProgress = Math.round((i / effectiveCount) * 100);
-                  const stepProgress = Math.round(((data.progress || 0) / 100) * (100 / effectiveCount));
-                  setProgress(Math.min(baseProgress + stepProgress, 99));
-                  setProgressStatus(`第 ${i + 1}/${effectiveCount} 张 - ${
-                    data.status === "submitted" ? "等待处理..." :
-                    data.status === "running" ? "正在生成..." :
-                    data.status === "uploading" ? "上传中..." :
-                    data.status || "处理中..."
-                  }`);
-                }
+            if (!task) {
+              // Task not in pending list anymore - might have been completed and imported
+              // Check if it appeared in results
+              completedCount++;
+              totalProgress += 100;
+              continue;
+            }
+
+            const taskStatus = task.status as string;
+            if (taskStatus === "completed") {
+              completedCount++;
+              totalProgress += 100;
+
+              // Add completed result
+              if (task.imageUrl && !allResultsRef.current.some(r => r.url === task.imageUrl)) {
+                allResultsRef.current.push({
+                  url: task.imageUrl as string,
+                  width: (task.width as number) || 1024,
+                  height: (task.height as number) || 1024,
+                });
+                setResults([...allResultsRef.current]);
               }
-
-              if (data.type === "error") {
-                allResults.push({ url: "", error: data.error });
-                setResults([...allResults]);
-                streamError = true;
-                break readStream;
+            } else if (taskStatus === "failed") {
+              completedCount++;
+              totalProgress += 100;
+              if (!allResultsRef.current.some(r => r.error === (task.message as string))) {
+                allResultsRef.current.push({ url: "", error: (task.message as string) || "生成失败" });
+                setResults([...allResultsRef.current]);
               }
-
-              if (data.type === "complete") {
-                allResults.push(data.data as GenerationResult);
-                setResults([...allResults]);
-              }
-            } catch (parseError) {
-              // Skip malformed JSON
-              if (parseError instanceof Error && parseError.message !== "Unexpected end of JSON input") {
-                if (!(parseError instanceof SyntaxError)) throw parseError;
-              }
+            } else {
+              allDone = false;
+              totalProgress += (task.progress as number) || 0;
             }
           }
-        }
 
-        if (streamError) {
-          setProgressStatus(`第 ${i + 1} 张生成失败`);
-          // Continue to next image if multi-image, otherwise loop ends naturally
-          continue;
-        }
-      }
+          // Update progress
+          const overallProgress = submittedTaskIds.length > 0
+            ? Math.round((totalProgress / submittedTaskIds.length) * 0.9 + 10)
+            : 10;
+          setProgress(Math.min(overallProgress, 99));
+          
+          const pendingCount = submittedTaskIds.length - completedCount;
+          if (pendingCount > 0) {
+            setProgressStatus(`正在生成中... (剩余 ${pendingCount} 张)`);
+          }
 
-      const successCount = allResults.filter((r) => r.url && !r.error).length;
-      const errorCount = allResults.filter((r) => r.error).length;
-      setProgress(100);
-      if (successCount > 0 && errorCount === 0) {
-        setProgressStatus(`完成！共生成 ${successCount} 张`);
-        toast.success(`海报生成成功！共 ${successCount} 张`);
-      } else if (successCount > 0 && errorCount > 0) {
-        setProgressStatus(`完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
-        toast.success(`生成完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
-      } else if (errorCount > 0) {
-        setProgressStatus(`生成失败，共 ${errorCount} 张`);
-      } else {
-        setProgressStatus("未获取到结果");
-      }
+          // Check if all done
+          if (allDone || completedCount >= submittedTaskIds.length) {
+            clearInterval(pollInterval);
+            setProgress(100);
+            
+            const successCount = allResultsRef.current.filter(r => r.url && !r.error).length;
+            const errorCount = allResultsRef.current.filter(r => r.error).length;
+            
+            if (successCount > 0 && errorCount === 0) {
+              setProgressStatus(`完成！共生成 ${successCount} 张`);
+              toast.success(`海报生成成功！共 ${successCount} 张`);
+            } else if (successCount > 0 && errorCount > 0) {
+              setProgressStatus(`完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
+              toast.success(`生成完成！成功 ${successCount} 张，失败 ${errorCount} 张`);
+            } else if (errorCount > 0) {
+              setProgressStatus(`生成失败，共 ${errorCount} 张`);
+            }
+            
+            setLoading(false);
+          }
+        } catch (pollError) {
+          console.error("Poll error:", pollError);
+          // Don't stop polling on network errors - might be temporary
+        }
+      }, 5000); // Poll every 5 seconds
+
+      // Safety timeout: stop polling after 10 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (loading) {
+          setProgressStatus("生成超时，请稍后在广场查看结果");
+          setLoading(false);
+        }
+      }, 10 * 60 * 1000);
+
     } catch (error: unknown) {
       console.error("Generation error:", error);
       const msg = error instanceof Error ? error.message : "生成失败，请重试";
       toast.error(msg);
-    } finally {
       setLoading(false);
     }
-  }, [pendingPrompt, refImageEnabled, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, imageSize]);
+  }, [pendingPrompt, refImageEnabled, refImages, ratio, model, imageCount, imageCountEnabled, waitMessage, waitDuration, imageSize, loading]);
 
   // Download handler
   const handleDownload = useCallback(async (url: string) => {
