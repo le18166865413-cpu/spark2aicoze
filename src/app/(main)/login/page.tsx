@@ -35,6 +35,7 @@ export default function LoginPage() {
   }, [countdown]);
 
   // 发送验证码
+  const [sendingCode, setSendingCode] = useState(false);
   const handleSendCode = useCallback(async () => {
     if (!email.trim()) {
       setError('请输入邮箱地址');
@@ -45,15 +46,22 @@ export default function LoginPage() {
       setError('邮箱格式不正确');
       return;
     }
+    if (countdown > 0 || sendingCode) return;
     setError('');
+    setSendingCode(true);
+    // 立即开始倒计时，防止连点
+    setCountdown(60);
     try {
       await sendCode(email);
-      setCountdown(60);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '发送失败';
       setError(message);
+      // 发送失败时重置倒计时，允许重试
+      setCountdown(0);
+    } finally {
+      setSendingCode(false);
     }
-  }, [email, sendCode]);
+  }, [email, sendCode, countdown, sendingCode]);
 
   // 邮箱验证码登录
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -200,10 +208,10 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleSendCode}
-                  disabled={countdown > 0 || !email.trim()}
+                  disabled={countdown > 0 || !email.trim() || sendingCode}
                   className="h-11 px-4 rounded-lg border border-primary text-primary text-sm font-medium hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 >
-                  {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                  {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '获取验证码'}
                 </button>
               </div>
             </div>

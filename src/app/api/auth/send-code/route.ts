@@ -23,26 +23,26 @@ export async function POST(request: Request) {
 
     const sb = getSupabaseClient();
 
-    // 频率限制：同一邮箱 60 秒内只能发 1 次
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+    // 频率限制：同一邮箱 30 秒内只能发 1 次
+    const thirtySecondsAgo = new Date(Date.now() - 30 * 1000).toISOString();
     const { data: recentCodes } = await sb
       .from('email_verification_codes')
       .select('created_at')
       .eq('email', email)
-      .gte('created_at', oneMinuteAgo)
+      .gte('created_at', thirtySecondsAgo)
       .order('created_at', { ascending: false })
       .limit(1);
 
     if (recentCodes && recentCodes.length > 0) {
       const elapsed = Date.now() - new Date(recentCodes[0].created_at).getTime();
-      const remaining = Math.ceil((60 - elapsed / 1000));
+      const remaining = Math.ceil((30 - elapsed / 1000));
       return NextResponse.json(
         { error: `发送太频繁，请 ${remaining} 秒后重试` },
         { status: 429 }
       );
     }
 
-    // 每小时最多 10 次
+    // 每小时最多 20 次
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count } = await sb
       .from('email_verification_codes')
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       .eq('email', email)
       .gte('created_at', oneHourAgo);
 
-    if (count && count >= 10) {
+    if (count && count >= 20) {
       return NextResponse.json(
         { error: '发送次数过多，请 1 小时后重试' },
         { status: 429 }
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
     // 生成验证码
     const code = generateCode();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 分钟过期
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 分钟过期
 
     // 保存验证码
     const { error: insertError } = await sb

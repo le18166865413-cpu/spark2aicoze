@@ -186,6 +186,9 @@ export async function POST(request: Request) {
     }
 
     // Verify password
+    if (!user.password) {
+      return NextResponse.json({ error: '该账号未设置密码，请使用邮箱验证码登录' }, { status: 401 });
+    }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
