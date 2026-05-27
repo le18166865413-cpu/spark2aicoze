@@ -119,11 +119,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '账号已被拒绝，请联系管理员' }, { status: 403 });
       }
 
-      // 踢掉旧会话（同账号只允许一个设备在线）
-      await sb
+      // 限制同账号最多 2 个活跃 session，超出踢最旧的
+      const MAX_SESSIONS = 2;
+      const { data: activeSessions } = await sb
         .from('user_sessions')
-        .delete()
-        .eq('user_id', user.id);
+        .select('id, created_at')
+        .eq('user_id', user.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: true });
+
+      if (activeSessions && activeSessions.length >= MAX_SESSIONS) {
+        // 踢掉最旧的 sessions，只保留 (MAX_SESSIONS - 1) 个
+        const toDelete = activeSessions.slice(0, activeSessions.length - MAX_SESSIONS + 1);
+        if (toDelete.length > 0) {
+          await sb
+            .from('user_sessions')
+            .delete()
+            .in('id', toDelete.map(s => s.id));
+          console.log(`[Login] Kicked ${toDelete.length} oldest session(s) for user=${user.username}`);
+        }
+      }
 
       // 创建 session
       const token = crypto.randomUUID();
@@ -135,6 +150,7 @@ export async function POST(request: Request) {
           id: token,
           user_id: user.id,
           expires_at: expiresAt.toISOString(),
+          last_active_at: new Date().toISOString(),
         });
 
       if (sessionError) {
@@ -196,11 +212,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '账号已被拒绝，请联系管理员' }, { status: 403 });
     }
 
-    // 踢掉旧会话
-    await sb
+    // 限制同账号最多 2 个活跃 session，超出踢最旧的
+    const MAX_SESSIONS = 2;
+    const { data: activeSessions } = await sb
       .from('user_sessions')
-      .delete()
-      .eq('user_id', user.id);
+      .select('id, created_at')
+      .eq('user_id', user.id)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: true });
+
+    if (activeSessions && activeSessions.length >= MAX_SESSIONS) {
+      const toDelete = activeSessions.slice(0, activeSessions.length - MAX_SESSIONS + 1);
+      if (toDelete.length > 0) {
+        await sb
+          .from('user_sessions')
+          .delete()
+          .in('id', toDelete.map(s => s.id));
+        console.log(`[Login] Kicked ${toDelete.length} oldest session(s) for user=${user.username}`);
+      }
+    }
 
     // Create session token
     const token = crypto.randomUUID();
@@ -212,6 +242,7 @@ export async function POST(request: Request) {
         id: token,
         user_id: user.id,
         expires_at: expiresAt.toISOString(),
+        last_active_at: new Date().toISOString(),
       });
 
     if (sessionError) {

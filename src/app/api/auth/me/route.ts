@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { cleanupExpiredSessions } from '@/lib/admin-auth';
+
+// 上次清理时间，用于节流（每小时最多清理一次）
+let lastCleanupTime = 0;
 
 export async function GET() {
   try {
+    // 每小时最多执行一次清理
+    const now = Date.now();
+    if (now - lastCleanupTime > 60 * 60 * 1000) {
+      lastCleanupTime = now;
+      cleanupExpiredSessions().catch(() => {}); // fire-and-forget
+    }
+
     const cookieStore = await cookies();
     const token = cookieStore.get('user_session')?.value;
 
@@ -19,13 +30,13 @@ export async function GET() {
       .single();
 
     if (sessionError || !session) {
-      return NextResponse.json({ user: null });
+      return NextResponse.json({ user: null, kicked: true });
     }
 
     // Check expiry
     if (new Date(session.expires_at) < new Date()) {
       await getSupabaseClient().from('user_sessions').delete().eq('id', token);
-      return NextResponse.json({ user: null });
+      return NextResponse.json({ user: null, kicked: true });
     }
 
     // Get user
@@ -36,8 +47,14 @@ export async function GET() {
       .single();
 
     if (userError || !user) {
-      return NextResponse.json({ user: null });
+      return NextResponse.json({ user: null, kicked: true });
     }
+
+    // 更新 last_active_at（fire-and-forget）
+    void getSupabaseClient()
+      .from('user_sessions')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('id', token);
 
     return NextResponse.json({ user });
   } catch (error) {

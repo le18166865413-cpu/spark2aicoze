@@ -29,6 +29,13 @@ export async function verifyUser(): Promise<{
     return null;
   }
 
+  // 更新 last_active_at（节流：每次请求都更新太频繁，但 Supabase 没有 upsert 条件更新，直接更新即可）
+  // 注意：这里不做节流，因为 Supabase update 很轻量
+  void supabase
+    .from('user_sessions')
+    .update({ last_active_at: new Date().toISOString() })
+    .eq('id', token);
+
   const { data: user } = await supabase
     .from('users')
     .select('id, username, nickname, role, status')
@@ -38,6 +45,24 @@ export async function verifyUser(): Promise<{
   if (!user) return null;
 
   return user;
+}
+
+// 清理过期 session（超过 7 天的过期 session + 超过 30 天未活跃的 session）
+export async function cleanupExpiredSessions() {
+  const supabase = getSupabaseClient();
+
+  // 删除已过期的 session
+  await supabase
+    .from('user_sessions')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+
+  // 删除 30 天未活跃的 session（即使未过期）
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from('user_sessions')
+    .delete()
+    .lt('last_active_at', thirtyDaysAgo);
 }
 
 // 验证管理员身份
