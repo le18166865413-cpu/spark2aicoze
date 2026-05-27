@@ -8,6 +8,7 @@ export async function verifyUser(): Promise<{
   nickname: string | null;
   role: string;
   status: string;
+  can_generate: boolean | null;
 } | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('user_session')?.value;
@@ -38,7 +39,7 @@ export async function verifyUser(): Promise<{
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, username, nickname, role, status')
+    .select('id, username, nickname, role, status, can_generate')
     .eq('id', session.user_id)
     .single();
 

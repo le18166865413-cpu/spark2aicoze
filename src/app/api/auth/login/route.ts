@@ -69,37 +69,24 @@ export async function POST(request: Request) {
       // 查找用户（通过 email）
       let { data: user } = await sb
         .from('users')
-        .select('id, username, nickname, role, status, email')
+        .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
         .eq('email', email)
         .single();
 
       // 如果用户不存在，自动注册
       if (!user) {
-        // 用邮箱前缀生成用户名
-        const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
-        let autoUsername = emailPrefix;
-
-        // 确保用户名唯一
-        const { data: existingUser } = await sb
-          .from('users')
-          .select('id')
-          .eq('username', autoUsername)
-          .maybeSingle();
-
-        if (existingUser) {
-          autoUsername = emailPrefix + '_' + Math.floor(Math.random() * 10000);
-        }
+        const autoUsername = 'user_' + crypto.randomUUID().substring(0, 8);
 
         const { data: newUser, error: createError } = await sb
           .from('users')
           .insert({
             username: autoUsername,
             email,
-            nickname: autoUsername,
+            nickname: null,
             role: 'user',
-            status: 'approved', // 邮箱验证自动审批
+            status: 'pending',
           })
-          .select('id, username, nickname, role, status, email')
+          .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
           .single();
 
         if (createError || !newUser) {
@@ -110,14 +97,11 @@ export async function POST(request: Request) {
         user = newUser;
       }
 
-      // 检查用户状态
-      if (user.status === 'pending') {
-        return NextResponse.json({ error: '账号待审批，请等待管理员审核' }, { status: 403 });
-      }
-
       if (user.status === 'rejected') {
         return NextResponse.json({ error: '账号已被拒绝，请联系管理员' }, { status: 403 });
       }
+
+      // pending 用户允许登录但功能受限（不能生图），前端根据 status 判断
 
       // 限制同账号最多 2 个活跃 session，超出踢最旧的
       const MAX_SESSIONS = 2;
@@ -166,6 +150,10 @@ export async function POST(request: Request) {
           role: user.role,
           status: user.status,
           email: user.email,
+          phone: user.phone,
+          wechat: user.wechat,
+          avatar: user.avatar,
+          canGenerate: user.can_generate,
         },
       });
 
@@ -189,7 +177,7 @@ export async function POST(request: Request) {
     // Find user
     const { data: user, error } = await sb
       .from('users')
-      .select('id, username, password, nickname, role, status, email')
+      .select('id, username, password, nickname, role, status, email, phone, wechat, avatar, can_generate')
       .eq('username', username)
       .single();
 
@@ -258,6 +246,10 @@ export async function POST(request: Request) {
         role: user.role,
         status: user.status,
         email: user.email,
+        phone: user.phone,
+        wechat: user.wechat,
+        avatar: user.avatar,
+        canGenerate: user.can_generate,
       },
     });
 

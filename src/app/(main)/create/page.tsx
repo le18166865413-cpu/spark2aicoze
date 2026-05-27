@@ -108,6 +108,9 @@ function CreatePageInner() {
   const searchParams = useSearchParams();
   const { user, loginWithEmail, sendCode, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
+  // Permission: can generate only if approved and can_generate is not false
+  const canGenerate = !user || user.status === "approved" ? (user?.canGenerate !== false) : false;
+  const generateDisabledReason = !user ? "" : user.status === "pending" ? "账号审核中，审核通过后即可生图" : user.status === "rejected" ? "账号审核未通过" : user.canGenerate === false ? "生图权限已被禁用，请联系管理员" : "";
   
   // Login dialog state
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -533,6 +536,11 @@ function CreatePageInner() {
       toast.error("请至少选择一页");
       return;
     }
+    // Check generate permission
+    if (user && !canGenerate) {
+      toast.error(generateDisabledReason || "没有生图权限");
+      return;
+    }
     // Show confirmation dialog with prompts
     const prompts = toGen.map((p) => ({ index: p.index, prompt: buildBatchPrompt(p) }));
     setPendingBatchPrompts(prompts);
@@ -707,6 +715,12 @@ function CreatePageInner() {
     // Check login status first (skip if anonymous generate is enabled)
     if (!user && !anonymousGenerate) {
       setShowLoginDialog(true);
+      return;
+    }
+
+    // Check generate permission
+    if (user && !canGenerate) {
+      toast.error(generateDisabledReason || "没有生图权限");
       return;
     }
 
@@ -1614,29 +1628,36 @@ function CreatePageInner() {
 
             {/* Generate Button */}
             {mode !== "batch" && (
-            <Button
-              onClick={handleGenerate}
-              disabled={loading || !prompt.trim() || (refImageEnabled && refImages.length === 0)}
-              className={cn(
-                "w-full py-6 text-lg font-bold rounded-2xl transition-all shadow-lg",
-                loading
-                  ? "bg-muted cursor-not-allowed"
-                  : "bg-primary hover:bg-primary/90 shadow-lg"
-              )}
-            >
-              {loading ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span>{progressStatus}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Wand2 className="w-6 h-6" />
-                  {refImageEnabled && refImages.length > 0 ? "基于参考图生成" : "立即生成"}
-                  {imageCountEnabled && imageCount > 1 && ` (${imageCount}张)`}
-                </div>
-              )}
-            </Button>
+            <div className="relative">
+              <Button
+                onClick={handleGenerate}
+                disabled={loading || !prompt.trim() || (refImageEnabled && refImages.length === 0) || (!!user && !canGenerate)}
+                className={cn(
+                  "w-full py-6 text-lg font-bold rounded-2xl transition-all shadow-lg",
+                  loading || (!!user && !canGenerate)
+                    ? "bg-muted cursor-not-allowed"
+                    : "bg-primary hover:bg-primary/90 shadow-lg"
+                )}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span>{progressStatus}</span>
+                  </div>
+                ) : !!user && !canGenerate ? (
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span>{generateDisabledReason || "没有生图权限"}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Wand2 className="w-6 h-6" />
+                    {refImageEnabled && refImages.length > 0 ? "基于参考图生成" : "立即生成"}
+                    {imageCountEnabled && imageCount > 1 && ` (${imageCount}张)`}
+                  </div>
+                )}
+              </Button>
+            </div>
             )}
           </div>
 
@@ -1825,10 +1846,10 @@ function CreatePageInner() {
                 <div className="flex gap-3 mt-4 pt-3 border-t border-border">
                   <Button
                     onClick={handleBatchGenerate}
-                    disabled={isBatchGenerating || batchSelectedIndices.size === 0}
+                    disabled={isBatchGenerating || batchSelectedIndices.size === 0 || (!!user && !canGenerate)}
                     className={cn(
                       "flex-1 py-5 text-base font-bold rounded-2xl transition-all shadow-lg",
-                      isBatchGenerating
+                      isBatchGenerating || (!!user && !canGenerate)
                         ? "bg-muted cursor-not-allowed"
                         : "bg-primary hover:bg-primary/90"
                     )}
@@ -1837,6 +1858,11 @@ function CreatePageInner() {
                       <div className="flex items-center gap-3">
                         <Loader2 className="w-5 h-5 animate-spin" />
                         <span>{batchProgressStatus} ({batchProgress}%)</span>
+                      </div>
+                    ) : !!user && !canGenerate ? (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="text-sm">{generateDisabledReason || "没有生图权限"}</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">

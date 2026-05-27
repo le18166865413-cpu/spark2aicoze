@@ -5,10 +5,14 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 interface User {
   id: string;
   username: string;
-  nickname: string;
+  nickname: string | null;
   role: 'user' | 'admin';
   status: 'pending' | 'approved' | 'rejected';
-  email?: string;
+  email?: string | null;
+  phone?: string | null;
+  wechat?: string | null;
+  avatar?: string | null;
+  canGenerate?: boolean;
 }
 
 interface AuthContextType {

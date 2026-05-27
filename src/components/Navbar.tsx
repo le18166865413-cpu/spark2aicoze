@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
-import { Sparkles, House, Palette, User, LogOut, BarChart3 } from 'lucide-react';
+import { Sparkles, House, Palette, User as UserIcon, LogOut, BarChart3 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
@@ -143,15 +143,15 @@ export default function Navbar() {
                 className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-secondary/60 transition-all"
               >
                 <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-1 ring-primary/30">
-                  {user.nickname.charAt(0).toUpperCase()}
+                  {(user.nickname || user.email || user.username).charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden md:inline text-sm font-medium">{user.nickname}</span>
+                <span className="hidden md:inline text-sm font-medium">{user.nickname || user.email || user.username}</span>
               </button>
 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-border">
-                    <p className="text-sm font-semibold">{user.nickname}</p>
+                    <p className="text-sm font-semibold">{user.nickname || user.email || user.username}</p>
                     <p className="text-xs text-muted-foreground">@{user.username}</p>
                   </div>
                   <div className="py-1">
@@ -161,6 +161,13 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors sm:hidden"
                     >
                       <Palette className="w-4 h-4" />我的作品
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors"
+                    >
+                      <UserIcon className="w-4 h-4" />个人资料
                     </Link>
                     <Link
                       href="/stats"
@@ -184,7 +191,7 @@ export default function Navbar() {
               href="/login"
               className="inline-flex items-center gap-1.5 rounded-md text-sm font-semibold h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
             >
-              <User className="h-3.5 w-3.5" />
+              <UserIcon className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">登录</span>
             </Link>
           )}

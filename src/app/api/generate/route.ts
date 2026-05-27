@@ -446,6 +446,16 @@ export async function POST(request: NextRequest) {
     const userId = userInfo?.id || null;
     const creatorName = userInfo?.nickname || null;
 
+    // Check if user is pending (not approved yet)
+    if (userInfo && userInfo.status === 'pending') {
+      return new Response(JSON.stringify({ error: "账号尚未通过审核，请等待管理员审批后再使用生图功能" }), { status: 403 });
+    }
+
+    // Check if user's generate permission is disabled
+    if (userInfo && userInfo.can_generate === false) {
+      return new Response(JSON.stringify({ error: "生图权限已被禁用，请联系管理员" }), { status: 403 });
+    }
+
     // Check if anonymous generate is allowed
     let anonymousGenerate = false;
     try {

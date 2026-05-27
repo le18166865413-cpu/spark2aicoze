@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data, error } = await getSupabaseClient()
       .from('users')
-      .select('id, username, password, plain_password, nickname, role, status, email, created_at, updated_at')
+      .select('id, username, password, plain_password, nickname, role, status, email, can_generate, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -113,16 +113,17 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, nickname, role, password, status } = body;
+    const { id, nickname, role, password, status, can_generate } = body;
 
     if (!id) {
       return NextResponse.json({ error: '用户ID不能为空' }, { status: 400 });
     }
 
-    const updates: Record<string, string> = { updated_at: new Date().toISOString() };
+    const updates: Record<string, string | boolean> = { updated_at: new Date().toISOString() };
 
     if (nickname) updates.nickname = nickname;
     if (role) updates.role = role;
+    if (can_generate !== undefined) updates.can_generate = can_generate;
     if (status && ['approved', 'rejected', 'pending'].includes(status)) {
       updates.status = status;
       // If rejected, delete all sessions to force logout
@@ -144,7 +145,7 @@ export async function PUT(request: Request) {
       .from('users')
       .update(updates)
       .eq('id', id)
-      .select('id, username, nickname, role, status, created_at, updated_at')
+      .select('id, username, nickname, email, role, status, can_generate, created_at, updated_at')
       .single();
 
     if (error) {

@@ -26,10 +26,12 @@ interface User {
   username: string;
   password: string;
   plain_password?: string;
-  nickname: string;
+  nickname: string | null;
   role: string;
   status: string;
   email?: string;
+  avatar?: string;
+  can_generate?: boolean;
   created_at: string;
   updated_at: string;
   work_count?: number;
@@ -295,6 +297,25 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleToggleGenerate = async (userId: string, canGenerate: boolean) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: userId, can_generate: !canGenerate }),
+      });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || '操作失败');
+      }
+    } catch {
+      alert('操作失败');
+    }
+  };
+
   const handleDelete = async (userId: string) => {
     if (!confirm('确定要删除此用户吗？此操作不可恢复。')) return;
     try {
@@ -476,11 +497,11 @@ export default function AdminUsersPage() {
                 <div key={user.id} className="flex items-center justify-between p-4 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-yellow-500/15 flex items-center justify-center font-bold text-yellow-600 text-sm">
-                      {user.nickname[0]}
+                      {user.nickname?.[0] || user.email?.[0] || user.username[0]}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold">{user.nickname}</p>
+                        <p className="font-semibold">{user.nickname || user.email || user.username}</p>
                         <Badge variant="outline" className="text-[10px] h-5 px-1.5">
                           作品 {user.work_count || 0}
                         </Badge>
@@ -642,49 +663,57 @@ export default function AdminUsersPage() {
             {filteredUsers.map(user => (
               <div key={user.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
-                    {user.nickname[0]}
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm overflow-hidden">
+                    {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user.nickname?.[0] || user.username[0])}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{user.nickname}</p>
+                      <p className="font-medium text-sm">{user.nickname || user.username}</p>
                       {getRoleBadge(user.role)}
                       {getStatusBadge(user.status)}
                       <Badge variant="outline" className="text-[10px] h-5 px-1.5">
                         作品 {user.work_count || 0}
                       </Badge>
+                      <Badge variant={user.can_generate !== false ? "outline" : "secondary"} className={`text-[10px] h-5 px-1.5 ${user.can_generate !== false ? 'text-green-600 border-green-500/30' : 'text-muted-foreground'}`}>
+                        {user.can_generate !== false ? '可生图' : '禁止生图'}
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">@{user.username}{user.email ? ` · ${user.email}` : ``} · 注册于 {new Date(user.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
                   {user.status === 'pending' && (
                     <>
-                      <Button size="sm" variant="ghost" className="text-green-500 hover:text-green-600 hover:bg-green-500/10 h-8 px-2" onClick={() => handleApprove(user.id, 'approved')}>
-                        通过
+                      <Button size="sm" className="text-xs bg-green-600 hover:bg-green-700 h-7 px-3" onClick={() => handleApprove(user.id, 'approved')}>
+                        通过审批
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 px-2" onClick={() => handleApprove(user.id, 'rejected')}>
+                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-7 px-2" onClick={() => handleApprove(user.id, 'rejected')}>
                         拒绝
                       </Button>
                     </>
                   )}
                   {user.status === 'approved' && (
-                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleApprove(user.id, 'rejected')}>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'rejected')}>
                       停用
                     </Button>
                   )}
                   {user.status === 'rejected' && (
-                    <Button size="sm" variant="ghost" className="text-green-500 hover:text-green-600 hover:bg-green-500/10 h-8 px-2" onClick={() => handleApprove(user.id, 'approved')}>
+                    <Button size="sm" variant="ghost" className="text-green-500 hover:text-green-600 hover:bg-green-500/10 h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'approved')}>
                       启用
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setEditingUser(user); setEditForm({ nickname: user.nickname, role: user.role }); }}>
+                  {user.role !== 'admin' && (
+                    <Button size="sm" variant="ghost" className={`h-7 px-2 text-xs ${user.can_generate !== false ? 'text-orange-500 hover:text-orange-600 hover:bg-orange-500/10' : 'text-green-500 hover:text-green-600 hover:bg-green-500/10'}`} onClick={() => handleToggleGenerate(user.id, user.can_generate !== false)}>
+                      {user.can_generate !== false ? '关闭生图' : '开启生图'}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingUser(user); setEditForm({ nickname: user.nickname || '', role: user.role }); }}>
                     编辑
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setResetPwdUser(user); setNewPassword(''); }}>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setResetPwdUser(user); setNewPassword(''); }}>
                     重置密码
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-8 px-2" onClick={() => handleDelete(user.id)}>
+                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-7 px-2" onClick={() => handleDelete(user.id)}>
                     删除
                   </Button>
                 </div>

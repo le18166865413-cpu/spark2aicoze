@@ -42,7 +42,7 @@ export async function GET() {
     // Get user
     const { data: user, error: userError } = await getSupabaseClient()
       .from('users')
-      .select('id, username, nickname, role, status, email')
+      .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
       .eq('id', session.user_id)
       .single();
 
@@ -56,7 +56,20 @@ export async function GET() {
       .update({ last_active_at: new Date().toISOString() })
       .eq('id', token);
 
-    return NextResponse.json({ user });
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        nickname: user.nickname,
+        role: user.role,
+        status: user.status,
+        email: user.email,
+        phone: user.phone,
+        wechat: user.wechat,
+        avatar: user.avatar,
+        canGenerate: user.can_generate,
+      },
+    });
   } catch (error) {
     console.error('Auth check error:', error);
     return NextResponse.json({ user: null });
