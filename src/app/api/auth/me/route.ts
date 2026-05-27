@@ -42,7 +42,7 @@ export async function GET() {
     // Get user
     const { data: user, error: userError } = await getSupabaseClient()
       .from('users')
-      .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
+      .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
       .eq('id', session.user_id)
       .single();
 
@@ -64,7 +64,6 @@ export async function GET() {
         role: user.role,
         status: user.status,
         email: user.email,
-        phone: user.phone,
         wechat: user.wechat,
         avatar: user.avatar,
         canGenerate: user.can_generate,

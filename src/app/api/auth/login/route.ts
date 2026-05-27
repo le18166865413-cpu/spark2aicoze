@@ -70,17 +70,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '验证码错误' }, { status: 401 });
       }
 
-      // 标记匹配的验证码已使用（同时标记该邮箱5分钟内其他未使用的验证码为已使用，避免累积）
-      for (const r of codeRecords) {
-        if (r.id === matchedRecord.id || (new Date(r.expires_at) >= new Date() && r.code === matchedRecord.code)) {
-          await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
-        }
-      }
-
       // 查找用户（通过 email）
       let { data: user } = await sb
         .from('users')
-        .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
+        .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
         .eq('email', email)
         .single();
 
@@ -97,7 +90,7 @@ export async function POST(request: Request) {
             role: 'user',
             status: 'pending',
           })
-          .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
           .single();
 
         if (createError || !newUser) {
@@ -153,6 +146,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
       }
 
+      // 登录全部成功后，才标记验证码为已使用
+      for (const r of codeRecords) {
+        if (r.id === matchedRecord.id || (new Date(r.expires_at) >= new Date() && r.code === matchedRecord.code)) {
+          await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
+        }
+      }
+
       const response = NextResponse.json({
         user: {
           id: user.id,
@@ -161,7 +161,6 @@ export async function POST(request: Request) {
           role: user.role,
           status: user.status,
           email: user.email,
-          phone: user.phone,
           wechat: user.wechat,
           avatar: user.avatar,
           canGenerate: user.can_generate,
@@ -188,7 +187,7 @@ export async function POST(request: Request) {
     // Find user
     const { data: user, error } = await sb
       .from('users')
-      .select('id, username, password, nickname, role, status, email, phone, wechat, avatar, can_generate')
+      .select('id, username, password, nickname, role, status, email, wechat, avatar, can_generate')
       .eq('username', username)
       .single();
 
@@ -260,7 +259,6 @@ export async function POST(request: Request) {
         role: user.role,
         status: user.status,
         email: user.email,
-        phone: user.phone,
         wechat: user.wechat,
         avatar: user.avatar,
         canGenerate: user.can_generate,
