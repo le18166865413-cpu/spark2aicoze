@@ -22,49 +22,60 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '邮箱格式不正确' }, { status: 400 });
       }
 
-      // 查找验证码记录
+      // 查找5分钟内所有未使用的验证码（允许多个验证码同时有效）
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const { data: codeRecords, error: codeError } = await sb
         .from('email_verification_codes')
-        .select('id, code, used, attempts, expires_at')
+        .select('id, code, used, attempts, expires_at, created_at')
         .eq('email', email)
         .eq('used', false)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .gte('created_at', fiveMinAgo)
+        .order('created_at', { ascending: false });
 
       if (codeError || !codeRecords || codeRecords.length === 0) {
         return NextResponse.json({ error: '验证码已失效，请重新获取' }, { status: 401 });
       }
 
-      const codeRecord = codeRecords[0];
+      // 找到匹配且未过期的验证码
+      const matchedRecord = codeRecords.find(r => {
+        return new Date(r.expires_at) >= new Date() && r.code === code && r.attempts < 5;
+      });
 
-      // 检查过期
-      if (new Date(codeRecord.expires_at) < new Date()) {
-        return NextResponse.json({ error: '验证码已过期，请重新获取' }, { status: 401 });
-      }
+      if (!matchedRecord) {
+        // 检查是否有过期的或尝试次数过多的
+        const hasExpired = codeRecords.some(r => new Date(r.expires_at) < new Date());
+        const hasMaxAttempts = codeRecords.some(r => r.attempts >= 5);
+        
+        if (hasExpired) {
+          return NextResponse.json({ error: '验证码已过期，请重新获取' }, { status: 401 });
+        }
+        if (hasMaxAttempts) {
+          // 标记尝试次数过多的验证码为已使用
+          const exhausted = codeRecords.filter(r => r.attempts >= 5);
+          for (const r of exhausted) {
+            await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
+          }
+          return NextResponse.json({ error: '验证码错误次数过多，请重新获取' }, { status: 401 });
+        }
 
-      // 检查尝试次数
-      if (codeRecord.attempts >= 5) {
-        await sb
-          .from('email_verification_codes')
-          .update({ used: true })
-          .eq('id', codeRecord.id);
-        return NextResponse.json({ error: '验证码错误次数过多，请重新获取' }, { status: 401 });
-      }
-
-      // 验证码不匹配
-      if (codeRecord.code !== code) {
-        await sb
-          .from('email_verification_codes')
-          .update({ attempts: codeRecord.attempts + 1 })
-          .eq('id', codeRecord.id);
+        // 验证码不匹配，增加所有未过期验证码的尝试次数
+        for (const r of codeRecords) {
+          if (new Date(r.expires_at) >= new Date() && r.attempts < 5) {
+            await sb
+              .from('email_verification_codes')
+              .update({ attempts: r.attempts + 1 })
+              .eq('id', r.id);
+          }
+        }
         return NextResponse.json({ error: '验证码错误' }, { status: 401 });
       }
 
-      // 标记验证码已使用
-      await sb
-        .from('email_verification_codes')
-        .update({ used: true })
-        .eq('id', codeRecord.id);
+      // 标记匹配的验证码已使用（同时标记该邮箱5分钟内其他未使用的验证码为已使用，避免累积）
+      for (const r of codeRecords) {
+        if (r.id === matchedRecord.id || (new Date(r.expires_at) >= new Date() && r.code === matchedRecord.code)) {
+          await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
+        }
+      }
 
       // 查找用户（通过 email）
       let { data: user } = await sb
