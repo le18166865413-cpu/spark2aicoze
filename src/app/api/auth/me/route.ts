@@ -31,7 +31,7 @@ export async function GET() {
     // Get user
     const { data: user, error: userError } = await getSupabaseClient()
       .from('users')
-      .select('id, username, nickname, role, status')
+      .select('id, username, nickname, role, status, email')
       .eq('id', session.user_id)
       .single();
 

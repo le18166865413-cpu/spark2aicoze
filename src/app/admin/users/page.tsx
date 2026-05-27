@@ -29,6 +29,7 @@ interface User {
   nickname: string;
   role: string;
   status: string;
+  email?: string;
   created_at: string;
   updated_at: string;
   work_count?: number;
@@ -653,7 +654,7 @@ export default function AdminUsersPage() {
                         作品 {user.work_count || 0}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">@{user.username} · 注册于 {new Date(user.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground">@{user.username}{user.email ? ` · ${user.email}` : ``} · 注册于 {new Date(user.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">

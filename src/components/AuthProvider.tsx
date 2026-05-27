@@ -8,12 +8,15 @@ interface User {
   nickname: string;
   role: 'user' | 'admin';
   status: 'pending' | 'approved' | 'rejected';
+  email?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
+  loginWithEmail: (email: string, code: string) => Promise<void>;
+  sendCode: (email: string) => Promise<void>;
   register: (username: string, password: string, nickname: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -50,8 +53,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '登录失败');
-    // Directly set user from login response (cookie is set via Set-Cookie header)
     setUser(data.user || null);
+  };
+
+  const loginWithEmail = async (email: string, code: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '登录失败');
+    setUser(data.user || null);
+  };
+
+  const sendCode = async (email: string) => {
+    const res = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '发送失败');
   };
 
   const register = async (username: string, password: string, nickname: string) => {
@@ -72,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithEmail, sendCode, register, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

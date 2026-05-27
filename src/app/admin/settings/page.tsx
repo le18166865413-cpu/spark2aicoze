@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
-import { Save, Globe, ToggleLeft, ToggleRight, Upload, X } from 'lucide-react';
+import { Save, Globe, ToggleLeft, ToggleRight, Upload, X, Mail } from 'lucide-react';
 
 export default function AdminSettingsPage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
@@ -22,6 +22,14 @@ export default function AdminSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
 
+  const [smtpHost, setSmtpHost] = useState('smtp.qq.com');
+  const [smtpPort, setSmtpPort] = useState('465');
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('SparkAI');
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
     if (!loading && !initialized) {
       setSiteName(getSetting('site_name') || 'SparkAI');
@@ -35,6 +43,12 @@ export default function AdminSettingsPage() {
       setBatchGenerateAccess(bga === 'all' ? 'all' : bga === 'user' ? 'user' : 'admin');
       const qr = getSetting('group_qr_image') || '';
       setGroupQrImage(qr);
+      // SMTP settings
+      setSmtpHost(getSetting('smtp_host') || 'smtp.qq.com');
+      setSmtpPort(getSetting('smtp_port') || '465');
+      setSmtpUser(getSetting('smtp_user') || '');
+      setSmtpPass(getSetting('smtp_pass') || '');
+      setSmtpFromName(getSetting('smtp_from_name') || 'SparkAI');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -79,6 +93,11 @@ export default function AdminSettingsPage() {
         { key: 'gallery_subtitle', value: gallerySubtitle },
         { key: 'batch_generate_access', value: batchGenerateAccess },
         { key: 'group_qr_image', value: groupQrImage },
+        { key: 'smtp_host', value: smtpHost },
+        { key: 'smtp_port', value: smtpPort },
+        { key: 'smtp_user', value: smtpUser },
+        { key: 'smtp_pass', value: smtpPass },
+        { key: 'smtp_from_name', value: smtpFromName },
       ]);
       setMessage({ type: 'success', text: '设置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -218,6 +237,104 @@ export default function AdminSettingsPage() {
             <option value="all">所有人可见</option>
           </select>
           <p className="text-xs text-muted-foreground">控制创作中心批量生图功能的可见范围</p>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">邮件服务配置</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">用于发送邮箱验证码，支持 QQ 邮箱、163 邮箱等 SMTP 服务</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">SMTP 服务器</label>
+            <input
+              type="text"
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="smtp.qq.com"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">端口</label>
+            <input
+              type="text"
+              value={smtpPort}
+              onChange={(e) => setSmtpPort(e.target.value)}
+              placeholder="465"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">邮箱账号</label>
+            <input
+              type="text"
+              value={smtpUser}
+              onChange={(e) => setSmtpUser(e.target.value)}
+              placeholder="your@qq.com"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">授权码</label>
+            <input
+              type="password"
+              value={smtpPass}
+              onChange={(e) => setSmtpPass(e.target.value)}
+              placeholder="SMTP 授权码（非登录密码）"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm text-muted-foreground">发件人名称</label>
+            <input
+              type="text"
+              value={smtpFromName}
+              onChange={(e) => setSmtpFromName(e.target.value)}
+              placeholder="SparkAI"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setSmtpTesting(true);
+              setSmtpTestResult(null);
+              try {
+                const res = await fetch('/api/admin/settings', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ settings: [
+                    { key: 'smtp_host', value: smtpHost },
+                    { key: 'smtp_port', value: smtpPort },
+                    { key: 'smtp_user', value: smtpUser },
+                    { key: 'smtp_pass', value: smtpPass },
+                    { key: 'smtp_from_name', value: smtpFromName },
+                  ]}),
+                });
+                if (!res.ok) throw new Error('保存失败');
+                const testRes = await fetch('/api/admin/test-smtp');
+                const testData = await testRes.json();
+                setSmtpTestResult(testData);
+              } catch {
+                setSmtpTestResult({ success: false, message: '测试失败' });
+              } finally {
+                setSmtpTesting(false);
+              }
+            }}
+            disabled={smtpTesting || !smtpUser || !smtpPass}
+            className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            {smtpTesting ? '测试中...' : '测试连接'}
+          </button>
+          {smtpTestResult && (
+            <span className={`text-xs ${smtpTestResult.success ? 'text-green-500' : 'text-red-500'}`}>
+              {smtpTestResult.message}
+            </span>
+          )}
         </div>
       </div>
 

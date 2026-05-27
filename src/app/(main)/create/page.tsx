@@ -106,17 +106,25 @@ interface GenerationResult {
 function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, login, loading: authLoading } = useAuth();
+  const { user, loginWithEmail, sendCode, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
   
   // Login dialog state
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showPromptConfirm, setShowPromptConfirm] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState("");
-  const [loginUsername, setLoginUsername] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginCode, setLoginCode] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [loginCountdown, setLoginCountdown] = useState(0);
+
+  // Login countdown effect
+  useEffect(() => {
+    if (loginCountdown <= 0) return;
+    const timer = setTimeout(() => setLoginCountdown(loginCountdown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [loginCountdown]);
   
   // Get params from URL (for "做同款")
   const initialPrompt = searchParams.get("prompt") || "";
@@ -402,26 +410,41 @@ function CreatePageInner() {
   }, []);
 
   // Parse batch pages from prompt text
-  // Login submit handler (in-dialog login)
+  // Login submit handler (in-dialog email code login)
   const handleLoginSubmit = useCallback(async () => {
-    if (!loginUsername.trim() || !loginPassword.trim()) {
-      setLoginError("请输入账号和密码");
+    if (!loginEmail.trim() || !loginCode.trim()) {
+      setLoginError("请输入邮箱和验证码");
       return;
     }
     setLoginLoading(true);
     setLoginError("");
     try {
-      await login(loginUsername, loginPassword);
+      await loginWithEmail(loginEmail, loginCode);
       setShowLoginDialog(false);
-      setLoginUsername("");
-      setLoginPassword("");
+      setLoginEmail("");
+      setLoginCode("");
       toast.success("登录成功");
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : "登录失败");
     } finally {
       setLoginLoading(false);
     }
-  }, [loginUsername, loginPassword, login]);
+  }, [loginEmail, loginCode, loginWithEmail]);
+
+  // Send code handler
+  const handleSendLoginCode = useCallback(async () => {
+    if (!loginEmail.trim()) {
+      setLoginError("请输入邮箱地址");
+      return;
+    }
+    setLoginError("");
+    try {
+      await sendCode(loginEmail);
+      setLoginCountdown(60);
+    } catch (err: unknown) {
+      setLoginError(err instanceof Error ? err.message : "发送失败");
+    }
+  }, [loginEmail, sendCode]);
 
   // Batch page editing handlers
   const toggleBatchSelect = useCallback((index: number) => {
@@ -2131,24 +2154,34 @@ function CreatePageInner() {
                 <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{loginError}</div>
               )}
               <div>
-                <Label className="text-sm mb-1.5 block">账号</Label>
+                <Label className="text-sm mb-1.5 block">邮箱</Label>
                 <Input
-                  placeholder="请输入账号"
-                  value={loginUsername}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLoginUsername(e.target.value)}
-                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && document.getElementById("login-pwd-input")?.focus()}
+                  type="email"
+                  placeholder="请输入邮箱"
+                  value={loginEmail}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLoginEmail(e.target.value); setLoginError(""); }}
                 />
               </div>
               <div>
-                <Label className="text-sm mb-1.5 block">密码</Label>
-                <Input
-                  id="login-pwd-input"
-                  type="password"
-                  placeholder="请输入密码"
-                  value={loginPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLoginPassword(e.target.value)}
-                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleLoginSubmit()}
-                />
+                <Label className="text-sm mb-1.5 block">验证码</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="6位验证码"
+                    value={loginCode}
+                    maxLength={6}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLoginCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setLoginError(""); }}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleLoginSubmit()}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={handleSendLoginCode}
+                    disabled={loginCountdown > 0 || !loginEmail.trim()}
+                  >
+                    {loginCountdown > 0 ? `${loginCountdown}s` : "获取验证码"}
+                  </Button>
+                </div>
               </div>
               <Button
                 className="w-full"
@@ -2158,10 +2191,9 @@ function CreatePageInner() {
                 {loginLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 登录
               </Button>
-              <div className="text-center text-sm text-muted-foreground">
-                还没有账号？
-                <a href="/login" className="text-primary hover:underline ml-1">去注册</a>
-              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                新邮箱将自动注册并登录
+              </p>
             </div>
           </DialogContent>
         </Dialog>
