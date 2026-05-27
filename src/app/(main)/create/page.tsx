@@ -113,6 +113,8 @@ function CreatePageInner() {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showPromptConfirm, setShowPromptConfirm] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState("");
+  const [showBatchPromptConfirm, setShowBatchPromptConfirm] = useState(false);
+  const [pendingBatchPrompts, setPendingBatchPrompts] = useState<{index: number; prompt: string}[]>([]);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginCode, setLoginCode] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -524,12 +526,22 @@ function CreatePageInner() {
   const [batchProgress, setBatchProgress] = useState(0);
   const [batchProgressStatus, setBatchProgressStatus] = useState("");
 
-  const handleBatchGenerate = useCallback(async () => {
+  const handleBatchGenerate = useCallback(() => {
     const toGen = batchPages.filter((p) => batchSelectedIndices.has(p.index));
     if (!toGen.length) {
       toast.error("请至少选择一页");
       return;
     }
+    // Show confirmation dialog with prompts
+    const prompts = toGen.map((p) => ({ index: p.index, prompt: buildBatchPrompt(p) }));
+    setPendingBatchPrompts(prompts);
+    setShowBatchPromptConfirm(true);
+  }, [batchPages, batchSelectedIndices, buildBatchPrompt]);
+
+  const handleConfirmBatchGenerate = useCallback(async () => {
+    setShowBatchPromptConfirm(false);
+    const toGen = batchPages.filter((p) => batchSelectedIndices.has(p.index));
+    if (!toGen.length) return;
 
     batchStopRef.current = false;
     setIsBatchGenerating(true);
@@ -2225,6 +2237,47 @@ function CreatePageInner() {
               <AlertDialogCancel>取消</AlertDialogCancel>
               <AlertDialogAction onClick={handleConfirmGenerate} className="bg-primary hover:bg-primary/90">
                 确认生成
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Batch Prompt Confirmation Dialog */}
+        <AlertDialog open={showBatchPromptConfirm} onOpenChange={setShowBatchPromptConfirm}>
+          <AlertDialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                确认批量生成提示词
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    即将生成 {pendingBatchPrompts.length} 页海报，请确认提示词无误：
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {refImageEnabled && refImages.length > 0 && (
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">参考图 x{refImages.length}</span>
+                    )}
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">模型: {modelOptions.find(m => m.value === model)?.label || model}</span>
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">比例: {ratio}</span>
+                    {imageSize && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">尺寸: {imageSize}</span>}
+                  </div>
+                  <div className="space-y-2 overflow-y-auto max-h-[45vh] pr-1">
+                    {pendingBatchPrompts.map((item, i) => (
+                      <div key={item.index} className="bg-muted/50 rounded-lg p-3 border">
+                        <div className="text-xs font-medium text-muted-foreground mb-1">第 {i + 1} 页</div>
+                        <div className="text-sm whitespace-pre-wrap break-words">{item.prompt}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmBatchGenerate} className="bg-primary hover:bg-primary/90">
+                确认生成 ({pendingBatchPrompts.length} 页)
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
