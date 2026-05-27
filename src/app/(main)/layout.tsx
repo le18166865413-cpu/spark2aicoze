@@ -129,7 +129,7 @@ function PendingStatusBanner() {
   return (
     <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2 text-center">
       <p className="text-sm text-amber-700 dark:text-amber-300">
-        你的账号正在审核中，审核通过后即可使用生图功能
+        你的账号正在审核中，审核通过后即可使用生图功能，如有疑问请联系 18166865413
       </p>
     </div>
   );
@@ -143,7 +143,7 @@ function RejectedStatusBanner() {
   return (
     <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-2 text-center">
       <p className="text-sm text-red-700 dark:text-red-300">
-        你的账号审核未通过，如有疑问请联系管理员
+        你的账号审核未通过，如有疑问请联系 18166865413
       </p>
       <button
         onClick={logout}
