@@ -72,10 +72,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: getStorageErrorMessage(uploadError) }, { status: 500 });
     }
 
-    // If this is for GrsAI, return the key directly
+    // If this is for GrsAI, return the key and a signed URL
     if (forGrsai) {
+      let signedUrl = "";
+      try {
+        signedUrl = await getSignedUrl(key);
+      } catch {
+        try {
+          signedUrl = await storage.generatePresignedUrl({ key, expireTime: 86400 });
+        } catch {
+          // Fallback: no signed URL available
+        }
+      }
+
       return NextResponse.json({
         key: key,
+        url: signedUrl,
         type: file.type,
       });
     }

@@ -379,10 +379,11 @@ function CreatePageInner() {
         
         const data = await res.json();
         
-        if (data.key) {
-          newImages.push({ url: data.key, preview: previewUrl });
-        } else if (data.url) {
+        // Prefer signed URL (for GrsAI), fallback to key
+        if (data.url) {
           newImages.push({ url: data.url, preview: previewUrl });
+        } else if (data.key) {
+          newImages.push({ url: data.key, preview: previewUrl });
         } else {
           URL.revokeObjectURL(previewUrl);
           throw new Error("No key or URL returned");
@@ -577,9 +578,14 @@ function CreatePageInner() {
             siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
           };
 
-          const refImageUrl = refImages.length > 0 ? refImages[0].url : null;
-          if (refImageUrl) {
-            body.refImageUrl = refImageUrl;
+          if (refImages.length > 0) {
+            const refImg = refImages[0];
+            if (!refImg.url.startsWith("http") && !refImg.url.startsWith("data:")) {
+              body.refImageKey = refImg.url;
+              body.refImageContentType = "image/jpeg";
+            } else {
+              body.refImageUrl = refImg.url;
+            }
             body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
           } else {
             body.prompt = enhancedPrompt;
