@@ -573,7 +573,7 @@ function CreatePageInner() {
             model,
             ratio,
             count: 1,
-            replyType: "json",
+            replyType: "async",
             siteId: process.env.NEXT_PUBLIC_SITE_ID || "main",
           };
 
