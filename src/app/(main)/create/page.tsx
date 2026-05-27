@@ -1056,7 +1056,6 @@ function CreatePageInner() {
             </div>
 
             {/* Reference Image Upload - with toggle switch */}
-            {mode !== "batch" && (
               <div className="bg-card rounded-2xl p-6 shadow-sm border border-border">
                 <div className="flex items-center justify-between mb-0">
                   <Label className="text-base font-semibold flex items-center gap-2">
@@ -1149,7 +1148,6 @@ function CreatePageInner() {
                   </>
                 )}
               </div>
-            )}
 
             {/* Tips - mobile only */}
             <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 lg:hidden relative">
