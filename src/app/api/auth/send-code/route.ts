@@ -78,7 +78,16 @@ export async function POST(request: Request) {
     }
 
     // 发送邮件
-    const sent = await sendVerificationEmail(email, code);
+    let sent = false;
+    try {
+      sent = await sendVerificationEmail(email, code);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg.includes('SMTP 配置缺失')) {
+        return NextResponse.json({ error: '邮件服务未配置，请联系管理员' }, { status: 503 });
+      }
+      console.error('[SendCode] Email error:', e);
+    }
     if (!sent) {
       // 删除已插入但未发送的验证码
       await sb.from('email_verification_codes').delete().eq('email', email).eq('code', code);

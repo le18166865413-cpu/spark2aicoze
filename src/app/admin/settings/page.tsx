@@ -27,8 +27,13 @@ export default function AdminSettingsPage() {
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
   const [smtpFromName, setSmtpFromName] = useState('SparkAI');
+  const [smtp2Host, setSmtp2Host] = useState('smtp.163.com');
+  const [smtp2Port, setSmtp2Port] = useState('465');
+  const [smtp2User, setSmtp2User] = useState('');
+  const [smtp2Pass, setSmtp2Pass] = useState('');
+  const [smtp2FromName, setSmtp2FromName] = useState('SparkAI');
   const [smtpTesting, setSmtpTesting] = useState(false);
-  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string; channels?: { label: string; success: boolean; message: string }[] } | null>(null);
 
   useEffect(() => {
     if (!loading && !initialized) {
@@ -49,6 +54,11 @@ export default function AdminSettingsPage() {
       setSmtpUser(getSetting('smtp_user') || '');
       setSmtpPass(getSetting('smtp_pass') || '');
       setSmtpFromName(getSetting('smtp_from_name') || 'SparkAI');
+      setSmtp2Host(getSetting('smtp2_host') || 'smtp.163.com');
+      setSmtp2Port(getSetting('smtp2_port') || '465');
+      setSmtp2User(getSetting('smtp2_user') || '');
+      setSmtp2Pass(getSetting('smtp2_pass') || '');
+      setSmtp2FromName(getSetting('smtp2_from_name') || 'SparkAI');
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
@@ -98,6 +108,11 @@ export default function AdminSettingsPage() {
         { key: 'smtp_user', value: smtpUser },
         { key: 'smtp_pass', value: smtpPass },
         { key: 'smtp_from_name', value: smtpFromName },
+        { key: 'smtp2_host', value: smtp2Host },
+        { key: 'smtp2_port', value: smtp2Port },
+        { key: 'smtp2_user', value: smtp2User },
+        { key: 'smtp2_pass', value: smtp2Pass },
+        { key: 'smtp2_from_name', value: smtp2FromName },
       ]);
       setMessage({ type: 'success', text: '设置已保存' });
       setTimeout(() => setMessage(null), 3000);
@@ -245,60 +260,129 @@ export default function AdminSettingsPage() {
           <Mail className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">邮件服务配置</h3>
         </div>
-        <p className="text-xs text-muted-foreground">用于发送邮箱验证码，支持 QQ 邮箱、163 邮箱等 SMTP 服务</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">SMTP 服务器</label>
-            <input
-              type="text"
-              value={smtpHost}
-              onChange={(e) => setSmtpHost(e.target.value)}
-              placeholder="smtp.qq.com"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+        <p className="text-xs text-muted-foreground">用于发送邮箱验证码。主通道优先，失败自动切换备用通道（建议 QQ + 163 双通道）</p>
+
+        {/* 主通道 */}
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">主通道</span>
+            <span className="text-xs text-muted-foreground">优先使用</span>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">端口</label>
-            <input
-              type="text"
-              value={smtpPort}
-              onChange={(e) => setSmtpPort(e.target.value)}
-              placeholder="465"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">邮箱账号</label>
-            <input
-              type="text"
-              value={smtpUser}
-              onChange={(e) => setSmtpUser(e.target.value)}
-              placeholder="your@qq.com"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">授权码</label>
-            <input
-              type="password"
-              value={smtpPass}
-              onChange={(e) => setSmtpPass(e.target.value)}
-              placeholder="SMTP 授权码（非登录密码）"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm text-muted-foreground">发件人名称</label>
-            <input
-              type="text"
-              value={smtpFromName}
-              onChange={(e) => setSmtpFromName(e.target.value)}
-              placeholder="SparkAI"
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">SMTP 服务器</label>
+              <input
+                type="text"
+                value={smtpHost}
+                onChange={(e) => setSmtpHost(e.target.value)}
+                placeholder="smtp.qq.com"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">端口</label>
+              <input
+                type="text"
+                value={smtpPort}
+                onChange={(e) => setSmtpPort(e.target.value)}
+                placeholder="465"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">邮箱账号</label>
+              <input
+                type="text"
+                value={smtpUser}
+                onChange={(e) => setSmtpUser(e.target.value)}
+                placeholder="your@qq.com"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">授权码</label>
+              <input
+                type="password"
+                value={smtpPass}
+                onChange={(e) => setSmtpPass(e.target.value)}
+                placeholder="SMTP 授权码（非登录密码）"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs text-muted-foreground">发件人名称</label>
+              <input
+                type="text"
+                value={smtpFromName}
+                onChange={(e) => setSmtpFromName(e.target.value)}
+                placeholder="SparkAI"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* 备用通道 */}
+        <div className="border border-dashed border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">备用通道</span>
+            <span className="text-xs text-muted-foreground">主通道失败时自动切换</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">SMTP 服务器</label>
+              <input
+                type="text"
+                value={smtp2Host}
+                onChange={(e) => setSmtp2Host(e.target.value)}
+                placeholder="smtp.163.com"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">端口</label>
+              <input
+                type="text"
+                value={smtp2Port}
+                onChange={(e) => setSmtp2Port(e.target.value)}
+                placeholder="465"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">邮箱账号</label>
+              <input
+                type="text"
+                value={smtp2User}
+                onChange={(e) => setSmtp2User(e.target.value)}
+                placeholder="your@163.com"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">授权码</label>
+              <input
+                type="password"
+                value={smtp2Pass}
+                onChange={(e) => setSmtp2Pass(e.target.value)}
+                placeholder="SMTP 授权码（非登录密码）"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs text-muted-foreground">发件人名称</label>
+              <input
+                type="text"
+                value={smtp2FromName}
+                onChange={(e) => setSmtp2FromName(e.target.value)}
+                placeholder="SparkAI"
+                className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={async () => {
               setSmtpTesting(true);
@@ -313,6 +397,11 @@ export default function AdminSettingsPage() {
                     { key: 'smtp_user', value: smtpUser },
                     { key: 'smtp_pass', value: smtpPass },
                     { key: 'smtp_from_name', value: smtpFromName },
+                    { key: 'smtp2_host', value: smtp2Host },
+                    { key: 'smtp2_port', value: smtp2Port },
+                    { key: 'smtp2_user', value: smtp2User },
+                    { key: 'smtp2_pass', value: smtp2Pass },
+                    { key: 'smtp2_from_name', value: smtp2FromName },
                   ]}),
                 });
                 if (!res.ok) throw new Error('保存失败');
@@ -325,16 +414,21 @@ export default function AdminSettingsPage() {
                 setSmtpTesting(false);
               }
             }}
-            disabled={smtpTesting || !smtpUser || !smtpPass}
+            disabled={smtpTesting || (!smtpUser && !smtp2User)}
             className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             {smtpTesting ? '测试中...' : '测试连接'}
           </button>
-          {smtpTestResult && (
+          {smtpTestResult && !smtpTestResult.channels && (
             <span className={`text-xs ${smtpTestResult.success ? 'text-green-500' : 'text-red-500'}`}>
               {smtpTestResult.message}
             </span>
           )}
+          {smtpTestResult?.channels?.map((ch, i) => (
+            <span key={i} className={`text-xs ${ch.success ? 'text-green-500' : 'text-red-500'}`}>
+              {ch.label}: {ch.message}
+            </span>
+          ))}
         </div>
       </div>
 
