@@ -694,9 +694,12 @@ export async function POST(request: NextRequest) {
               let taskId = "";
               try {
                 const data = JSON.parse(responseText);
-                taskId = data.id || "";
-              } catch {
-                // ignore parse error
+                taskId = data.id || data.task_id || data.taskId || "";
+                if (!taskId) {
+                  console.error("GrsAI response missing task ID:", responseText.substring(0, 200));
+                }
+              } catch (e) {
+                console.error("GrsAI response parse error:", responseText.substring(0, 200), e);
               }
 
               if (!taskId) {

@@ -601,12 +601,15 @@ function CreatePageInner() {
             const sseText = await res.text();
             let batchTaskId = "";
             let batchError = "";
+            let allTaskIds: string[] = [];
             for (const line of sseText.split("\n")) {
               if (line.startsWith("data: ")) {
                 try {
                   const event = JSON.parse(line.slice(6));
                   if (event.type === "task_submitted" && event.taskId) {
                     batchTaskId = event.taskId as string;
+                  } else if (event.type === "tasks_submitted" && event.taskIds) {
+                    allTaskIds = event.taskIds as string[];
                   } else if (event.type === "error" && event.error) {
                     batchError = event.error as string;
                   }
@@ -614,6 +617,10 @@ function CreatePageInner() {
                   // Ignore unparseable lines
                 }
               }
+            }
+            // Fallback: if no task_submitted found but tasks_submitted has IDs
+            if (!batchTaskId && allTaskIds.length > 0) {
+              batchTaskId = allTaskIds[0];
             }
 
             if (!res.ok || batchError) {
@@ -655,7 +662,7 @@ function CreatePageInner() {
               }
               if (!pollDone) throw new Error("生成超时");
             } else {
-              throw new Error("未获取到任务ID");
+              throw new Error(`未获取到任务ID (SSE响应: ${sseText.substring(0, 200)})`);
             }
           } catch (err: unknown) {
             clearTimeout(timeoutId);
