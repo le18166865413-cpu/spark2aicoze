@@ -550,8 +550,9 @@ function CreatePageInner() {
 
   const handleConfirmBatchGenerate = useCallback(async () => {
     setShowBatchPromptConfirm(false);
-    const toGen = batchPages.filter((p) => batchSelectedIndices.has(p.index));
+    let toGen = batchPages.filter((p) => batchSelectedIndices.has(p.index));
     if (!toGen.length) return;
+    if (toGen.length > 20) toGen = toGen.slice(0, 20);
 
     batchStopRef.current = false;
     setIsBatchGenerating(true);
