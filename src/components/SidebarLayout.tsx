@@ -59,8 +59,8 @@ export default function SidebarLayout({
       <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-border">
         <div className="flex h-16 items-center border-b border-border px-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
-              <Sparkles className="h-4 w-4 text-primary" />
+            <div className="bg-primary rounded-lg p-1.5">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-lg">{siteName}</span>
           </Link>
@@ -118,8 +118,8 @@ export default function SidebarLayout({
             </Button>
           )}
           <Link href="/" className="ml-4 flex items-center gap-2">
-            <div className="bg-primary/15 rounded-lg p-1.5 ring-1 ring-primary/40">
-              <Sparkles className="h-4 w-4 text-primary" />
+            <div className="bg-primary rounded-lg p-1.5">
+              <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="font-bold">SparkAI</span>
           </Link>
