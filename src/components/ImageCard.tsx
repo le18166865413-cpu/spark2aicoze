@@ -191,7 +191,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <div className="group relative break-inside-avoid overflow-hidden rounded-xl bg-card border border-border/50 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+        <div className="group relative break-inside-avoid overflow-hidden rounded-xl bg-card border border-border/50 shadow-sm transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.15)] hover:border-primary/30 cursor-pointer">
           {/* Image */}
           {imgError ? (
             <div

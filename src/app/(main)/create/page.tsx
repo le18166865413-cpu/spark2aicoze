@@ -1120,7 +1120,7 @@ function CreatePageInner() {
                 className={cn(
                   "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
                   mode === "text2img"
-                    ? "bg-primary text-white shadow-md"
+                    ? "btn-metallic text-white shadow-lg"
                     : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
                 )}
               >
@@ -1134,7 +1134,7 @@ function CreatePageInner() {
                   className={cn(
                     "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
                     mode === "batch"
-                      ? "bg-primary text-white shadow-md"
+                      ? "btn-metallic text-white shadow-lg"
                       : "text-muted-foreground hover:bg-accent dark:hover:bg-accent"
                   )}
                 >

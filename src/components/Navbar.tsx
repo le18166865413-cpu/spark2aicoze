@@ -39,7 +39,7 @@ export default function Navbar() {
   const displayName = siteName || 'SparkAI';
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-nav backdrop-blur-lg supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-[72px] items-center px-1 md:px-6 mx-auto">
         {/* Logo */}
         <Link href="/" className="mr-4 sm:mr-8 flex items-center space-x-2 shrink-0">
@@ -47,7 +47,7 @@ export default function Navbar() {
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-lg">{displayName}</span>
+            <span className="font-bold text-lg text-metallic">{displayName}</span>
             {siteLabel && (
               <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
                 {siteLabel}
