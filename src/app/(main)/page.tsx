@@ -382,9 +382,9 @@ export default function Home() {
           </Button>
         </div>
       ) : (
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-1 md:gap-4">
           {columns.map((colImages, colIndex) => (
-            <div key={colIndex} className="flex flex-col gap-4 flex-1 min-w-0 max-w-[360px]">
+            <div key={colIndex} className="flex flex-col gap-1 md:gap-4 flex-1 min-w-0 max-w-[360px]">
               {colImages.map((img, imgIndex) => {
                 const globalIndex = colIndex * Math.ceil(images.length / columns.length) + imgIndex;
                 return (
