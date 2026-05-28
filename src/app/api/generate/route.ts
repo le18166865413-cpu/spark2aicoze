@@ -13,7 +13,8 @@ async function saveTaskToSyncQueue(
   ratio: string,
   imageSize: string,
   userId?: string,
-  creatorName?: string
+  creatorName?: string,
+  referenceImageKey?: string
 ): Promise<void> {
   try {
     const supabase = getSupabaseClient();
@@ -25,7 +26,7 @@ async function saveTaskToSyncQueue(
         prompt,
         ratio,
         source: "generate",
-        extra: JSON.stringify({ imageSize, userId, creatorName }),
+        extra: JSON.stringify({ imageSize, userId, creatorName, referenceImageKey }),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -237,7 +238,7 @@ async function callGrsaiAndGetResult(
   apiUrl: string,
   requestBody: Record<string, unknown>,
   apiKey: string,
-  meta?: { model: string; prompt: string; ratio: string; imageSize: string; userId?: string; creatorName?: string }
+  meta?: { model: string; prompt: string; ratio: string; imageSize: string; userId?: string; creatorName?: string; referenceImageKey?: string }
 ): Promise<{ imageUrl: string; taskId: string }> {
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -288,7 +289,7 @@ async function callGrsaiAndGetResult(
         taskId = result.id;
         // Save immediately for recovery if connection drops
         if (meta) {
-          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName).catch(() => {});
+          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName, meta.referenceImageKey).catch(() => {});
         }
       }
 
@@ -319,7 +320,7 @@ async function callGrsaiAndGetResult(
       if (result.id && !taskId) {
         taskId = result.id;
         if (meta) {
-          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName).catch(() => {});
+          saveTaskToSyncQueue(taskId, meta.model, meta.prompt, meta.ratio, meta.imageSize, meta.userId, meta.creatorName, meta.referenceImageKey).catch(() => {});
         }
       }
       if (result.status === "succeeded" && result.results) {
@@ -357,7 +358,8 @@ async function saveGeneratedImage(
   model: string,
   imageSize: string,
   userId: string | null,
-  creatorName: string | null
+  creatorName: string | null,
+  referenceImageKey?: string
 ): Promise<{ imageKey: string; signedUrl: string; id: string; width: number; height: number }> {
   // Upload to S3
   let key: string;
@@ -392,6 +394,7 @@ async function saveGeneratedImage(
       user_id: userId,
       creator_name: creatorName,
       created_at: now,
+      reference_image_key: referenceImageKey || null,
     });
     const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
     if (dbError) {
@@ -425,6 +428,18 @@ export async function POST(request: NextRequest) {
     const { prompt, ratio = "auto", model = "image2", count = 1, imageSize = "1K", refImgs, refImageKeys, refImageUrl, refImageKey, refImageContentType, replyType = "stream" } = body;
 
     const imageCount = Math.min(Math.max(Number(count) || 1, 1), 4);
+
+    // Determine the reference image key to save (first one for display in gallery)
+    let referenceImageKeyToSave: string | undefined;
+    if (refImageKeys && Array.isArray(refImageKeys) && refImageKeys.length > 0) {
+      referenceImageKeyToSave = refImageKeys[0];
+    } else if (refImageKey) {
+      referenceImageKeyToSave = refImageKey;
+    } else if (refImgs && Array.isArray(refImgs) && refImgs.length > 0) {
+      // refImgs can be mix of URLs and keys - save the first non-URL one
+      const firstKey = refImgs.find((img: string) => !img.startsWith("http"));
+      if (firstKey) referenceImageKeyToSave = firstKey;
+    }
 
     console.log("Generate API received:", {
       hasPrompt: !!prompt,
@@ -619,8 +634,8 @@ export async function POST(request: NextRequest) {
 
       for (let imgIndex = 0; imgIndex < imageCount; imgIndex++) {
         try {
-          const { imageUrl, taskId } = await callGrsaiAndGetResult(url, requestBody, await getGrsaiApiKey(), { model, prompt, ratio, imageSize, userId: userId ?? undefined, creatorName: creatorName ?? undefined });
-          const saved = await saveGeneratedImage(imageUrl, taskId, prompt, ratio, model, imageSize, userId, creatorName);
+          const { imageUrl, taskId } = await callGrsaiAndGetResult(url, requestBody, await getGrsaiApiKey(), { model, prompt, ratio, imageSize, userId: userId ?? undefined, creatorName: creatorName ?? undefined, referenceImageKey: referenceImageKeyToSave });
+          const saved = await saveGeneratedImage(imageUrl, taskId, prompt, ratio, model, imageSize, userId, creatorName, referenceImageKeyToSave);
 
           // Mark task as done in sync queue
           if (taskId) {
@@ -720,7 +735,7 @@ export async function POST(request: NextRequest) {
               taskIds.push(taskId);
 
               // Save task to sync queue immediately for recovery
-              await saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined);
+              await saveTaskToSyncQueue(taskId, model, prompt, ratio, imageSize, userId ?? undefined, creatorName ?? undefined, referenceImageKeyToSave);
 
               sendSSE({
                 type: "task_submitted",

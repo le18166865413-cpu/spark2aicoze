@@ -24,6 +24,8 @@ interface GalleryImage {
   creatorName?: string;
   isHidden?: boolean;
   isPinned?: boolean;
+  referenceImageKey?: string | null;
+  referenceImageUrl?: string | null;
 }
 
 interface ImageCardProps {
@@ -508,6 +510,27 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
               {image.prompt}
             </div>
           </div>
+
+          {/* Reference Image */}
+          {image.referenceImageUrl && (
+            <div className="flex flex-col gap-2 pt-4 border-t">
+              <h3 className="text-sm font-semibold text-muted-foreground">参考图</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted/30 flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={image.referenceImageUrl}
+                    alt="参考图"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">此海报使用了参考图生成</p>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
 

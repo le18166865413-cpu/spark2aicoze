@@ -185,6 +185,17 @@ export async function GET(request: NextRequest) {
         const userInfo = img.users as Record<string, unknown> | null;
         const creatorName = (img.creator_name as string) || (userInfo?.nickname as string) || (userInfo?.username as string) || '系统导入';
 
+        // Get reference image signed URL if available
+        let referenceImageUrl: string | null = null;
+        const refImageKey = img.reference_image_key as string | null;
+        if (refImageKey) {
+          try {
+            referenceImageUrl = await getSignedUrl(refImageKey);
+          } catch {
+            referenceImageUrl = null;
+          }
+        }
+
         return {
           id: img.id,
           imageKey: imageKey,
@@ -205,6 +216,8 @@ export async function GET(request: NextRequest) {
           createdAt: img.created_at,
           isHidden: img.is_hidden || false,
           isPinned: img.is_pinned || false,
+          referenceImageKey: refImageKey,
+          referenceImageUrl: referenceImageUrl,
         };
       })
     );

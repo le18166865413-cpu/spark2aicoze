@@ -111,6 +111,7 @@ async function downloadAndSaveImage(
   ratio: string,
   taskUserId?: string,
   taskCreatorName?: string,
+  referenceImageKey?: string,
 ): Promise<PendingTask | null> {
   // Final idempotency check: make sure no other concurrent request already inserted
   const { count: dupCheck } = await supabase
@@ -231,6 +232,7 @@ async function downloadAndSaveImage(
     user_id: taskUserId,
     creator_name: taskCreatorName,
     created_at: new Date().toISOString(),
+    reference_image_key: referenceImageKey || null,
   });
 
   const { error: dbError } = await supabase.from("gallery_images").insert(insertData);
@@ -357,6 +359,7 @@ export async function GET(request: NextRequest) {
       })();
       const taskUserId = extra.userId as string | undefined;
       const taskCreatorName = extra.creatorName as string | undefined;
+      const taskReferenceImageKey = extra.referenceImageKey as string | undefined;
 
       // Helper: check if already completed in gallery_images and push result
       const checkGalleryAndPush = async (): Promise<boolean> => {
@@ -518,7 +521,7 @@ export async function GET(request: NextRequest) {
           }
 
           // Download and save (with built-in idempotency check)
-          const result = await downloadAndSaveImage(supabase, taskId, imageUrl, prompt, model, ratio, taskUserId, taskCreatorName);
+          const result = await downloadAndSaveImage(supabase, taskId, imageUrl, prompt, model, ratio, taskUserId, taskCreatorName, taskReferenceImageKey);
           if (result) {
             results.push(result);
           }
