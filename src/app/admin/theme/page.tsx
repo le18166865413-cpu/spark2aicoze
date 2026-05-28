@@ -1,29 +1,58 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
 import { Save, Palette, Check, RefreshCcw, Pipette, Sparkles, Layers, Zap, Square, Monitor, Navigation } from 'lucide-react';
 
 const THEMES = [
-  { id: 'green', name: '翡翠绿', color: 'bg-emerald-500', hex: '#22C55E' },
-  { id: 'teal', name: '湖水青', color: 'bg-teal-500', hex: '#14B8A6' },
-  { id: 'cyan', name: '天穹青', color: 'bg-cyan-500', hex: '#06B6D4' },
-  { id: 'sky', name: '晴空蓝', color: 'bg-sky-500', hex: '#0EA5E9' },
-  { id: 'blue', name: '天际蓝', color: 'bg-blue-500', hex: '#3B82F6' },
-  { id: 'indigo', name: '靛青蓝', color: 'bg-indigo-500', hex: '#6366F1' },
-  { id: 'violet', name: '紫罗兰', color: 'bg-violet-500', hex: '#8B5CF6' },
-  { id: 'purple', name: '星空紫', color: 'bg-purple-500', hex: '#A855F7' },
-  { id: 'fuchsia', name: '洋红紫', color: 'bg-fuchsia-500', hex: '#D946EF' },
-  { id: 'pink', name: '樱花粉', color: 'bg-pink-500', hex: '#EC4899' },
-  { id: 'rose', name: '玫瑰红', color: 'bg-rose-500', hex: '#F43F5E' },
-  { id: 'red', name: '烈焰红', color: 'bg-red-500', hex: '#EF4444' },
-  { id: 'orange', name: '落日橙', color: 'bg-orange-500', hex: '#F97316' },
-  { id: 'amber', name: '琥珀黄', color: 'bg-amber-500', hex: '#F59E0B' },
-  { id: 'yellow', name: '柠檬黄', color: 'bg-yellow-500', hex: '#EAB308' },
-  { id: 'lime', name: '青柠绿', color: 'bg-lime-500', hex: '#84CC16' },
-  { id: 'neutral', name: '极简灰', color: 'bg-neutral-500', hex: '#71717A' },
-  { id: 'stone', name: '暖石灰', color: 'bg-stone-500', hex: '#78716C' },
-  { id: 'slate', name: '岩石灰', color: 'bg-slate-500', hex: '#64748B' },
+  // 高饱和色
+  { id: 'green', name: '翡翠绿', hex: '#22C55E' },
+  { id: 'teal', name: '湖水青', hex: '#14B8A6' },
+  { id: 'cyan', name: '天穹青', hex: '#06B6D4' },
+  { id: 'sky', name: '晴空蓝', hex: '#0EA5E9' },
+  { id: 'blue', name: '天际蓝', hex: '#3B82F6' },
+  { id: 'indigo', name: '靛青蓝', hex: '#6366F1' },
+  { id: 'violet', name: '紫罗兰', hex: '#8B5CF6' },
+  { id: 'purple', name: '星空紫', hex: '#A855F7' },
+  { id: 'fuchsia', name: '洋红紫', hex: '#D946EF' },
+  { id: 'pink', name: '樱花粉', hex: '#EC4899' },
+  { id: 'rose', name: '玫瑰红', hex: '#F43F5E' },
+  { id: 'red', name: '烈焰红', hex: '#EF4444' },
+  { id: 'orange', name: '落日橙', hex: '#F97316' },
+  { id: 'amber', name: '琥珀黄', hex: '#F59E0B' },
+  { id: 'yellow', name: '柠檬黄', hex: '#EAB308' },
+  { id: 'lime', name: '青柠绿', hex: '#84CC16' },
+  // 低饱和色
+  { id: 'sage', name: '鼠尾草', hex: '#6B8F71' },
+  { id: 'dusty-blue', name: '雾蓝', hex: '#6B8CA6' },
+  { id: 'dusty-rose', name: '豆沙粉', hex: '#C08081' },
+  { id: 'dusty-purple', name: '灰紫', hex: '#8E7CC3' },
+  { id: 'muted-teal', name: '灰青', hex: '#5F9EA0' },
+  { id: 'muted-olive', name: '橄榄绿', hex: '#808000' },
+  { id: 'muted-coral', name: '珊瑚橘', hex: '#CD8032' },
+  { id: 'muted-mauve', name: '淡紫藤', hex: '#9B7E8F' },
+  // 深色
+  { id: 'deep-navy', name: '深海蓝', hex: '#1E3A5F' },
+  { id: 'deep-emerald', name: '墨绿', hex: '#064E3B' },
+  { id: 'deep-wine', name: '酒红', hex: '#722F37' },
+  { id: 'deep-plum', name: '深梅紫', hex: '#4A2040' },
+  { id: 'deep-teal', name: '深松绿', hex: '#0D4F4F' },
+  { id: 'deep-brown', name: '深棕', hex: '#5C3317' },
+  { id: 'deep-slate', name: '深岩灰', hex: '#334155' },
+  { id: 'deep-oxblood', name: '牛血红', hex: '#4A0000' },
+  // 浅色
+  { id: 'light-mint', name: '薄荷绿', hex: '#A7F3D0' },
+  { id: 'light-sky', name: '婴儿蓝', hex: '#BAE6FD' },
+  { id: 'light-lavender', name: '薰衣草', hex: '#C4B5FD' },
+  { id: 'light-peach', name: '蜜桃', hex: '#FED7AA' },
+  { id: 'light-pink', name: '浅粉', hex: '#FBCFE8' },
+  { id: 'light-cream', name: '奶油', hex: '#FEF3C7' },
+  { id: 'light-lilac', name: '丁香', hex: '#DDD6FE' },
+  { id: 'light-coral', name: '浅珊瑚', hex: '#FCA5A5' },
+  // 中性色
+  { id: 'neutral', name: '极简灰', hex: '#71717A' },
+  { id: 'stone', name: '暖石灰', hex: '#78716C' },
+  { id: 'slate', name: '岩石灰', hex: '#64748B' },
 ];
 
 const MODES = [
@@ -101,18 +130,6 @@ const applyThemeMode = (themeMode: string) => {
   }
 };
 
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const v = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-    return Math.round(v * 255).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
 function deriveSecondaryColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -151,91 +168,6 @@ function applyVisualEffectsLocal(effects: VisualEffectsState, primaryHex: string
   } else {
     root.setAttribute('data-noise-disabled', '');
   }
-}
-
-function ColorWheel({ size, onSelect }: { size: number; onSelect: (hex: string) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
-
-  const drawWheel = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size / 2 - 4;
-
-    ctx.clearRect(0, 0, size, size);
-
-    for (let angle = 0; angle < 360; angle++) {
-      const start = ((angle - 1) * Math.PI) / 180;
-      const end = ((angle + 1) * Math.PI) / 180;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, start, end);
-      ctx.closePath();
-      ctx.fillStyle = `hsl(${angle}, 100%, 50%)`;
-      ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-    ctx.fillStyle = 'var(--card, #111113)';
-    ctx.fill();
-  }, [size]);
-
-  useEffect(() => {
-    drawWheel();
-  }, [drawWheel]);
-
-  const handlePointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = size / 2;
-    const cy = size / 2;
-    const dx = x - cx;
-    const dy = y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const radius = size / 2 - 4;
-
-    if (dist < radius * 0.55 || dist > radius) return;
-
-    let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-    if (angle < 0) angle += 360;
-
-    const hex = hslToHex(angle, 100, 50);
-    setCursor({ x, y });
-    onSelect(hex);
-  };
-
-  return (
-    <div className="relative inline-block">
-      <canvas
-        ref={canvasRef}
-        width={size}
-        height={size}
-        onPointerDown={handlePointer}
-        onPointerMove={(e) => { if (e.buttons === 1) handlePointer(e); }}
-        className="cursor-crosshair rounded-full"
-        style={{ width: size, height: size, touchAction: 'none' }}
-      />
-      {cursor && (
-        <div
-          className="absolute w-3 h-3 rounded-full border-2 border-white shadow pointer-events-none"
-          style={{
-            left: cursor.x - 6,
-            top: cursor.y - 6,
-            backgroundColor: 'transparent',
-          }}
-        />
-      )}
-    </div>
-  );
 }
 
 interface VisualEffectsState {
@@ -458,13 +390,20 @@ export default function ThemePage() {
           <Palette className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">主色调</h3>
         </div>
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
           {THEMES.map((t) => (
-            <button key={t.id} onClick={() => handleThemeChange(t.id)} className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${theme === t.id && !isCustom ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-              <div className={`w-5 h-5 rounded-full ${t.color} flex items-center justify-center shrink-0`}>
-                {theme === t.id && !isCustom && <Check className="w-3 h-3 text-white" />}
+            <button
+              key={t.id}
+              onClick={() => handleThemeChange(t.id)}
+              className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border cursor-pointer transition-colors ${theme === t.id && !isCustom ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+            >
+              <div
+                className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 shadow-sm"
+                style={{ backgroundColor: t.hex }}
+              >
+                {theme === t.id && !isCustom && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
               </div>
-              <span className="text-xs text-foreground truncate">{t.name}</span>
+              <span className="text-[10px] text-muted-foreground truncate w-full text-center leading-tight">{t.name}</span>
             </button>
           ))}
         </div>
@@ -475,46 +414,148 @@ export default function ThemePage() {
         <div className="flex items-center gap-2 mb-2">
           <Pipette className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">自定义颜色</h3>
+          {isCustom && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px]">
+              <Check className="w-2.5 h-2.5" /> 已启用
+            </span>
+          )}
         </div>
-        <div className="flex flex-col sm:flex-row items-start gap-6">
-          <ColorWheel size={180} onSelect={handleCustomHex} />
-          <div className="space-y-4 flex-1">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-lg border border-border shadow-inner"
-                style={{ backgroundColor: currentHex }}
-              />
-              <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">当前颜色</div>
-                <div className="text-sm font-mono font-medium text-foreground">{currentHex.toUpperCase()}</div>
-              </div>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">点击色块选择自定义颜色，或使用下方取色器精确选色</p>
+          {/* Color grid - Red hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">红色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#FFE5E5','#FFB3B3','#FF8080','#FF4D4D','#FF1A1A','#E60000','#B30000','#800000',
+                '#4D0000','#330000','#1A0000',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
             </div>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={customHex}
-                onChange={(e) => handleCustomHex(e.target.value)}
-                className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
-              />
-              <input
-                type="text"
-                value={customHex}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) {
-                    handleCustomHex(v);
-                  }
-                }}
-                className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground w-28 font-mono"
-                placeholder="#22C55E"
-                maxLength={7}
-              />
+          </div>
+          {/* Orange hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">橙色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#FFF2E5','#FFD6A8','#FFB366','#FF8C1A','#E67600','#B35C00','#804200',
+                '#4D2800','#331A00','#CC5500','#FF6B00',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
             </div>
-            {isCustom && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs">
-                <Check className="w-3 h-3" /> 已启用自定义
-              </div>
-            )}
+          </div>
+          {/* Yellow hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">黄色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#FFFDE5','#FFF9B3','#FFF580','#FFF14D','#FFED1A','#E6D600','#B3A600',
+                '#807700','#4D4900','#332F00','#FFFF33',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Green hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">绿色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#E5FFE5','#B3FFB3','#80FF80','#4DFF4D','#1AFF1A','#00E600','#00B300',
+                '#008000','#004D00','#003300','#33CC33',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Cyan/Teal hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">青色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#E5FFFF','#B3FFFF','#80FFFF','#4DFFFF','#1AFFFF','#00E6E6','#00B3B3',
+                '#008080','#004D4D','#003333','#33CCCC',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Blue hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">蓝色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#E5F0FF','#B3D4FF','#80B8FF','#4D9CFF','#1A80FF','#0066E6','#0050B3',
+                '#003A80','#00254D','#001A33','#3377FF',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Purple hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">紫色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#F0E5FF','#D4B3FF','#B880FF','#9C4DFF','#801AFF','#6600E6','#5000B3',
+                '#3A0080','#25004D','#1A0033','#7733FF',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Pink hue variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">粉色系</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#FFE5F0','#FFB3D4','#FF80B8','#FF4D9C','#FF1A80','#E60066','#B30050',
+                '#80003A','#4D0025','#33001A','#FF3388',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Neutral variations */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">中性色</span>
+            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+              {[
+                '#FFFFFF','#F5F5F5','#E5E5E5','#D4D4D4','#A3A3A3','#737373','#525252',
+                '#404040','#262626','#171717','#0A0A0A',
+              ].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-border'}`} style={{ backgroundColor: hex }} title={hex} />
+              ))}
+            </div>
+          </div>
+          {/* Custom hex input with color picker */}
+          <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+            <input
+              type="color"
+              value={customHex}
+              onChange={(e) => handleCustomHex(e.target.value)}
+              className="w-10 h-10 p-0 border-0 rounded cursor-pointer shrink-0"
+            />
+            <input
+              type="text"
+              value={customHex}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) {
+                  handleCustomHex(v);
+                }
+              }}
+              className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground w-28 font-mono"
+              placeholder="#22C55E"
+              maxLength={7}
+            />
+            <div
+              className="w-10 h-10 rounded-lg border border-border shadow-inner shrink-0"
+              style={{ backgroundColor: currentHex }}
+            />
+            <span className="text-sm font-mono text-foreground">{currentHex.toUpperCase()}</span>
           </div>
         </div>
       </div>
