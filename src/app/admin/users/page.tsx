@@ -658,67 +658,92 @@ export default function AdminUsersPage() {
           </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {filteredUsers.map(user => (
-              <div key={user.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm overflow-hidden">
-                    {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user.nickname?.[0] || user.username[0])}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{user.nickname || user.username}</p>
-                      {getRoleBadge(user.role)}
-                      {getStatusBadge(user.status)}
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                        作品 {user.work_count || 0}
-                      </Badge>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">用户</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">邮箱</th>
+                  <th className="text-center py-3 px-3 font-medium text-muted-foreground">角色</th>
+                  <th className="text-center py-3 px-3 font-medium text-muted-foreground">状态</th>
+                  <th className="text-center py-3 px-3 font-medium text-muted-foreground">生图</th>
+                  <th className="text-center py-3 px-3 font-medium text-muted-foreground">作品</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">注册时间</th>
+                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-muted-foreground">暂无用户</td>
+                  </tr>
+                )}
+                {filteredUsers.map(user => (
+                  <tr key={user.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xs overflow-hidden shrink-0">
+                          {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user.nickname?.[0] || user.username[0])}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{user.nickname || user.username}</p>
+                          <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground truncate max-w-[180px]">{user.email || '-'}</td>
+                    <td className="py-3 px-3 text-center">{getRoleBadge(user.role)}</td>
+                    <td className="py-3 px-3 text-center">{getStatusBadge(user.status)}</td>
+                    <td className="py-3 px-3 text-center">
                       <Badge variant={user.can_generate !== false ? "outline" : "secondary"} className={`text-[10px] h-5 px-1.5 ${user.can_generate !== false ? 'text-green-600 border-green-500/30' : 'text-muted-foreground'}`}>
-                        {user.can_generate !== false ? '可生图' : '禁止生图'}
+                        {user.can_generate !== false ? '可' : '禁'}
                       </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">@{user.username}{user.email ? ` · ${user.email}` : ``} · 注册于 {new Date(user.created_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div className="flex gap-1 items-center">
-                  {user.status === 'pending' && (
-                    <>
-                      <Button size="sm" className="text-xs bg-green-600 hover:bg-green-700 h-7 px-3" onClick={() => handleApprove(user.id, 'approved')}>
-                        通过审批
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-7 px-2" onClick={() => handleApprove(user.id, 'rejected')}>
-                        拒绝
-                      </Button>
-                    </>
-                  )}
-                  {user.status === 'approved' && (
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'rejected')}>
-                      停用
-                    </Button>
-                  )}
-                  {user.status === 'rejected' && (
-                    <Button size="sm" variant="ghost" className="text-green-500 hover:text-green-600 hover:bg-green-500/10 h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'approved')}>
-                      启用
-                    </Button>
-                  )}
-                  {user.role !== 'admin' && (
-                    <Button size="sm" variant="ghost" className={`h-7 px-2 text-xs ${user.can_generate !== false ? 'text-orange-500 hover:text-orange-600 hover:bg-orange-500/10' : 'text-green-500 hover:text-green-600 hover:bg-green-500/10'}`} onClick={() => handleToggleGenerate(user.id, user.can_generate !== false)}>
-                      {user.can_generate !== false ? '关闭生图' : '开启生图'}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingUser(user); setEditForm({ nickname: user.nickname || '', role: user.role }); }}>
-                    编辑
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setResetPwdUser(user); setNewPassword(''); }}>
-                    重置密码
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-7 px-2" onClick={() => handleDelete(user.id)}>
-                    删除
-                  </Button>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="py-3 px-3 text-center text-xs text-muted-foreground">{user.work_count || 0}</td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">{new Date(user.created_at).toLocaleDateString()}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-1 items-center justify-end">
+                        {user.status === 'pending' && (
+                          <>
+                            <Button size="sm" className="text-xs bg-green-600 hover:bg-green-700 h-7 px-2.5" onClick={() => handleApprove(user.id, 'approved')}>
+                              通过
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-7 px-2" onClick={() => handleApprove(user.id, 'rejected')}>
+                              拒绝
+                            </Button>
+                          </>
+                        )}
+                        {user.status === 'approved' && (
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'rejected')}>
+                            停用
+                          </Button>
+                        )}
+                        {user.status === 'rejected' && (
+                          <Button size="sm" variant="ghost" className="text-green-500 hover:text-green-600 hover:bg-green-500/10 h-7 px-2 text-xs" onClick={() => handleApprove(user.id, 'approved')}>
+                            启用
+                          </Button>
+                        )}
+                        {user.role !== 'admin' && (
+                          <Button size="sm" variant="ghost" className={`h-7 px-2 text-xs ${user.can_generate !== false ? 'text-orange-500 hover:text-orange-600 hover:bg-orange-500/10' : 'text-green-500 hover:text-green-600 hover:bg-green-500/10'}`} onClick={() => handleToggleGenerate(user.id, user.can_generate !== false)}>
+                            {user.can_generate !== false ? '禁图' : '开图'}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setEditingUser(user); setEditForm({ nickname: user.nickname || '', role: user.role }); }}>
+                          编辑
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setResetPwdUser(user); setNewPassword(''); }}>
+                          密码
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-7 px-2 text-xs" onClick={() => handleDelete(user.id)}>
+                          删除
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>
