@@ -430,7 +430,7 @@ export default function ThemePage() {
                 '#FFE5E5','#FFB3B3','#FF8080','#FF4D4D','#FF1A1A','#E60000','#B30000','#800000',
                 '#4D0000','#330000','#1A0000',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -442,7 +442,7 @@ export default function ThemePage() {
                 '#FFF2E5','#FFD6A8','#FFB366','#FF8C1A','#E67600','#B35C00','#804200',
                 '#4D2800','#331A00','#CC5500','#FF6B00',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -454,7 +454,7 @@ export default function ThemePage() {
                 '#FFFDE5','#FFF9B3','#FFF580','#FFF14D','#FFED1A','#E6D600','#B3A600',
                 '#807700','#4D4900','#332F00','#FFFF33',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -466,7 +466,7 @@ export default function ThemePage() {
                 '#E5FFE5','#B3FFB3','#80FF80','#4DFF4D','#1AFF1A','#00E600','#00B300',
                 '#008000','#004D00','#003300','#33CC33',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -478,7 +478,7 @@ export default function ThemePage() {
                 '#E5FFFF','#B3FFFF','#80FFFF','#4DFFFF','#1AFFFF','#00E6E6','#00B3B3',
                 '#008080','#004D4D','#003333','#33CCCC',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -490,7 +490,7 @@ export default function ThemePage() {
                 '#E5F0FF','#B3D4FF','#80B8FF','#4D9CFF','#1A80FF','#0066E6','#0050B3',
                 '#003A80','#00254D','#001A33','#3377FF',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -502,7 +502,7 @@ export default function ThemePage() {
                 '#F0E5FF','#D4B3FF','#B880FF','#9C4DFF','#801AFF','#6600E6','#5000B3',
                 '#3A0080','#25004D','#1A0033','#7733FF',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -514,7 +514,7 @@ export default function ThemePage() {
                 '#FFE5F0','#FFB3D4','#FF80B8','#FF4D9C','#FF1A80','#E60066','#B30050',
                 '#80003A','#4D0025','#33001A','#FF3388',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-transparent'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
@@ -526,7 +526,7 @@ export default function ThemePage() {
                 '#FFFFFF','#F5F5F5','#E5E5E5','#D4D4D4','#A3A3A3','#737373','#525252',
                 '#404040','#262626','#171717','#0A0A0A',
               ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-full aspect-square rounded cursor-pointer border transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'border-white ring-2 ring-primary scale-110' : 'border-border'}`} style={{ backgroundColor: hex }} title={hex} />
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
