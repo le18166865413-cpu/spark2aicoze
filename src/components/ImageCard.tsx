@@ -212,6 +212,22 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 unoptimized={true}
                 onError={() => setImgError(true)}
               />
+              {/* Reference Image Badge */}
+              {image.referenceImageUrl && (
+                <div className="absolute bottom-2 left-2 z-10">
+                  <div className="w-10 h-10 rounded-md overflow-hidden border-2 border-white/80 shadow-md bg-white/20 backdrop-blur-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.referenceImageUrl}
+                      alt="参考图"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -386,7 +402,8 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 <p>图片加载失败</p>
               </div>
             ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
+              <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={image.url}
                 alt={image.prompt}
@@ -394,6 +411,24 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 onError={() => setDetailImgError(true)}
                 onClick={() => setPreviewOpen(true)}
               />
+              {/* Reference Image Thumbnail */}
+              {image.referenceImageUrl && (
+                <div className="absolute bottom-3 left-3 z-10 group/ref">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white/80 shadow-lg bg-white/20 backdrop-blur-sm cursor-pointer transition-transform hover:scale-125">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.referenceImageUrl}
+                      alt="参考图"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <span className="absolute -top-6 left-0 text-xs text-white bg-black/60 px-2 py-0.5 rounded opacity-0 group-hover/ref:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">参考图</span>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>
@@ -511,26 +546,6 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
             </div>
           </div>
 
-          {/* Reference Image */}
-          {image.referenceImageUrl && (
-            <div className="flex flex-col gap-2 pt-4 border-t">
-              <h3 className="text-sm font-semibold text-muted-foreground">参考图</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted/30 flex-shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={image.referenceImageUrl}
-                    alt="参考图"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">此海报使用了参考图生成</p>
-              </div>
-            </div>
-          )}
         </div>
       </DialogContent>
 
