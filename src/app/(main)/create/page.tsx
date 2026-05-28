@@ -93,6 +93,7 @@ type GenerationMode = "text2img" | "batch";
 
 interface RefImage {
   url: string; // S3 key or HTTP URL
+  key?: string; // S3 key (separate from signed URL)
   preview: string; // Object URL for preview
 }
 
@@ -384,9 +385,9 @@ function CreatePageInner() {
         
         // Prefer signed URL (for GrsAI), fallback to key
         if (data.url) {
-          newImages.push({ url: data.url, preview: previewUrl });
+          newImages.push({ url: data.url, key: data.key, preview: previewUrl });
         } else if (data.key) {
-          newImages.push({ url: data.key, preview: previewUrl });
+          newImages.push({ url: data.key, key: data.key, preview: previewUrl });
         } else {
           URL.revokeObjectURL(previewUrl);
           throw new Error("No key or URL returned");
@@ -588,11 +589,15 @@ function CreatePageInner() {
 
           if (refImages.length > 0) {
             const refImg = refImages[0];
-            if (!refImg.url.startsWith("http") && !refImg.url.startsWith("data:")) {
+            // Prefer S3 key over signed URL for reference image
+            if (refImg.key) {
+              body.refImageKey = refImg.key;
+              body.refImageContentType = "image/jpeg";
+            } else if (refImg.url.startsWith("http")) {
+              body.refImageUrl = refImg.url;
+            } else {
               body.refImageKey = refImg.url;
               body.refImageContentType = "image/jpeg";
-            } else {
-              body.refImageUrl = refImg.url;
             }
             body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
           } else {
@@ -776,27 +781,19 @@ function CreatePageInner() {
         };
 
         if (refImageEnabled && refImages.length > 0) {
-          const refImgs = refImages
-            .map((img) => {
-              if (!img.url.startsWith("http") && !img.url.startsWith("data:")) {
-                return img.url;
-              }
-              return img.url;
-            })
-            .filter((url) => url.length > 0);
+          // Collect S3 keys (preferred) and signed URLs for GrsAI
+          const refImgKeys = refImages.map((img) => img.key || "").filter(Boolean);
+          const refImgUrls = refImages.map((img) => img.url).filter((url) => url.startsWith("http"));
           
-          if (refImgs.length === 1) {
-            if (!refImgs[0].startsWith("http") && !refImgs[0].startsWith("data:")) {
-              body.refImageKey = refImgs[0];
-              body.refImageContentType = "image/jpeg";
-            } else {
-              body.refImageUrl = refImgs[0];
-            }
+          if (refImgKeys.length === 1) {
+            body.refImageKey = refImgKeys[0];
+            body.refImageContentType = "image/jpeg";
+          } else if (refImgUrls.length === 1 && refImgKeys.length === 0) {
+            body.refImageUrl = refImgUrls[0];
           } else {
-            body.refImgs = refImgs;
-            body.refImageKeys = refImages
-              .filter((img) => !img.url.startsWith("http") && !img.url.startsWith("data:"))
-              .map((img) => img.url);
+            // Multiple images: send both keys and URLs
+            if (refImgUrls.length > 0) body.refImgs = refImgUrls;
+            if (refImgKeys.length > 0) body.refImageKeys = refImgKeys;
           }
         }
 
