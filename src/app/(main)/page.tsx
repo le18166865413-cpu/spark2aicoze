@@ -267,10 +267,10 @@ export default function Home() {
     <div className="pt-6 px-1 sm:px-4 pb-8 max-w-[1800px] mx-auto">
       {/* Hero Section */}
       <div className="text-center mb-8">
-        <h1 className="text-lg md:text-4xl font-bold tracking-tight mb-1 md:mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
           {galleryTitle}
         </h1>
-        <p className="text-muted-foreground text-xs md:text-lg">
+        <p className="text-muted-foreground text-lg">
           {gallerySubtitle}
         </p>
       </div>
