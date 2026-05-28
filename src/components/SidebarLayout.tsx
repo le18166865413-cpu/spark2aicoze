@@ -3,7 +3,7 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, Key, Plug, Palette, HardDrive, Upload, Sparkles, Wand2, Users, LogOut, Trash2, Bug, Server, ListChecks } from 'lucide-react';
+import { LayoutDashboard, Settings, Key, Plug, Palette, HardDrive, Sparkles, Wand2, Users, LogOut, Trash2, Bug, Server, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
@@ -18,7 +18,7 @@ const menuItems = [
   { href: '/admin/theme', icon: Palette, label: '主题配色' },
   { href: '/admin/creation', icon: Wand2, label: '创作配置' },
   { href: '/admin/storage', icon: HardDrive, label: '图片存储' },
-  { href: '/admin/import', icon: Upload, label: '任务导入' },
+
   { href: '/admin/users', icon: Users, label: '用户管理' },
   { href: '/admin/recycle', icon: Trash2, label: '回收站' },
   { href: '/admin/bugfix', icon: Bug, label: 'Bug 修复' },

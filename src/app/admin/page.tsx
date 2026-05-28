@@ -89,7 +89,7 @@ export default function AdminDashboardPage() {
     { href: '/admin/creation', label: '创作配置', desc: '模板、模型、比例、限制等配置' },
     { href: '/admin/users', label: '用户管理', desc: '审批用户、管理权限' },
     { href: '/admin/storage', label: '图片存储', desc: '管理 S3 存储和文件配置' },
-    { href: '/admin/import', label: '任务导入', desc: '手动导入和自动监控' },
+
     { href: '/admin/theme', label: '主题配色', desc: '自定义网站颜色和主题风格' },
   ];
 
