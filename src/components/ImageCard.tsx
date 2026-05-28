@@ -397,8 +397,8 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
         </div>
 
         {/* Left Image Side */}
-        <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%]">
-          <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 p-2 md:p-6 overflow-hidden">
+        <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[50vh] md:h-full min-w-0 md:min-w-[50%]">
+          <div className="relative w-full h-full flex flex-col items-center justify-center gap-1 md:gap-2 p-1 md:p-6 overflow-hidden">
             {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
                 <ImageOff className="w-16 h-16 mb-4 opacity-30" />
@@ -409,7 +409,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 // 判断图片方向：竖屏(高>宽) 还是 横屏/正方形
                 const isPortrait = (image.height ?? 0) > (image.width ?? 0);
                 return (
-                  <div className={`flex w-full h-full items-center justify-center ${isPortrait ? 'flex-row gap-3' : 'flex-col gap-3'}`}>
+                  <div className={`flex w-full h-full items-center justify-center ${isPortrait ? 'flex-row gap-1 md:gap-3' : 'flex-col gap-1 md:gap-3'}`}>
                     {/* Generated Image - main area, maximize */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -432,7 +432,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                                 key={idx}
                                 src={refUrl}
                                 alt={`参考图${image.referenceImageUrls!.length > 1 ? ` ${idx + 1}` : ''}`}
-                                className={`object-contain rounded-md border border-border/50 shadow-sm ${isPortrait ? 'max-w-[80px] max-h-[100px]' : 'max-w-[100px] max-h-[100px]'}`}
+                                className={`object-contain rounded-md border border-border/50 shadow-sm ${isPortrait ? 'w-12 h-12 md:max-w-[80px] md:max-h-[100px]' : 'w-12 h-12 md:max-w-[100px] md:max-h-[100px]'}`}
                                 onError={(e) => {
                                   console.error('[ImageCard] Reference image load failed:', refUrl);
                                   const el = e.target as HTMLImageElement;
