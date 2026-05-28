@@ -387,34 +387,44 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 <p>图片加载失败</p>
               </div>
             ) : (
-              <>
-                {/* Generated Image - main area */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={image.url}
-                  alt={image.prompt}
-                  className="max-w-full flex-1 min-h-0 object-contain rounded-lg shadow-xl cursor-zoom-in"
-                  onError={() => setDetailImgError(true)}
-                  onClick={() => setPreviewOpen(true)}
-                />
-                {/* Reference Image - small below, with divider */}
-                {image.referenceImageUrl && (
-                  <div className="flex-shrink-0 w-full flex flex-col items-center gap-1.5 pt-2 border-t border-border/50">
-                    <span className="text-xs text-muted-foreground">参考图</span>
+              (() => {
+                // 判断图片方向：竖屏(高>宽) 还是 横屏/正方形
+                const isPortrait = (image.height ?? 0) > (image.width ?? 0);
+                return (
+                  <div className={`flex w-full h-full items-center justify-center gap-0 ${isPortrait ? 'flex-row' : 'flex-col'}`}>
+                    {/* Generated Image - main area */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={image.referenceImageUrl}
-                      alt="参考图"
-                      className="max-w-[120px] max-h-[120px] object-contain rounded-md border border-border/50 shadow-sm"
-                      onError={(e) => {
-                        console.error('[ImageCard] Reference image load failed:', image.referenceImageUrl);
-                        const container = (e.target as HTMLImageElement).parentElement;
-                        if (container) container.style.display = 'none';
-                      }}
+                      src={image.url}
+                      alt={image.prompt}
+                      className={`flex-1 min-h-0 min-w-0 object-contain rounded-lg shadow-xl cursor-zoom-in ${isPortrait ? 'max-h-full' : 'max-w-full'}`}
+                      onError={() => setDetailImgError(true)}
+                      onClick={() => setPreviewOpen(true)}
                     />
+                    {/* Reference Image with dashed divider */}
+                    {image.referenceImageUrl && (
+                      <>
+                        {/* Dashed divider line */}
+                        <div className={`flex-shrink-0 border-dashed border-muted-foreground/30 ${isPortrait ? 'h-[80%] border-l' : 'w-[80%] border-t'}`} />
+                        <div className={`flex-shrink-0 flex items-center gap-1.5 ${isPortrait ? 'flex-col h-full justify-center px-2' : 'flex-col w-full py-2'}`}>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">参考图</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.referenceImageUrl}
+                            alt="参考图"
+                            className={`object-contain rounded-md border border-border/50 shadow-sm ${isPortrait ? 'max-w-[100px] max-h-[140px]' : 'max-w-[120px] max-h-[120px]'}`}
+                            onError={(e) => {
+                              console.error('[ImageCard] Reference image load failed:', image.referenceImageUrl);
+                              const container = (e.target as HTMLImageElement).parentElement;
+                              if (container) container.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
-                )}
-              </>
+                );
+              })()
             )}
           </div>
         </div>
