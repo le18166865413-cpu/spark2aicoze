@@ -423,110 +423,83 @@ export default function ThemePage() {
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">点击色块选择自定义颜色，或使用下方取色器精确选色</p>
           {/* Color grid - Red hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">红色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#FFE5E5','#FFB3B3','#FF8080','#FF4D4D','#FF1A1A','#E60000','#B30000','#800000',
-                '#4D0000','#330000','#1A0000',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#FFF0F0','#FFE0E0','#FFCCCC','#FFB3B3','#FF9999','#FF8080','#FF6666','#FF4D4D','#FF3333','#FF1A1A','#E60000','#CC0000','#B30000','#990000','#800000','#660000'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Orange hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">橙色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#FFF2E5','#FFD6A8','#FFB366','#FF8C1A','#E67600','#B35C00','#804200',
-                '#4D2800','#331A00','#CC5500','#FF6B00',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#FFF5EB','#FFE8D0','#FFD6A8','#FFC280','#FFB366','#FF9E3D','#FF8C1A','#FF7700','#E66B00','#CC5F00','#B35300','#994700','#803B00','#662F00','#4D2400','#331A00'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Yellow hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">黄色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#FFFDE5','#FFF9B3','#FFF580','#FFF14D','#FFED1A','#E6D600','#B3A600',
-                '#807700','#4D4900','#332F00','#FFFF33',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#FFFFF0','#FFFFE0','#FFFDE5','#FFF9B3','#FFF580','#FFF14D','#FFED1A','#FFE600','#E6D000','#CCBA00','#B3A400','#998E00','#807800','#666200','#4D4C00','#333600'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Green hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">绿色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#E5FFE5','#B3FFB3','#80FF80','#4DFF4D','#1AFF1A','#00E600','#00B300',
-                '#008000','#004D00','#003300','#33CC33',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#F0FFF0','#DFFFDF','#CCFFCC','#B3FFB3','#99FF99','#80FF80','#66FF66','#4DFF4D','#33FF33','#1AFF1A','#00E600','#00CC00','#00B300','#009900','#008000','#006600'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Cyan/Teal hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">青色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#E5FFFF','#B3FFFF','#80FFFF','#4DFFFF','#1AFFFF','#00E6E6','#00B3B3',
-                '#008080','#004D4D','#003333','#33CCCC',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#F0FFFF','#DFFFFF','#CCFFFF','#B3FFFF','#99FFFF','#80FFFF','#66FFFF','#4DFFFF','#33FFFF','#1AFFFF','#00E6E6','#00CCCC','#00B3B3','#009999','#008080','#006666'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Blue hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">蓝色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#E5F0FF','#B3D4FF','#80B8FF','#4D9CFF','#1A80FF','#0066E6','#0050B3',
-                '#003A80','#00254D','#001A33','#3377FF',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#F0F5FF','#D9E8FF','#B3D4FF','#8CBCFF','#66A3FF','#4D8FFF','#3379FF','#1A63FF','#004DE6','#003ACC','#002DB3','#002199','#001A80','#001266','#000D4D','#000833'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Purple hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">紫色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#F0E5FF','#D4B3FF','#B880FF','#9C4DFF','#801AFF','#6600E6','#5000B3',
-                '#3A0080','#25004D','#1A0033','#7733FF',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#F5F0FF','#E6D9FF','#D4B3FF','#C299FF','#B080FF','#9C66FF','#884DFF','#7433FF','#601AFF','#5200E6','#4700CC','#3C00B3','#310099','#260080','#1C0066','#11004D'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Pink hue variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">粉色系</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#FFE5F0','#FFB3D4','#FF80B8','#FF4D9C','#FF1A80','#E60066','#B30050',
-                '#80003A','#4D0025','#33001A','#FF3388',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#FFF0F5','#FFD9E8','#FFB3D4','#FF99C4','#FF80B4','#FF66A3','#FF4D93','#FF3383','#FF1A73','#E60066','#CC0059','#B3004D','#990040','#800033','#660026','#4D001A'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
           {/* Neutral variations */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">中性色</span>
-            <div className="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-[1px]">
-              {[
-                '#FFFFFF','#F5F5F5','#E5E5E5','#D4D4D4','#A3A3A3','#737373','#525252',
-                '#404040','#262626','#171717','#0A0A0A',
-              ].map(hex => (
-                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[5px] h-[5px] rounded-[1px] cursor-pointer border-0 transition-transform hover:scale-150 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-1 ring-primary scale-150' : ''}`} style={{ backgroundColor: hex }} title={hex} />
+            <div className="flex flex-wrap gap-[2px]">
+              {['#FFFFFF','#FAFAFA','#F5F5F5','#EEEEEE','#E5E5E5','#D4D4D4','#BFBFBF','#A3A3A3','#8C8C8C','#737373','#595959','#404040','#2E2E2E','#262626','#171717','#0A0A0A'].map(hex => (
+                <button key={hex} onClick={() => handleCustomHex(hex)} className={`w-[25px] h-[25px] rounded cursor-pointer border-0 transition-transform hover:scale-110 ${isCustom && customHex.toLowerCase() === hex.toLowerCase() ? 'ring-2 ring-primary scale-110' : ''} ${['#FFFFFF','#FAFAFA','#F5F5F5','#EEEEEE'].includes(hex) ? 'border border-border/30' : ''}`} style={{ backgroundColor: hex }} title={hex} />
               ))}
             </div>
           </div>
