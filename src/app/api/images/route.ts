@@ -185,14 +185,20 @@ export async function GET(request: NextRequest) {
         const userInfo = img.users as Record<string, unknown> | null;
         const creatorName = (img.creator_name as string) || (userInfo?.nickname as string) || (userInfo?.username as string) || '系统导入';
 
-        // Get reference image signed URL if available
+        // Get reference image signed URLs if available (comma-separated keys)
         let referenceImageUrl: string | null = null;
+        let referenceImageUrls: string[] = [];
         const refImageKey = img.reference_image_key as string | null;
         if (refImageKey) {
           try {
-            referenceImageUrl = await getSignedUrl(refImageKey);
+            const keys = refImageKey.split(',').map(k => k.trim()).filter(Boolean);
+            const urlPromises = keys.map(k => getSignedUrl(k));
+            const urls = await Promise.all(urlPromises);
+            referenceImageUrls = urls.filter(Boolean) as string[];
+            referenceImageUrl = referenceImageUrls[0] || null;
           } catch {
             referenceImageUrl = null;
+            referenceImageUrls = [];
           }
         }
 
@@ -218,6 +224,7 @@ export async function GET(request: NextRequest) {
           isPinned: img.is_pinned || false,
           referenceImageKey: refImageKey,
           referenceImageUrl: referenceImageUrl,
+          referenceImageUrls: referenceImageUrls,
         };
       })
     );

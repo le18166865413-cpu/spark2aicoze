@@ -26,6 +26,7 @@ interface GalleryImage {
   isPinned?: boolean;
   referenceImageKey?: string | null;
   referenceImageUrl?: string | null;
+  referenceImageUrls?: string[];
 }
 
 interface ImageCardProps {
@@ -418,24 +419,28 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                       onError={() => setDetailImgError(true)}
                       onClick={() => setPreviewOpen(true)}
                     />
-                    {/* Reference Image with dashed divider */}
-                    {image.referenceImageUrl && (
+                    {/* Reference Images with dashed divider */}
+                    {(image.referenceImageUrls && image.referenceImageUrls.length > 0) && (
                       <>
                         {/* Dashed divider line with equal spacing */}
                         <div className={`flex-shrink-0 border-dashed border-muted-foreground/30 ${isPortrait ? 'h-[70%] border-l' : 'w-[70%] border-t'}`} />
                         <div className={`flex-shrink-0 flex items-center gap-1.5 ${isPortrait ? 'flex-col justify-center px-1' : 'flex-col py-1'}`}>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">参考图</span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={image.referenceImageUrl}
-                            alt="参考图"
-                            className={`object-contain rounded-md border border-border/50 shadow-sm ${isPortrait ? 'max-w-[100px] max-h-[140px]' : 'max-w-[120px] max-h-[120px]'}`}
-                            onError={(e) => {
-                              console.error('[ImageCard] Reference image load failed:', image.referenceImageUrl);
-                              const container = (e.target as HTMLImageElement).parentElement;
-                              if (container) container.style.display = 'none';
-                            }}
-                          />
+                          <div className={`flex ${isPortrait ? 'flex-col' : 'flex-row'} gap-1.5`}>
+                            {image.referenceImageUrls.map((refUrl, idx) => (
+                              <img
+                                key={idx}
+                                src={refUrl}
+                                alt={`参考图${image.referenceImageUrls!.length > 1 ? ` ${idx + 1}` : ''}`}
+                                className={`object-contain rounded-md border border-border/50 shadow-sm ${isPortrait ? 'max-w-[80px] max-h-[100px]' : 'max-w-[100px] max-h-[100px]'}`}
+                                onError={(e) => {
+                                  console.error('[ImageCard] Reference image load failed:', refUrl);
+                                  const el = e.target as HTMLImageElement;
+                                  if (el.parentElement) el.style.display = 'none';
+                                }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}

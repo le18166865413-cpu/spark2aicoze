@@ -436,16 +436,16 @@ export async function POST(request: NextRequest) {
 
     const imageCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
-    // Determine the reference image key to save (first one for display in gallery)
+    // Determine the reference image keys to save (comma-separated for multiple)
     let referenceImageKeyToSave: string | undefined;
     if (refImageKeys && Array.isArray(refImageKeys) && refImageKeys.length > 0) {
-      referenceImageKeyToSave = refImageKeys[0];
+      referenceImageKeyToSave = refImageKeys.join(",");
     } else if (refImageKey) {
       referenceImageKeyToSave = refImageKey;
     } else if (refImgs && Array.isArray(refImgs) && refImgs.length > 0) {
-      // refImgs can be mix of URLs and keys - save the first non-URL one
-      const firstKey = refImgs.find((img: string) => !img.startsWith("http"));
-      if (firstKey) referenceImageKeyToSave = firstKey;
+      // refImgs can be mix of URLs and keys - save all non-URL ones
+      const keys = refImgs.filter((img: string) => !img.startsWith("http"));
+      if (keys.length > 0) referenceImageKeyToSave = keys.join(",");
     }
 
     console.log("Generate API received:", {

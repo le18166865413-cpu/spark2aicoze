@@ -122,6 +122,7 @@ export default function Home() {
         liked: item.liked as boolean | undefined,
         referenceImageKey: item.referenceImageKey as string | null | undefined,
         referenceImageUrl: item.referenceImageUrl as string | null | undefined,
+        referenceImageUrls: item.referenceImageUrls as string[] | null | undefined,
       }));
       setImages(data);
     } catch (error) {
