@@ -586,15 +586,18 @@ function CreatePageInner() {
           };
 
           if (refImages.length > 0) {
-            const refImg = refImages[0];
-            if (refImg.key) {
-              body.refImageKey = refImg.key;
+            const refImgKeys = refImages.map((img) => img.key || "").filter(Boolean);
+            const refImgUrls = refImages.map((img) => img.url).filter((url: string) => url.startsWith("http"));
+
+            if (refImgKeys.length === 1) {
+              body.refImageKey = refImgKeys[0];
               body.refImageContentType = "image/jpeg";
-            } else if (refImg.url.startsWith("http")) {
-              body.refImageUrl = refImg.url;
+            } else if (refImgUrls.length === 1 && refImgKeys.length === 0) {
+              body.refImageUrl = refImgUrls[0];
             } else {
-              body.refImageKey = refImg.url;
-              body.refImageContentType = "image/jpeg";
+              // Multiple images: send both keys and URLs
+              if (refImgUrls.length > 0) body.refImgs = refImgUrls;
+              if (refImgKeys.length > 0) body.refImageKeys = refImgKeys;
             }
             body.prompt = `${enhancedPrompt}\n\n（重要风格约束：请严格参考参考图的视觉风格、配色方案、排版布局和字体风格进行生成，确保与参考图保持高度统一的视觉语言。）`;
           } else {
