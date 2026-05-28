@@ -407,7 +407,9 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                       alt="参考图"
                       className="max-w-[120px] max-h-[120px] object-contain rounded-md border border-border/50 shadow-sm"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                        console.error('[ImageCard] Reference image load failed:', image.referenceImageUrl);
+                        const container = (e.target as HTMLImageElement).parentElement;
+                        if (container) container.style.display = 'none';
                       }}
                     />
                   </div>
