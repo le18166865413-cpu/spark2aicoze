@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download } from "lucide-react";
+import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BugfixPage() {
@@ -12,6 +12,8 @@ export default function BugfixPage() {
   const [result, setResult] = useState<{ type: string; message: string } | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFixAnonymous = async () => {
     setLoading("fix");
@@ -91,18 +93,14 @@ export default function BugfixPage() {
         setResult({ type: "success", message: data.message });
         toast.success(data.message);
 
-        // Export as CSV
-        if (data.files && data.files.length > 0) {
-          const csvHeader = "文件名,下载链接\n";
-          const csvRows = data.files
-            .map((f: { key: string; url: string }) => `"${f.key}","${f.url}"`)
-            .join("\n");
-          const csvContent = csvHeader + csvRows;
-          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        // Export as JSON
+        if (data.records && data.records.length > 0) {
+          const jsonContent = JSON.stringify(data.records, null, 2);
+          const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.download = `s3-images-export-${new Date().toISOString().slice(0, 10)}.csv`;
+          link.download = `sparkai-images-export-${new Date().toISOString().slice(0, 10)}.json`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -111,6 +109,63 @@ export default function BugfixPage() {
       } else {
         setResult({ type: "error", message: data.error || "导出失败" });
         toast.error(data.error || "导出失败");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult({ type: "error", message: msg });
+      toast.error(msg);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleImportImages = async () => {
+    if (!importFile) {
+      toast.error("请先选择要导入的 JSON 文件");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `确定要导入 "${importFile.name}" 中的图片记录吗？已存在的记录会被跳过。`
+    );
+    if (!confirmed) return;
+
+    setLoading("import");
+    setResult(null);
+    try {
+      const text = await importFile.text();
+      let records: unknown[];
+      try {
+        records = JSON.parse(text);
+      } catch {
+        toast.error("JSON 文件格式不正确");
+        setLoading(null);
+        return;
+      }
+
+      if (!Array.isArray(records) || records.length === 0) {
+        toast.error("文件中没有有效的图片记录");
+        setLoading(null);
+        return;
+      }
+
+      const res = await fetch("/api/admin/bugfix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "importImages", records }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ type: "success", message: data.message });
+        toast.success(data.message);
+        setImportFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } else {
+        setResult({ type: "error", message: data.error || "导入失败" });
+        toast.error(data.error || "导入失败");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -130,7 +185,7 @@ export default function BugfixPage() {
 
       {result && (
         <Alert variant={result.type === "success" ? "default" : "destructive"}>
-          <AlertDescription>{result.message}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">{result.message}</AlertDescription>
         </Alert>
       )}
 
@@ -219,10 +274,10 @@ export default function BugfixPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Download className="w-5 h-5" />
-            导出 S3 存储图片
+            导出图片数据
           </CardTitle>
           <CardDescription>
-            一键导出 S3 存储桶内所有文件的列表和签名下载链接，生成 CSV 文件。
+            导出所有图片记录，包含提示词、作者、模型、比例、参考图、签名下载链接等完整信息，生成 JSON 文件。
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -236,8 +291,50 @@ export default function BugfixPage() {
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
-            一键导出 S3 图片
+            一键导出图片数据
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            导入图片数据
+          </CardTitle>
+          <CardDescription>
+            从 JSON 文件导入图片记录到数据库。已存在的记录（按 image_key 或 id 去重）会被自动跳过，不会重复导入。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+              />
+            </div>
+            {importFile && (
+              <p className="text-sm text-muted-foreground">
+                已选择：{importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+              </p>
+            )}
+            <Button
+              onClick={handleImportImages}
+              disabled={loading === "import" || !importFile}
+              className="w-full sm:w-auto"
+            >
+              {loading === "import" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              导入图片记录
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

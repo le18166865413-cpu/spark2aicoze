@@ -150,38 +150,143 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Action 3: 一键导出 S3 存储内所有图片
+    // Action 3: 一键导出 S3 存储内所有图片（含完整数据库字段）
     if (action === "exportS3Images") {
-      const allKeys: { key: string; url: string }[] = [];
-      let continuationToken: string | undefined;
+      // 查询数据库所有图片记录
+      const { data: dbImages, error: queryError } = await supabase
+        .from("gallery_images")
+        .select("id, prompt, url, image_key, width, height, views, downloads, model, ratio, task_id, created_at, liked, user_id, creator_name, deleted_at, is_hidden, likes, reference_count, is_pinned, reference_image_key")
+        .order("created_at", { ascending: true });
 
-      do {
-        const result = await (storage as unknown as { listFiles(opts: { maxKeys: number; continuationToken?: string }): Promise<{ keys: string[]; isTruncated?: boolean; nextContinuationToken?: string }> }).listFiles({
-          maxKeys: 1000,
-          continuationToken,
-        });
+      if (queryError) {
+        return NextResponse.json({ error: queryError.message }, { status: 500 });
+      }
 
-        for (const key of result.keys) {
+      const records: Record<string, unknown>[] = [];
+
+      for (const img of dbImages || []) {
+        const record: Record<string, unknown> = { ...img };
+
+        // 生成主图签名链接
+        if (img.image_key) {
           try {
-            const url = await storage.generatePresignedUrl({ key, expireTime: 0 });
-            allKeys.push({ key, url });
+            record.signed_url = await storage.generatePresignedUrl({ key: img.image_key, expireTime: 0 });
           } catch {
-            // skip files that cannot be signed
+            record.signed_url = "";
           }
         }
 
-        if (result.isTruncated && result.nextContinuationToken) {
-          continuationToken = result.nextContinuationToken;
-        } else {
-          continuationToken = undefined;
+        // 生成参考图签名链接
+        if (img.reference_image_key) {
+          try {
+            const refKeys = img.reference_image_key.split(",").filter(Boolean);
+            const refUrls: string[] = [];
+            for (const refKey of refKeys) {
+              try {
+                const refUrl = await storage.generatePresignedUrl({ key: refKey.trim(), expireTime: 0 });
+                refUrls.push(refUrl);
+              } catch {
+                // skip
+              }
+            }
+            record.reference_image_urls = refUrls;
+          } catch {
+            record.reference_image_urls = [];
+          }
         }
-      } while (continuationToken);
+
+        records.push(record);
+      }
 
       return NextResponse.json({
         success: true,
-        message: `成功导出 ${allKeys.length} 个 S3 文件`,
-        files: allKeys,
-        count: allKeys.length,
+        message: `成功导出 ${records.length} 条图片记录`,
+        records,
+        count: records.length,
+      });
+    }
+
+    // Action 4: 导入图片记录
+    if (action === "importImages") {
+      const { records: importRecords } = body;
+      if (!importRecords || !Array.isArray(importRecords) || importRecords.length === 0) {
+        return NextResponse.json({ error: "缺少 records 数据或格式不正确" }, { status: 400 });
+      }
+
+      let inserted = 0;
+      let skipped = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const record of importRecords) {
+        try {
+          // 检查是否已存在（按 image_key 或 id 去重）
+          const checkField = record.image_key ? "image_key" : "id";
+          const checkValue = record.image_key || record.id;
+          if (!checkValue) {
+            skipped++;
+            continue;
+          }
+
+          const { data: existing } = await supabase
+            .from("gallery_images")
+            .select("id")
+            .eq(checkField, checkValue)
+            .maybeSingle();
+
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          // 构建插入数据
+          const insertData: Record<string, unknown> = {
+            id: record.id || crypto.randomUUID(),
+            prompt: record.prompt || "",
+            url: record.url || "",
+            image_key: record.image_key || null,
+            width: record.width || null,
+            height: record.height || null,
+            views: record.views || 0,
+            downloads: record.downloads || 0,
+            model: record.model || null,
+            ratio: record.ratio || null,
+            task_id: record.task_id || null,
+            creator_name: record.creator_name || "系统导入",
+            user_id: record.user_id || null,
+            reference_image_key: record.reference_image_key || null,
+            liked: record.liked ?? false,
+            is_hidden: record.is_hidden ?? false,
+            likes: record.likes || 0,
+            reference_count: record.reference_count || 0,
+            is_pinned: record.is_pinned ?? false,
+            created_at: record.created_at || new Date().toISOString(),
+          };
+
+          const { error: insertError } = await supabase
+            .from("gallery_images")
+            .insert(insertData);
+
+          if (insertError) {
+            failed++;
+            errors.push(`[${record.image_key || record.id}]: ${insertError.message}`);
+          } else {
+            inserted++;
+          }
+        } catch (err: unknown) {
+          failed++;
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`[${record.image_key || record.id}]: ${msg}`);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `导入完成：新增 ${inserted} 条，跳过 ${skipped} 条（已存在），失败 ${failed} 条`,
+        inserted,
+        skipped,
+        failed,
+        errors: errors.slice(0, 20),
       });
     }
 
