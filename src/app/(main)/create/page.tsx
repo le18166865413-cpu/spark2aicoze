@@ -556,29 +556,26 @@ function CreatePageInner() {
     batchStopRef.current = false;
     setIsBatchGenerating(true);
     setBatchProgress(0);
-    setBatchProgressStatus("准备生成...");
+    setBatchProgressStatus("正在提交所有任务...");
 
     const totalPages = toGen.length;
-    let succeeded = 0;
 
-    for (let i = 0; i < toGen.length; i++) {
-      if (batchStopRef.current) break;
+    // Mark all as generating
+    setBatchPages((prev) =>
+      prev.map((p) => (batchSelectedIndices.has(p.index) ? { ...p, status: "generating" } : p))
+    );
 
-      const page = toGen[i];
-      setBatchPages((prev) =>
-        prev.map((p) => (p.index === page.index ? { ...p, status: "generating" } : p))
-      );
-      setBatchProgressStatus(`正在生成第 ${i + 1}/${totalPages} 页：${page.title}`);
-      setBatchProgress(Math.round((i / totalPages) * 100));
+    // ---- Phase 1: Submit all tasks concurrently ----
+    const submissionResults: { page: typeof toGen[number]; taskId: string | null; error: string | null }[] = [];
 
-      let pageSuccess = false;
+    const submitPromises = toGen.map(async (page) => {
+      if (batchStopRef.current) return { page, taskId: null, error: "已停止" };
+
       let attempt = 0;
-
-      while (attempt < 3 && !pageSuccess && !batchStopRef.current) {
+      while (attempt < 3) {
         attempt++;
         try {
           const enhancedPrompt = buildBatchPrompt(page);
-
           const body: Record<string, unknown> = {
             model,
             ratio,
@@ -589,7 +586,6 @@ function CreatePageInner() {
 
           if (refImages.length > 0) {
             const refImg = refImages[0];
-            // Prefer S3 key over signed URL for reference image
             if (refImg.key) {
               body.refImageKey = refImg.key;
               body.refImageContentType = "image/jpeg";
@@ -605,108 +601,162 @@ function CreatePageInner() {
           }
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+          const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-          try {
-            const res = await fetch("/api/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-              signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
 
-            // Parse SSE response to extract task IDs for batch generation
-            const sseText = await res.text();
-            let batchTaskId = "";
-            let batchError = "";
-            let allTaskIds: string[] = [];
-            for (const line of sseText.split("\n")) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const event = JSON.parse(line.slice(6));
-                  if (event.type === "task_submitted" && event.taskId) {
-                    batchTaskId = event.taskId as string;
-                  } else if (event.type === "tasks_submitted" && event.taskIds) {
-                    allTaskIds = event.taskIds as string[];
-                  } else if (event.type === "error" && event.error) {
-                    batchError = event.error as string;
-                  }
-                } catch {
-                  // Ignore unparseable lines
+          const sseText = await res.text();
+          let batchTaskId = "";
+          let batchError = "";
+          let allTaskIds: string[] = [];
+          for (const line of sseText.split("\n")) {
+            if (line.startsWith("data: ")) {
+              try {
+                const event = JSON.parse(line.slice(6));
+                if (event.type === "task_submitted" && event.taskId) {
+                  batchTaskId = event.taskId as string;
+                } else if (event.type === "tasks_submitted" && event.taskIds) {
+                  allTaskIds = event.taskIds as string[];
+                } else if (event.type === "error" && event.error) {
+                  batchError = event.error as string;
                 }
+              } catch {
+                // Ignore unparseable lines
               }
             }
-            // Fallback: if no task_submitted found but tasks_submitted has IDs
-            if (!batchTaskId && allTaskIds.length > 0) {
-              batchTaskId = allTaskIds[0];
-            }
+          }
+          if (!batchTaskId && allTaskIds.length > 0) {
+            batchTaskId = allTaskIds[0];
+          }
 
-            if (!res.ok || batchError) {
-              const errMsg = batchError || `第 ${page.index + 1} 页生成失败`;
-              const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
-              if (isViolation && attempt < 3) {
-                toast.warning(`第 ${page.index + 1} 页检测到内容违规，自动调整后重试（${attempt}/3）...`);
-                continue;
-              }
-              throw new Error(errMsg);
-            }
+          if (!res.ok || batchError) {
+            const errMsg = batchError || `第 ${page.index + 1} 页提交失败`;
+            const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(errMsg);
+            if (isViolation && attempt < 3) continue;
+            return { page, taskId: null, error: errMsg };
+          }
 
-            if (batchTaskId) {
-              // Wait for result via polling
-              const maxWait = 180000; // 3 minutes
-              const pollStart = Date.now();
-              let pollDone = false;
-              while (!pollDone && Date.now() - pollStart < maxWait) {
-                await new Promise(r => setTimeout(r, 3000));
-                const pollRes = await fetch("/api/pending-tasks", { credentials: "include" });
-                const pollData = await pollRes.json();
-                const task = (pollData.tasks as Array<Record<string, unknown>>)?.find(
-                  (t: Record<string, unknown>) => t.taskId === batchTaskId
-                );
-                if (task?.status === "completed" && task.imageUrl) {
-                  pageSuccess = true;
-                  succeeded++;
-                  setBatchPages((prev) =>
-                    prev.map((p) =>
-                      p.index === page.index
-                        ? { ...p, status: "done", imageUrl: task.imageUrl as string, taskId: batchTaskId }
-                        : p
-                    )
-                  );
-                  pollDone = true;
-                } else if (task?.status === "failed") {
-                  throw new Error((task.error as string) || "生成失败");
-                }
-              }
-              if (!pollDone) throw new Error("生成超时");
-            } else {
-              throw new Error(`未获取到任务ID (SSE响应: ${sseText.substring(0, 200)})`);
-            }
-          } catch (err: unknown) {
-            clearTimeout(timeoutId);
-            throw err;
+          if (batchTaskId) {
+            return { page, taskId: batchTaskId, error: null };
+          } else {
+            return { page, taskId: null, error: `未获取到任务ID` };
           }
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "生成失败";
-          const isViolation = /moderation|violation|违规|敏感|不合规|内容审核|审核不通过/i.test(msg);
-          if (isViolation && attempt < 3) {
-            toast.warning(`第 ${page.index + 1} 页内容违规，自动调整后重试（${attempt}/3）...`);
-            continue;
-          }
-          toast.error(`第 ${page.index + 1} 页生成失败：${msg}`);
-          setBatchPages((prev) =>
-            prev.map((p) => (p.index === page.index ? { ...p, status: "failed" } : p))
-          );
+          const msg = err instanceof Error ? err.message : "提交失败";
+          if (attempt >= 3) return { page, taskId: null, error: msg };
         }
       }
+      return { page, taskId: null, error: "提交失败，已达最大重试次数" };
+    });
+
+    const results = await Promise.all(submitPromises);
+
+    // Report submission results
+    let submitted = 0;
+    for (const r of results) {
+      if (r.taskId) {
+        submitted++;
+        submissionResults.push(r);
+      } else {
+        toast.error(`第 ${r.page.index + 1} 页提交失败：${r.error}`);
+        setBatchPages((prev) =>
+          prev.map((p) => (p.index === r.page.index ? { ...p, status: "failed" } : p))
+        );
+      }
     }
+
+    if (submitted === 0) {
+      setBatchProgress(100);
+      setBatchProgressStatus("所有任务提交失败");
+      setIsBatchGenerating(false);
+      return;
+    }
+
+    setBatchProgressStatus(`已提交 ${submitted}/${totalPages} 个任务，等待生成结果...`);
+    setBatchProgress(10);
+
+    // ---- Phase 2: Poll all tasks concurrently ----
+    const pollPromises = submissionResults.map(async (r) => {
+      if (!r.taskId) return;
+      const maxWait = 300000; // 5 minutes per task
+      const pollStart = Date.now();
+      let lastProgress = 10;
+
+      while (!batchStopRef.current && Date.now() - pollStart < maxWait) {
+        await new Promise((res) => setTimeout(res, 3000));
+        try {
+          const pollRes = await fetch("/api/pending-tasks", { credentials: "include" });
+          const pollData = await pollRes.json();
+          const task = (pollData.tasks as Array<Record<string, unknown>>)?.find(
+            (t: Record<string, unknown>) => t.taskId === r.taskId
+          );
+          if (task?.status === "completed" && task.imageUrl) {
+            setBatchPages((prev) =>
+              prev.map((p) =>
+                p.index === r.page.index
+                  ? { ...p, status: "done", imageUrl: task.imageUrl as string, taskId: r.taskId }
+                  : p
+              )
+            );
+            // Update overall progress
+            const doneCount = submissionResults.filter(
+              (s) => s.page.index <= r.page.index && s.taskId
+            ).length;
+            const newProgress = 10 + Math.round((doneCount / submitted) * 90);
+            if (newProgress > lastProgress) {
+              lastProgress = newProgress;
+              setBatchProgress(newProgress);
+              setBatchProgressStatus(`已完成 ${doneCount}/${submitted} 页`);
+            }
+            return;
+          } else if (task?.status === "failed") {
+            throw new Error((task.error as string) || "生成失败");
+          }
+          // Update progress based on task progress if available
+          if (task?.progress && typeof task.progress === "number") {
+            const taskProg = task.progress as number;
+            const overallProg = 10 + Math.round(((submissionResults.indexOf(r)) / submitted) * 90) + Math.round((taskProg / 100) * (90 / submitted));
+            if (overallProg > lastProgress) {
+              lastProgress = overallProg;
+              setBatchProgress(Math.min(overallProg, 99));
+            }
+          }
+        } catch (err: unknown) {
+          if (err instanceof Error && !err.message.includes("fetch")) {
+            toast.error(`第 ${r.page.index + 1} 页生成失败：${err.message}`);
+            setBatchPages((prev) =>
+              prev.map((p) => (p.index === r.page.index ? { ...p, status: "failed" } : p))
+            );
+            return;
+          }
+        }
+      }
+      // Timeout
+      toast.error(`第 ${r.page.index + 1} 页生成超时`);
+      setBatchPages((prev) =>
+        prev.map((p) => (p.index === r.page.index ? { ...p, status: "failed" } : p))
+      );
+    });
+
+    await Promise.all(pollPromises);
+
+    // Final count
+    const finalDone = submissionResults.filter((r) => {
+      const page = batchPages.find((p) => p.index === r.page.index);
+      return page?.status === "done";
+    }).length;
 
     setBatchProgress(100);
     setBatchProgressStatus(batchStopRef.current ? "已停止" : "生成完成");
     setIsBatchGenerating(false);
     if (!batchStopRef.current) {
-      toast.success(`批量生成完成，成功 ${succeeded}/${totalPages} 页`);
+      toast.success(`批量生成完成，成功 ${finalDone}/${totalPages} 页`);
     }
   }, [batchPages, batchSelectedIndices, model, ratio, buildBatchPrompt, refImages]);
 
