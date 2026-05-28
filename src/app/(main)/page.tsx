@@ -120,6 +120,8 @@ export default function Home() {
         userId: item.userId as string | null | undefined,
         isPinned: item.isPinned as boolean | undefined,
         liked: item.liked as boolean | undefined,
+        referenceImageKey: item.referenceImageKey as string | null | undefined,
+        referenceImageUrl: item.referenceImageUrl as string | null | undefined,
       }));
       setImages(data);
     } catch (error) {
