@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
   const [batchPreview, setBatchPreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [restoreText, setRestoreText] = useState('');
-  const [restorePreview, setRestorePreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean}[]>([]);
+  const [restorePreview, setRestorePreview] = useState<{username:string;password:string;nickname:string;role:string;valid:boolean;isHash:boolean;email:string;phone:string;status:string;can_generate:boolean}[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'admin' | 'user' | 'approved' | 'pending' | 'rejected'>('all');
   const [anonymousGenerate, setAnonymousGenerate] = useState(false);
   const [savingAnonymous, setSavingAnonymous] = useState(false);
@@ -150,22 +150,6 @@ export default function AdminUsersPage() {
     return parsed;
   };
 
-  const parseRestoreCSV = (text: string) => {
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    // Skip header if first line contains Chinese or "username"
-    const startIndex = lines.length > 0 && (/用户名|username|密码|password/i.test(lines[0])) ? 1 : 0;
-    const parsed = lines.slice(startIndex).map(line => {
-      const parts = line.split(',').map(p => p.trim());
-      // Format: username, password, nickname, role, status, created_at, updated_at
-      const [username = '', password = '', nickname = '', roleText = ''] = parts;
-      const role = roleText.includes('管理') || roleText === 'admin' ? 'admin' : 'user';
-      const valid = username.length > 0 && password.length > 0;
-      return { username, password, nickname: nickname || username, role, valid, isHash: isBcryptHash(password) };
-    });
-    setRestorePreview(parsed);
-    return parsed;
-  };
-
   const handleBatchAdd = async () => {
     const users = parseBatchText(batchText).filter(u => u.valid);
     if (users.length === 0) {
@@ -200,34 +184,87 @@ export default function AdminUsersPage() {
     }
   };
 
+  const parseRestoreData = (text: string) => {
+    try {
+      const data = JSON.parse(text);
+      if (data._type === 'users_export' && Array.isArray(data.users)) {
+        const parsed = data.users.map((u: Record<string, unknown>) => {
+          const username = String(u.username || '');
+          const password = String(u.password || u.plain_password || '');
+          const nickname = String(u.nickname || username);
+          const roleText = String(u.role || 'user');
+          const role = roleText === 'admin' ? 'admin' : 'user';
+          const valid = username.length > 0 && password.length > 0;
+          return { username, password, nickname, role, valid, isHash: isBcryptHash(password), email: String(u.email || ''), phone: String(u.phone || ''), status: String(u.status || 'approved'), can_generate: u.can_generate !== false };
+        });
+        setRestorePreview(parsed);
+        return parsed;
+      }
+    } catch { /* not JSON, try CSV */ }
+    // Fallback to CSV parsing
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const startIndex = lines.length > 0 && (/用户名|username|密码|password/i.test(lines[0])) ? 1 : 0;
+    const parsed = lines.slice(startIndex).map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      const [username = '', password = '', nickname = '', roleText = ''] = parts;
+      const role = roleText.includes('管理') || roleText === 'admin' ? 'admin' : 'user';
+      const valid = username.length > 0 && password.length > 0;
+      return { username, password, nickname: nickname || username, role, valid, isHash: isBcryptHash(password), email: '', phone: '', status: 'approved', can_generate: true };
+    });
+    setRestorePreview(parsed);
+    return parsed;
+  };
+
   const handleRestoreUsers = async () => {
-    const users = parseRestoreCSV(restoreText).filter(u => u.valid);
-    if (users.length === 0) {
-      alert('没有有效的用户数据，请粘贴导出的 CSV 内容');
+    const usersToRestore = parseRestoreData(restoreText).filter((u: { valid: boolean }) => u.valid);
+    if (usersToRestore.length === 0) {
+      alert('没有有效的用户数据，请粘贴导出的 JSON 或 CSV 内容');
       return;
     }
     let success = 0;
+    let skipped = 0;
     let failed = 0;
     let hashCount = 0;
-    for (const user of users) {
+    // Fetch existing usernames for dedup
+    const existingRes = await fetch('/api/admin/users', { credentials: 'include' });
+    const existingData = await existingRes.json();
+    const existingUsernames = new Set((existingData.users || []).map((u: User) => u.username));
+
+    for (const user of usersToRestore) {
+      if (existingUsernames.has(user.username)) {
+        skipped++;
+        continue;
+      }
       try {
         const res = await fetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify(user),
+          body: JSON.stringify({
+            username: user.username,
+            password: user.password,
+            nickname: user.nickname,
+            role: user.role,
+            email: user.email || undefined,
+            phone: user.phone || undefined,
+            status: user.status,
+            can_generate: user.can_generate,
+          }),
         });
         if (res.ok) {
           success++;
+          existingUsernames.add(user.username);
           if (user.isHash) hashCount++;
         } else {
+          const data = await res.json().catch(() => ({ error: '' }));
+          console.error(`Import user ${user.username} failed:`, data.error);
           failed++;
         }
       } catch {
         failed++;
       }
     }
-    alert(`批量还原完成：成功 ${success} 条（含 ${hashCount} 条哈希密码），失败 ${failed} 条`);
+    alert(`批量还原完成：成功 ${success} 条（含 ${hashCount} 条哈希密码），跳过 ${skipped} 条（已存在），失败 ${failed} 条`);
     if (success > 0) {
       setShowRestoreDialog(false);
       setRestoreText('');
@@ -377,22 +414,26 @@ export default function AdminUsersPage() {
         alert('暂无用户数据可导出');
         return;
       }
-      const headers = ['用户名', '密码', '昵称', '角色', '状态', '创建时间', '更新时间'];
-      const rows = list.map((u: User) => [
-        u.username,
-        u.plain_password || '已加密（无法还原）',
-        u.nickname,
-        u.role === 'admin' ? '管理员' : '普通用户',
-        u.status === 'approved' ? '已通过' : u.status === 'pending' ? '待审批' : '已拒绝',
-        new Date(u.created_at).toLocaleString(),
-        new Date(u.updated_at).toLocaleString(),
-      ]);
-      const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Export complete user data as JSON
+      const exportData = list.map((u: User) => ({
+        username: u.username,
+        password: u.password || '',
+        plain_password: u.plain_password || '',
+        nickname: u.nickname || '',
+        role: u.role,
+        status: u.status,
+        email: u.email || '',
+        phone: u.phone || '',
+        can_generate: u.can_generate !== false,
+        created_at: u.created_at,
+        updated_at: u.updated_at,
+      }));
+      const jsonContent = JSON.stringify({ _type: 'users_export', exported_at: new Date().toISOString(), count: exportData.length, users: exportData }, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `users_export_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -536,31 +577,56 @@ export default function AdminUsersPage() {
             <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
-                  <Upload className="w-4 h-4 mr-1" />批量还原
+                  <Upload className="w-4 h-4 mr-1" />批量导入
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>批量还原用户</DialogTitle>
+                  <DialogTitle>批量导入用户</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <p className="text-xs text-muted-foreground">粘贴导出的 CSV 内容，系统会自动识别 bcrypt 哈希密码并直接还原，无需重新加密。</p>
+                  <p className="text-xs text-muted-foreground">支持导入导出的 JSON 文件，自动识别 bcrypt 哈希密码直接还原。已存在的用户名会跳过。</p>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">上传 JSON 文件</label>
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="w-full text-sm file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          const text = ev.target?.result as string;
+                          setRestoreText(text);
+                          parseRestoreData(text);
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">或粘贴内容</span></div>
+                  </div>
                   <textarea
                     className="w-full min-h-[120px] p-3 rounded-md border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder={`用户名,密码,昵称,角色...\nadmin,\$2b\$10\$...,管理员,admin...`}
+                    placeholder={`粘贴导出的 JSON 内容...`}
                     value={restoreText}
-                    onChange={e => { setRestoreText(e.target.value); parseRestoreCSV(e.target.value); }}
+                    onChange={e => { setRestoreText(e.target.value); parseRestoreData(e.target.value); }}
                   />
                   {restorePreview.length > 0 && (
-                    <div className="mt-2 space-y-1 max-h-[150px] overflow-y-auto">
+                    <div className="mt-2 space-y-1 max-h-[200px] overflow-y-auto">
+                      <div className="text-xs text-muted-foreground mb-1">预览 {restorePreview.length} 条记录：</div>
                       {restorePreview.map((u, i) => (
                         <div key={i} className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${u.valid ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
-                          <span className="font-mono">{i + 1}.</span>
-                          <span>{u.username}</span>
+                          <span className="font-mono w-5">{i + 1}.</span>
+                          <span className="font-medium">{u.username}</span>
                           <span className="text-muted-foreground">{u.nickname}</span>
+                          {u.email && <span className="text-muted-foreground truncate max-w-[100px]">{u.email}</span>}
                           {u.isHash && <Badge variant="outline" className="text-[10px] h-4">哈希</Badge>}
                           <span className="ml-auto">{u.role === 'admin' ? '管理员' : '普通用户'}</span>
-                          {!u.valid && <span className="text-red-500">(信息不完整)</span>}
+                          {!u.valid && <span className="text-red-500">(不完整)</span>}
                         </div>
                       ))}
                     </div>
@@ -570,7 +636,7 @@ export default function AdminUsersPage() {
                     disabled={restorePreview.filter(u => u.valid).length === 0}
                     className="w-full"
                   >
-                    批量还原 {restorePreview.filter(u => u.valid).length > 0 ? `(${restorePreview.filter(u => u.valid).length} 人)` : ''}
+                    批量导入 {restorePreview.filter(u => u.valid).length > 0 ? `(${restorePreview.filter(u => u.valid).length} 人)` : ''}
                   </Button>
                 </div>
               </DialogContent>

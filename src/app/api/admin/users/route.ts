@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { username, password, nickname, role } = body;
+    const { username, password, nickname, role, email, phone, status, can_generate } = body;
 
     if (!username || !password || !nickname) {
       return NextResponse.json({ error: '用户名、密码和昵称不能为空' }, { status: 400 });
@@ -81,17 +81,22 @@ export async function POST(request: Request) {
 
     const finalPassword = isBcryptHash ? password : await bcrypt.hash(password, 10);
 
+    const insertData: Record<string, unknown> = {
+      username,
+      password: finalPassword,
+      plain_password: isBcryptHash ? undefined : password,
+      nickname,
+      role: role || 'user',
+      status: status || 'approved',
+    };
+    if (email) insertData.email = email;
+    if (phone) insertData.phone = phone;
+    if (can_generate !== undefined) insertData.can_generate = can_generate;
+
     const { data, error } = await getSupabaseClient()
       .from('users')
-      .insert({
-        username,
-        password: finalPassword,
-        plain_password: isBcryptHash ? undefined : password,
-        nickname,
-        role: role || 'user',
-        status: 'approved',
-      })
-      .select('id, username, nickname, role, status, created_at, updated_at')
+      .insert(insertData)
+      .select('id, username, nickname, role, status, email, phone, can_generate, created_at, updated_at')
       .single();
 
     if (error) {
