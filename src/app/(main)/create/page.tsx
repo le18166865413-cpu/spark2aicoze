@@ -152,13 +152,11 @@ function CreatePageInner() {
   const [waitMessage, setWaitMessage] = useState("请等待30-120秒，不要切换页面");
   const [waitDuration, setWaitDuration] = useState(5000);
   const [defaultRatio, setDefaultRatio] = useState("auto");
-  const [batchGenerateAccess, setBatchGenerateAccess] = useState("admin");
   const [groupQrImage, setGroupQrImage] = useState("");
   const [anonymousGenerate, setAnonymousGenerate] = useState(false);
-  const canAccessBatch = batchGenerateAccess === "all" || isAdmin;
   
   const [mode, setMode] = useState<GenerationMode>(
-    (initialMode === "batch" && !canAccessBatch ? "text2img" : (initialMode === "batch" ? "batch" : "text2img")) as GenerationMode
+    (initialMode === "batch" ? "batch" : "text2img") as GenerationMode
   );
   const [prompt, setPrompt] = useState(initialPrompt);
   const promptRef = useRef(initialPrompt);
@@ -181,13 +179,6 @@ function CreatePageInner() {
   const [customUsage, setCustomUsage] = useState("");
   const [customStyle, setCustomStyle] = useState("");
   const [customColor, setCustomColor] = useState("");
-
-  // Redirect unauthorized users away from batch mode
-  useEffect(() => {
-    if (!authLoading && mode === "batch" && !canAccessBatch) {
-      setMode("text2img");
-    }
-  }, [authLoading, canAccessBatch, mode]);
 
   const [imageSize, setImageSize] = useState("1K");
   const [imageCount, setImageCount] = useState(1);
@@ -266,7 +257,6 @@ function CreatePageInner() {
         if (data.createOptions?.usage?.length) setUsageOpts(data.createOptions.usage.map((item: { label: string }) => item.label));
         if (data.createOptions?.style?.length) setStyleOpts(data.createOptions.style.map((item: { label: string }) => item.label));
         if (data.createOptions?.color?.length) setColorOpts(data.createOptions.color.map((item: { label: string }) => item.label));
-        if (data.batchGenerateAccess) setBatchGenerateAccess(data.batchGenerateAccess);
         if (data.groupQrImage) setGroupQrImage(data.groupQrImage);
         if (data.anonymousGenerate !== undefined) setAnonymousGenerate(data.anonymousGenerate);
       })
@@ -1128,8 +1118,7 @@ function CreatePageInner() {
                 <span className="hidden sm:inline">创作海报</span>
                 <span className="sm:hidden">创作</span>
               </button>
-              {canAccessBatch && (
-                <button
+              <button
                   onClick={() => setMode("batch")}
                   className={cn(
                     "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
@@ -1142,7 +1131,6 @@ function CreatePageInner() {
                   <span className="hidden sm:inline">批量生图</span>
                   <span className="sm:hidden">批量图</span>
                 </button>
-              )}
             </div>
 
             {/* Reference Image Upload - with toggle switch */}

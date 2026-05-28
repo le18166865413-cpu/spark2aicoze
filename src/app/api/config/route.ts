@@ -169,7 +169,6 @@ const DEFAULTS: Record<string, string> = {
     { label: "灰", value: "灰" },
     { label: "米色", value: "米色" },
   ]),
-  batch_generate_access: "admin",
   anonymous_generate: "false",
   group_qr_image: "",
 };
@@ -266,7 +265,6 @@ export async function GET() {
       color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
     };
 
-    config.batchGenerateAccess = config.batch_generate_access || "admin";
     config.anonymousGenerate = config.anonymous_generate === "true";
     config.groupQrImage = config.group_qr_image || "";
 
@@ -284,7 +282,7 @@ export async function GET() {
     for (const key of Object.keys(DEFAULTS)) {
       config[key] = DEFAULTS[key];
     }
-    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "create_options_scene", "create_options_usage", "create_options_style", "create_options_color", "batch_generate_access"];
+    const jsonFields = ["prompt_templates", "available_models", "available_ratios", "tips_content", "create_options_scene", "create_options_usage", "create_options_style", "create_options_color"];
     for (const field of jsonFields) {
       try {
         config[field] = JSON.parse(config[field] as string);
@@ -300,7 +298,6 @@ export async function GET() {
       style: Array.isArray(config.create_options_style) ? config.create_options_style : [],
       color: Array.isArray(config.create_options_color) ? config.create_options_color : [],
     };
-    config.batchGenerateAccess = config.batch_generate_access || "admin";
     config.anonymousGenerate = config.anonymous_generate === "true";
     config.groupQrImage = config.group_qr_image || "";
     return NextResponse.json(config);
