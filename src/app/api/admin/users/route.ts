@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data, error } = await getSupabaseClient()
       .from('users')
-      .select('id, username, password, plain_password, nickname, role, status, email, can_generate, created_at, updated_at')
+      .select('id, username, password, plain_password, nickname, role, status, email, phone, can_generate, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {

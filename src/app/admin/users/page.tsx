@@ -30,6 +30,7 @@ interface User {
   role: string;
   status: string;
   email?: string;
+  phone?: string;
   avatar?: string;
   can_generate?: boolean;
   created_at: string;
@@ -665,6 +666,7 @@ export default function AdminUsersPage() {
                 <tr className="border-b border-border bg-muted/30">
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">用户</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">邮箱</th>
+                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">电话</th>
                   <th className="text-center py-3 px-3 font-medium text-muted-foreground">角色</th>
                   <th className="text-center py-3 px-3 font-medium text-muted-foreground">状态</th>
                   <th className="text-center py-3 px-3 font-medium text-muted-foreground">生图</th>
@@ -676,7 +678,7 @@ export default function AdminUsersPage() {
               <tbody>
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-muted-foreground">暂无用户</td>
+                    <td colSpan={9} className="text-center py-8 text-muted-foreground">暂无用户</td>
                   </tr>
                 )}
                 {filteredUsers.map(user => (
@@ -693,6 +695,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-xs text-muted-foreground truncate max-w-[180px]">{user.email || '-'}</td>
+                    <td className="py-3 px-3 text-xs text-muted-foreground">{user.phone || '-'}</td>
                     <td className="py-3 px-3 text-center">{getRoleBadge(user.role)}</td>
                     <td className="py-3 px-3 text-center">{getStatusBadge(user.status)}</td>
                     <td className="py-3 px-3 text-center">
