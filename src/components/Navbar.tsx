@@ -43,7 +43,7 @@ export default function Navbar() {
       <div className="container flex h-[72px] items-center px-1 md:px-6 mx-auto">
         {/* Logo */}
         <Link href="/" className="mr-4 sm:mr-8 flex items-center space-x-2 shrink-0">
-          <div className="bg-primary rounded-lg p-1.5">
+          <div className="bg-primary rounded-md p-1.5">
             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="flex items-center gap-2">
