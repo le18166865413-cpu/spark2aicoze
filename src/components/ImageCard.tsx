@@ -315,7 +315,18 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
       </DialogTrigger>
 
       {/* Detail Modal - Modern SaaS Style */}
-      <DialogContent className="w-[95vw] sm:max-w-[95vw] md:max-w-[1400px] h-[90vh] md:h-[85vh] overflow-y-auto md:overflow-hidden bg-background rounded-2xl p-0 flex flex-col md:flex-row focus:outline-none border border-border shadow-2xl">
+      <DialogContent className={cn(
+        "w-[95vw] sm:max-w-[95vw] overflow-y-auto md:overflow-hidden bg-background rounded-2xl p-0 flex flex-col md:flex-row focus:outline-none border border-border shadow-2xl",
+        // 根据图片比例自适应弹窗尺寸
+        (() => {
+          const w = image.width ?? 1;
+          const h = image.height ?? 1;
+          const ratio = w / h;
+          if (ratio >= 1.2) return "md:max-w-[1500px] h-[80vh] md:h-[75vh]"; // 横屏：宽矮
+          if (ratio <= 0.75) return "md:max-w-[900px] h-[92vh] md:h-[90vh]";  // 竖屏：窄高
+          return "md:max-w-[1200px] h-[88vh] md:h-[85vh]";                    // 正方形：适中
+        })()
+      )}>
         <DialogTitle className="sr-only">海报详情</DialogTitle>
 
         {/* Top Action Bar - mobile (at top) */}
@@ -391,7 +402,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 // 判断图片方向：竖屏(高>宽) 还是 横屏/正方形
                 const isPortrait = (image.height ?? 0) > (image.width ?? 0);
                 return (
-                  <div className={`flex w-full h-full items-center justify-center gap-0 ${isPortrait ? 'flex-row' : 'flex-col'}`}>
+                  <div className={`flex w-full h-full items-center justify-center ${isPortrait ? 'flex-row gap-3' : 'flex-col gap-3'}`}>
                     {/* Generated Image - main area */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -404,9 +415,9 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                     {/* Reference Image with dashed divider */}
                     {image.referenceImageUrl && (
                       <>
-                        {/* Dashed divider line */}
-                        <div className={`flex-shrink-0 border-dashed border-muted-foreground/30 ${isPortrait ? 'h-[80%] border-l' : 'w-[80%] border-t'}`} />
-                        <div className={`flex-shrink-0 flex items-center gap-1.5 ${isPortrait ? 'flex-col h-full justify-center px-2' : 'flex-col w-full py-2'}`}>
+                        {/* Dashed divider line with equal spacing */}
+                        <div className={`flex-shrink-0 border-dashed border-muted-foreground/30 ${isPortrait ? 'h-[70%] border-l' : 'w-[70%] border-t'}`} />
+                        <div className={`flex-shrink-0 flex items-center gap-1.5 ${isPortrait ? 'flex-col justify-center px-1' : 'flex-col py-1'}`}>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">参考图</span>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
