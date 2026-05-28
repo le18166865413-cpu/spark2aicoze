@@ -4,8 +4,22 @@ import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { getStorageErrorMessage } from "@/utils/storage-error";
 import { getSiteFilter, buildSiteInsertData } from "@/lib/multi-site";
 
-const GRSAI_API_KEY = process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
-const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+async function getGrsaiApiKey(): Promise<string> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.from("admin_settings").select("value").eq("key", "grsai_api_key").single();
+    if (data?.value) return data.value;
+  } catch { /* fallback */ }
+  return process.env.GRSAI_API_KEY || "";
+}
+async function getGrsaiBaseUrl(): Promise<string> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.from("admin_settings").select("value").eq("key", "grsai_base_url").single();
+    if (data?.value) return data.value;
+  } catch { /* fallback */ }
+  return process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+}
 
 // Get permanent signed URL via sign-url endpoint
 async function getSignedUrl(key: string): Promise<string> {
@@ -64,10 +78,12 @@ async function addToAutoSyncQueue(
 
 // Query task result from GrsAI (new unified endpoint)
 async function queryTaskResult(taskId: string) {
-  const response = await fetch(`${GRSAI_BASE_URL}/v1/api/result?id=${taskId}`, {
+  const baseUrl = await getGrsaiBaseUrl();
+  const apiKey = await getGrsaiApiKey();
+  const response = await fetch(`${baseUrl}/v1/api/result?id=${taskId}`, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${GRSAI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
   });

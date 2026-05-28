@@ -38,7 +38,14 @@ async function saveTaskToSyncQueue(
   }
 }
 
-const GRSAI_BASE_URL = process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+async function getGrsaiBaseUrl(): Promise<string> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.from("admin_settings").select("value").eq("key", "grsai_base_url").single();
+    if (data?.value) return data.value;
+  } catch { /* fallback */ }
+  return process.env.GRSAI_BASE_URL || "https://grsai.dakka.com.cn";
+}
 
 async function getGrsaiApiKey(): Promise<string> {
   try {
@@ -46,7 +53,7 @@ async function getGrsaiApiKey(): Promise<string> {
     const { data } = await supabase.from("admin_settings").select("value").eq("key", "grsai_api_key").single();
     if (data?.value) return data.value;
   } catch { /* fallback */ }
-  return process.env.GRSAI_API_KEY || "sk-013abb01b9f44e1ca4f72b81e6d91f60";
+  return process.env.GRSAI_API_KEY || "";
 }
 
 interface GalleryImage {
@@ -621,7 +628,8 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    const url = `${GRSAI_BASE_URL}/v1/api/generate`;
+    const baseUrl = await getGrsaiBaseUrl();
+    const url = `${baseUrl}/v1/api/generate`;
 
     // JSON mode: synchronous processing, wait for all images then return JSON
     if (isJsonMode) {
