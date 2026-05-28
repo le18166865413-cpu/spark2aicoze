@@ -1109,7 +1109,7 @@ function CreatePageInner() {
           </div>
         </div>
       )}
-      <main className="container mx-auto px-2 sm:px-4 py-6">
+      <main className="container mx-auto px-1 sm:px-4 py-6">
         <div className="grid lg:grid-cols-[55fr_45fr] gap-8">
           {/* Left: Input Panel */}
           <div className="space-y-6">

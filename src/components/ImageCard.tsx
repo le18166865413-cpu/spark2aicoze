@@ -452,7 +452,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
         </div>
 
         {/* Right Info Side */}
-        <div className="w-full md:w-[400px] flex-shrink-0 px-4 pt-0 pb-4 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full md:overflow-y-auto flex-1 md:flex-none">
+        <div className="w-full md:w-[400px] flex-shrink-0 px-1 pt-0 pb-4 md:p-8 flex flex-col gap-4 md:gap-6 bg-background md:h-full md:overflow-y-auto flex-1 md:flex-none">
           {/* Top Action Bar - desktop only */}
           <div className="hidden md:flex items-center justify-between sticky top-0 bg-background z-10 pb-4 border-b">
             <div className="flex gap-2">
