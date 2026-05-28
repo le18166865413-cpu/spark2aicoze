@@ -222,7 +222,7 @@ function ColorPicker({ value, onChange, placeholder }: { value: string; onChange
         type="color"
         value={value || '#8b5cf6'}
         onChange={(e) => onChange(e.target.value)}
-        className="w-8 h-8 p-0 border-0 rounded cursor-pointer shrink-0"
+        className="w-5 h-5 p-0 border-0 rounded-sm cursor-pointer shrink-0"
       />
       <input
         type="text"
@@ -390,7 +390,7 @@ export default function ThemePage() {
           <Palette className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-foreground">主色调</h3>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+        <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-11 lg:grid-cols-13 gap-1.5">
           {THEMES.map((t) => (
             <button
               key={t.id}
@@ -398,7 +398,7 @@ export default function ThemePage() {
               className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border cursor-pointer transition-colors ${theme === t.id && !isCustom ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
             >
               <div
-                className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 shadow-sm"
+                className="w-6 h-6 rounded flex items-center justify-center shrink-0"
                 style={{ backgroundColor: t.hex }}
               >
                 {theme === t.id && !isCustom && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
@@ -425,7 +425,7 @@ export default function ThemePage() {
           {/* Color grid - Red hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">红色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#FFE5E5','#FFB3B3','#FF8080','#FF4D4D','#FF1A1A','#E60000','#B30000','#800000',
                 '#4D0000','#330000','#1A0000',
@@ -437,7 +437,7 @@ export default function ThemePage() {
           {/* Orange hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">橙色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#FFF2E5','#FFD6A8','#FFB366','#FF8C1A','#E67600','#B35C00','#804200',
                 '#4D2800','#331A00','#CC5500','#FF6B00',
@@ -449,7 +449,7 @@ export default function ThemePage() {
           {/* Yellow hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">黄色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#FFFDE5','#FFF9B3','#FFF580','#FFF14D','#FFED1A','#E6D600','#B3A600',
                 '#807700','#4D4900','#332F00','#FFFF33',
@@ -461,7 +461,7 @@ export default function ThemePage() {
           {/* Green hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">绿色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#E5FFE5','#B3FFB3','#80FF80','#4DFF4D','#1AFF1A','#00E600','#00B300',
                 '#008000','#004D00','#003300','#33CC33',
@@ -473,7 +473,7 @@ export default function ThemePage() {
           {/* Cyan/Teal hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">青色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#E5FFFF','#B3FFFF','#80FFFF','#4DFFFF','#1AFFFF','#00E6E6','#00B3B3',
                 '#008080','#004D4D','#003333','#33CCCC',
@@ -485,7 +485,7 @@ export default function ThemePage() {
           {/* Blue hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">蓝色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#E5F0FF','#B3D4FF','#80B8FF','#4D9CFF','#1A80FF','#0066E6','#0050B3',
                 '#003A80','#00254D','#001A33','#3377FF',
@@ -497,7 +497,7 @@ export default function ThemePage() {
           {/* Purple hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">紫色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#F0E5FF','#D4B3FF','#B880FF','#9C4DFF','#801AFF','#6600E6','#5000B3',
                 '#3A0080','#25004D','#1A0033','#7733FF',
@@ -509,7 +509,7 @@ export default function ThemePage() {
           {/* Pink hue variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">粉色系</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#FFE5F0','#FFB3D4','#FF80B8','#FF4D9C','#FF1A80','#E60066','#B30050',
                 '#80003A','#4D0025','#33001A','#FF3388',
@@ -521,7 +521,7 @@ export default function ThemePage() {
           {/* Neutral variations */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">中性色</span>
-            <div className="grid grid-cols-8 sm:grid-cols-11 gap-1">
+            <div className="grid grid-cols-11 gap-0.5">
               {[
                 '#FFFFFF','#F5F5F5','#E5E5E5','#D4D4D4','#A3A3A3','#737373','#525252',
                 '#404040','#262626','#171717','#0A0A0A',
