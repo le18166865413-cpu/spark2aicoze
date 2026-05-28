@@ -317,14 +317,20 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
       {/* Detail Modal - Modern SaaS Style */}
       <DialogContent className={cn(
         "w-[95vw] sm:max-w-[95vw] overflow-y-auto md:overflow-hidden bg-background rounded-2xl p-0 flex flex-col md:flex-row focus:outline-none border border-border shadow-2xl",
-        // 根据图片比例自适应弹窗尺寸
+        // 根据图片比例自适应弹窗尺寸，让主图最大化显示
         (() => {
           const w = image.width ?? 1;
           const h = image.height ?? 1;
           const ratio = w / h;
-          if (ratio >= 1.2) return "md:max-w-[1500px] h-[80vh] md:h-[75vh]"; // 横屏：宽矮
-          if (ratio <= 0.75) return "md:max-w-[900px] h-[92vh] md:h-[90vh]";  // 竖屏：窄高
-          return "md:max-w-[1200px] h-[88vh] md:h-[85vh]";                    // 正方形：适中
+          const hasRef = !!image.referenceImageUrl;
+          // 基于图片比例计算弹窗宽度，右侧信息栏固定400px
+          // 弹窗总宽 = 图片显示区宽度 + 400px信息栏
+          // 图片显示区需要足够空间让图片最大化
+          if (ratio >= 1.5) return hasRef ? "md:max-w-[1600px] h-[82vh] md:h-[78vh]" : "md:max-w-[1500px] h-[80vh] md:h-[75vh]"; // 超宽屏
+          if (ratio >= 1.2) return hasRef ? "md:max-w-[1500px] h-[82vh] md:h-[78vh]" : "md:max-w-[1400px] h-[82vh] md:h-[78vh]"; // 横屏
+          if (ratio <= 0.6) return hasRef ? "md:max-w-[1000px] h-[92vh] md:h-[90vh]" : "md:max-w-[850px] h-[92vh] md:h-[90vh]";   // 超竖屏
+          if (ratio <= 0.75) return hasRef ? "md:max-w-[1050px] h-[92vh] md:h-[90vh]" : "md:max-w-[950px] h-[92vh] md:h-[90vh]";  // 竖屏
+          return hasRef ? "md:max-w-[1300px] h-[88vh] md:h-[85vh]" : "md:max-w-[1200px] h-[88vh] md:h-[85vh]";                     // 正方形
         })()
       )}>
         <DialogTitle className="sr-only">海报详情</DialogTitle>
@@ -403,12 +409,12 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 const isPortrait = (image.height ?? 0) > (image.width ?? 0);
                 return (
                   <div className={`flex w-full h-full items-center justify-center ${isPortrait ? 'flex-row gap-3' : 'flex-col gap-3'}`}>
-                    {/* Generated Image - main area */}
+                    {/* Generated Image - main area, maximize */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image.url}
                       alt={image.prompt}
-                      className={`flex-1 min-h-0 min-w-0 object-contain rounded-lg shadow-xl cursor-zoom-in ${isPortrait ? 'max-h-full' : 'max-w-full'}`}
+                      className="flex-1 min-h-0 min-w-0 max-w-full max-h-full object-contain rounded-lg shadow-xl cursor-zoom-in"
                       onError={() => setDetailImgError(true)}
                       onClick={() => setPreviewOpen(true)}
                     />
