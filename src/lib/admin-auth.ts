@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import bcrypt from 'bcryptjs';
 
 // 返回当前登录的用户信息（如果已登录）
 export async function verifyUser(): Promise<{
@@ -30,8 +31,7 @@ export async function verifyUser(): Promise<{
     return null;
   }
 
-  // 更新 last_active_at（节流：每次请求都更新太频繁，但 Supabase 没有 upsert 条件更新，直接更新即可）
-  // 注意：这里不做节流，因为 Supabase update 很轻量
+  // 更新 last_active_at
   void supabase
     .from('user_sessions')
     .update({ last_active_at: new Date().toISOString() })
@@ -48,17 +48,15 @@ export async function verifyUser(): Promise<{
   return user;
 }
 
-// 清理过期 session（超过 7 天的过期 session + 超过 30 天未活跃的 session）
+// 清理过期 session
 export async function cleanupExpiredSessions() {
   const supabase = getSupabaseClient();
 
-  // 删除已过期的 session
   await supabase
     .from('user_sessions')
     .delete()
     .lt('expires_at', new Date().toISOString());
 
-  // 删除 30 天未活跃的 session（即使未过期）
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   await supabase
     .from('user_sessions')
@@ -73,7 +71,7 @@ export async function verifyAdmin() {
   return user;
 }
 
-// 通过 API Token 验证（用于第三方系统对接）
+// 通过 API Token 验证
 export async function verifyApiToken(request: Request): Promise<{
   id: string;
   name: string;
@@ -99,7 +97,6 @@ export async function verifyApiToken(request: Request): Promise<{
     return null;
   }
 
-  // Update last_used_at
   await supabase
     .from('api_tokens')
     .update({ last_used_at: new Date().toISOString() })
@@ -110,4 +107,59 @@ export async function verifyApiToken(request: Request): Promise<{
     name: record.name as string,
     permissions: (record.permissions as string[]) || ['read'],
   };
+}
+
+// 从环境变量初始化管理员账号
+// 环境变量：ADMIN_USERNAME, ADMIN_PASSWORD
+let adminInitialized = false;
+
+export async function ensureAdminFromEnv() {
+  if (adminInitialized) return;
+
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminUsername || !adminPassword) return;
+
+  const supabase = getSupabaseClient();
+
+  try {
+    // 检查是否已存在该管理员
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id, username, role')
+      .eq('username', adminUsername)
+      .single();
+
+    if (existing) {
+      // 管理员已存在，更新密码（确保与环境变量一致）
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await supabase
+        .from('users')
+        .update({
+          password: hashedPassword,
+          role: 'admin',
+          status: 'approved',
+          can_generate: true,
+        })
+        .eq('id', existing.id);
+    } else {
+      // 创建管理员
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await supabase
+        .from('users')
+        .insert({
+          username: adminUsername,
+          password: hashedPassword,
+          nickname: '管理员',
+          role: 'admin',
+          status: 'approved',
+          can_generate: true,
+        });
+    }
+
+    adminInitialized = true;
+  } catch (error) {
+    console.error('[Admin Init] Failed to ensure admin from env:', error);
+  }
 }

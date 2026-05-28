@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { ensureAdminFromEnv } from '@/lib/admin-auth';
 
 export async function POST(request: Request) {
+  // 确保环境变量中的管理员账号存在
+  await ensureAdminFromEnv();
+
   try {
     const body = await request.json();
     const { username, password, email, code } = body;
