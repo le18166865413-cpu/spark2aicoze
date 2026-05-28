@@ -24,6 +24,18 @@ const THEME_COLORS: Record<string, string> = {
   slate: '#64748B',
 };
 
+// Derive a secondary/accent color from the primary by shifting hue
+function deriveSecondaryColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  // Shift towards blue/indigo for a complementary accent
+  const r2 = Math.max(0, r - 40);
+  const g2 = Math.max(0, g - 20);
+  const b2 = Math.min(255, b + 60);
+  return `#${r2.toString(16).padStart(2, '0')}${g2.toString(16).padStart(2, '0')}${b2.toString(16).padStart(2, '0')}`;
+}
+
 function isLightColor(color: string): boolean {
   const hex = color.replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
@@ -81,6 +93,53 @@ function applyLightMode() {
   document.documentElement.style.setProperty('--sidebar-border', '#e4e4e7');
 }
 
+function applyVisualEffects(config: Record<string, unknown>, primaryColor: string, isDark: boolean) {
+  const root = document.documentElement;
+
+  // === Gradient ===
+  const gradientEnabled = config.themeGradientEnabled as boolean;
+  const gradientFrom = (config.themeGradientFrom as string) || primaryColor;
+  const gradientTo = (config.themeGradientTo as string) || deriveSecondaryColor(primaryColor);
+
+  root.style.setProperty('--theme-gradient-from', gradientEnabled ? gradientFrom : 'transparent');
+  root.style.setProperty('--theme-gradient-to', gradientEnabled ? gradientTo : 'transparent');
+
+  // === Noise texture ===
+  const noiseEnabled = config.themeNoiseEnabled as boolean;
+  const noiseOpacity = (config.themeNoiseOpacity as number) || 0.03;
+  root.style.setProperty('--theme-noise-enabled', noiseEnabled ? '1' : '0');
+  root.style.setProperty('--theme-noise-opacity', String(noiseOpacity));
+  root.style.setProperty('--theme-noise-opacity-dark', String(Math.min(noiseOpacity * 2, 0.06)));
+
+  // === Metallic text ===
+  const metallicEnabled = config.themeMetallicTextEnabled as boolean;
+  const metallicFrom = (config.themeMetallicFrom as string) || primaryColor;
+  const metallicVia = (config.themeMetallicVia as string) || (isLightColor(primaryColor) ? '#ffffff' : '#f0e6ff');
+  const metallicTo = (config.themeMetallicTo as string) || deriveSecondaryColor(primaryColor);
+
+  root.style.setProperty('--theme-metallic-enabled', metallicEnabled ? '1' : '0');
+  root.style.setProperty('--theme-metallic-from', metallicFrom);
+  root.style.setProperty('--theme-metallic-via', metallicVia);
+  root.style.setProperty('--theme-metallic-to', metallicTo);
+
+  // === Button glow ===
+  const btnGlowEnabled = config.themeBtnGlowEnabled as boolean;
+  root.style.setProperty('--theme-btn-glow-enabled', btnGlowEnabled ? '1' : '0');
+  root.style.setProperty('--theme-glow-color', primaryColor);
+
+  // === Card glow ===
+  const cardGlowEnabled = config.themeCardGlowEnabled as boolean;
+  root.style.setProperty('--theme-card-glow-enabled', cardGlowEnabled ? '1' : '0');
+
+  // === Page background gradient ===
+  const pageBgGradientEnabled = config.themePageBgGradientEnabled as boolean;
+  root.style.setProperty('--theme-page-gradient-enabled', pageBgGradientEnabled ? '1' : '0');
+
+  // === Nav gradient ===
+  const navGradientEnabled = config.themeNavGradientEnabled as boolean;
+  root.style.setProperty('--theme-nav-gradient-enabled', navGradientEnabled ? '1' : '0');
+}
+
 async function applyTheme() {
   try {
     const res = await fetch('/api/config');
@@ -106,6 +165,7 @@ async function applyTheme() {
     document.documentElement.style.setProperty('--sidebar-primary-foreground', primaryForeground);
 
     // 应用暗色/亮色模式
+    const isDark = themeMode !== 'light';
     if (themeMode === 'light') {
       document.documentElement.classList.remove('dark');
       applyLightMode();
@@ -113,6 +173,9 @@ async function applyTheme() {
       document.documentElement.classList.add('dark');
       applyDarkMode();
     }
+
+    // 应用视觉效果
+    applyVisualEffects(config as Record<string, unknown>, primaryColor, isDark);
   } catch (error) {
     console.error('[ThemeProvider] Failed to apply theme:', error);
   }

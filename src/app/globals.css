@@ -138,6 +138,8 @@
 }
 
 /* === SparkAI Visual Enhancement === */
+/* All visual effects are driven by CSS variables set by ThemeProvider */
+/* Configuration is managed in /admin/theme page */
 
 /* Noise texture overlay for depth */
 body::before {
@@ -146,26 +148,37 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.015;
+  opacity: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
 }
 
+/* Noise enabled state */
+:root body::before,
+html:not(.dark) body::before {
+  opacity: var(--theme-noise-opacity, 0.015);
+}
+
 .dark body::before {
-  opacity: 0.03;
+  opacity: var(--theme-noise-opacity-dark, 0.03);
+}
+
+/* When noise disabled, override to 0 */
+html[data-noise-disabled] body::before {
+  opacity: 0 !important;
 }
 
 /* Metallic gradient text utility */
 .text-metallic {
-  background: linear-gradient(135deg, #c0a0e0 0%, #8b5cf6 25%, #d4b8ff 50%, #7c3aed 75%, #a78bfa 100%);
+  background: linear-gradient(135deg, var(--theme-metallic-from, #c0a0e0) 0%, var(--theme-metallic-via, #8b5cf6) 25%, var(--theme-metallic-via, #d4b8ff) 50%, var(--theme-metallic-to, #7c3aed) 75%, var(--theme-metallic-from, #a78bfa) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .dark .text-metallic {
-  background: linear-gradient(135deg, #e0d0ff 0%, #a78bfa 25%, #f0e6ff 50%, #8b5cf6 75%, #c4b5fd 100%);
+  background: linear-gradient(135deg, var(--theme-metallic-via, #e0d0ff) 0%, var(--theme-metallic-from, #a78bfa) 25%, var(--theme-metallic-via, #f0e6ff) 50%, var(--theme-metallic-to, #8b5cf6) 75%, var(--theme-metallic-from, #c4b5fd) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -185,20 +198,20 @@ body::before {
 
 /* Glow effect for primary buttons */
 .btn-glow {
-  box-shadow: 0 0 20px oklch(0.5393 0.2713 286.7462 / 0.3), 0 0 40px oklch(0.5393 0.2713 286.7462 / 0.1);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--theme-glow-color, #8b5cf6) 30%, transparent), 0 0 40px color-mix(in srgb, var(--theme-glow-color, #8b5cf6) 10%, transparent);
   transition: box-shadow 0.3s ease;
 }
 
 .btn-glow:hover {
-  box-shadow: 0 0 25px oklch(0.5393 0.2713 286.7462 / 0.5), 0 0 50px oklch(0.5393 0.2713 286.7462 / 0.2);
+  box-shadow: 0 0 25px color-mix(in srgb, var(--theme-glow-color, #8b5cf6) 50%, transparent), 0 0 50px color-mix(in srgb, var(--theme-glow-color, #8b5cf6) 20%, transparent);
 }
 
 .dark .btn-glow {
-  box-shadow: 0 0 20px oklch(0.6132 0.2294 291.7437 / 0.3), 0 0 40px oklch(0.6132 0.2294 291.7437 / 0.1);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--theme-glow-color, #a78bfa) 30%, transparent), 0 0 40px color-mix(in srgb, var(--theme-glow-color, #a78bfa) 10%, transparent);
 }
 
 .dark .btn-glow:hover {
-  box-shadow: 0 0 25px oklch(0.6132 0.2294 291.7437 / 0.5), 0 0 50px oklch(0.6132 0.2294 291.7437 / 0.2);
+  box-shadow: 0 0 25px color-mix(in srgb, var(--theme-glow-color, #a78bfa) 50%, transparent), 0 0 50px color-mix(in srgb, var(--theme-glow-color, #a78bfa) 20%, transparent);
 }
 
 /* Gradient border card */
@@ -214,7 +227,7 @@ body::before {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, oklch(0.5393 0.2713 286.7462 / 0.4), oklch(0.7 0.15 50 / 0.2), oklch(0.5393 0.2713 286.7462 / 0.4));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-gradient-from, #8b5cf6) 40%, transparent), color-mix(in srgb, var(--theme-gradient-to, #6366f1) 20%, transparent), color-mix(in srgb, var(--theme-gradient-from, #8b5cf6) 40%, transparent));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -223,10 +236,19 @@ body::before {
 
 /* Page background gradient */
 .bg-page-gradient {
-  background: linear-gradient(180deg, oklch(0.98 0.01 286) 0%, var(--background) 30%, var(--background) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-gradient-from, #8b5cf6) 5%, var(--background)) 0%, var(--background) 30%, var(--background) 100%);
 }
 
 .dark .bg-page-gradient {
-  background: linear-gradient(180deg, oklch(0.22 0.02 286) 0%, var(--background) 30%, var(--background) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-gradient-from, #a78bfa) 8%, var(--background)) 0%, var(--background) 30%, var(--background) 100%);
+}
+
+/* Nav gradient */
+.bg-gradient-nav {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-gradient-from, #8b5cf6) 8%, var(--background)) 0%, var(--background) 100%);
+}
+
+.dark .bg-gradient-nav {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-gradient-from, #a78bfa) 12%, var(--background)) 0%, var(--background) 100%);
 }
 

@@ -81,6 +81,20 @@ const DEFAULTS: Record<string, string> = {
   theme_color: "green",
   theme_mode: "dark",
   theme_custom_hex: "#22C55E",
+  // Visual effect settings
+  theme_gradient_enabled: "true",
+  theme_gradient_from: "",
+  theme_gradient_to: "",
+  theme_noise_enabled: "true",
+  theme_noise_opacity: "0.03",
+  theme_metallic_text_enabled: "true",
+  theme_metallic_from: "",
+  theme_metallic_via: "",
+  theme_metallic_to: "",
+  theme_btn_glow_enabled: "true",
+  theme_card_glow_enabled: "true",
+  theme_page_bg_gradient_enabled: "true",
+  theme_nav_gradient_enabled: "true",
   gallery_title: "海报生成记录",
   gallery_subtitle: "查看通过 SparkAI 生成的所有海报作品",
   create_options_scene: JSON.stringify([
@@ -231,6 +245,20 @@ export async function GET() {
     config.themeColor = config.theme_color;
     config.themeMode = config.theme_mode;
     config.themeCustomHex = config.theme_custom_hex;
+    // Visual effect aliases
+    config.themeGradientEnabled = config.theme_gradient_enabled === 'true';
+    config.themeGradientFrom = config.theme_gradient_from || '';
+    config.themeGradientTo = config.theme_gradient_to || '';
+    config.themeNoiseEnabled = config.theme_noise_enabled === 'true';
+    config.themeNoiseOpacity = Number(config.theme_noise_opacity) || 0.03;
+    config.themeMetallicTextEnabled = config.theme_metallic_text_enabled === 'true';
+    config.themeMetallicFrom = config.theme_metallic_from || '';
+    config.themeMetallicVia = config.theme_metallic_via || '';
+    config.themeMetallicTo = config.theme_metallic_to || '';
+    config.themeBtnGlowEnabled = config.theme_btn_glow_enabled === 'true';
+    config.themeCardGlowEnabled = config.theme_card_glow_enabled === 'true';
+    config.themePageBgGradientEnabled = config.theme_page_bg_gradient_enabled === 'true';
+    config.themeNavGradientEnabled = config.theme_nav_gradient_enabled === 'true';
     config.createOptions = {
       scene: Array.isArray(config.create_options_scene) ? config.create_options_scene : [],
       usage: Array.isArray(config.create_options_usage) ? config.create_options_usage : [],

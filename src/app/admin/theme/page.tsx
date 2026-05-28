@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAdminSettings } from '@/hooks/use-admin-settings';
-import { Save, Palette, Check, RefreshCcw, Pipette } from 'lucide-react';
+import { Save, Palette, Check, RefreshCcw, Pipette, Sparkles, Layers, Zap, Square, Monitor, Navigation } from 'lucide-react';
 
 const THEMES = [
   { id: 'green', name: '翡翠绿', color: 'bg-emerald-500', hex: '#22C55E' },
@@ -113,6 +113,46 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+function deriveSecondaryColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const r2 = Math.max(0, r - 40);
+  const g2 = Math.max(0, g - 20);
+  const b2 = Math.min(255, b + 60);
+  return `#${r2.toString(16).padStart(2, '0')}${g2.toString(16).padStart(2, '0')}${b2.toString(16).padStart(2, '0')}`;
+}
+
+function applyVisualEffectsLocal(effects: VisualEffectsState, primaryHex: string) {
+  const root = document.documentElement;
+  const isDark = root.classList.contains('dark');
+
+  root.style.setProperty('--theme-gradient-from', effects.gradientEnabled ? (effects.gradientFrom || primaryHex) : 'transparent');
+  root.style.setProperty('--theme-gradient-to', effects.gradientEnabled ? (effects.gradientTo || deriveSecondaryColor(primaryHex)) : 'transparent');
+
+  root.style.setProperty('--theme-noise-enabled', effects.noiseEnabled ? '1' : '0');
+  root.style.setProperty('--theme-noise-opacity', String(effects.noiseOpacity));
+  root.style.setProperty('--theme-noise-opacity-dark', String(Math.min(effects.noiseOpacity * 2, 0.06)));
+
+  root.style.setProperty('--theme-metallic-enabled', effects.metallicTextEnabled ? '1' : '0');
+  root.style.setProperty('--theme-metallic-from', effects.metallicFrom || primaryHex);
+  root.style.setProperty('--theme-metallic-via', effects.metallicVia || (isLightColor(primaryHex) ? '#ffffff' : '#f0e6ff'));
+  root.style.setProperty('--theme-metallic-to', effects.metallicTo || deriveSecondaryColor(primaryHex));
+
+  root.style.setProperty('--theme-btn-glow-enabled', effects.btnGlowEnabled ? '1' : '0');
+  root.style.setProperty('--theme-glow-color', primaryHex);
+  root.style.setProperty('--theme-card-glow-enabled', effects.cardGlowEnabled ? '1' : '0');
+  root.style.setProperty('--theme-page-gradient-enabled', effects.pageBgGradientEnabled ? '1' : '0');
+  root.style.setProperty('--theme-nav-gradient-enabled', effects.navGradientEnabled ? '1' : '0');
+
+  // Toggle noise overlay visibility
+  if (effects.noiseEnabled) {
+    root.removeAttribute('data-noise-disabled');
+  } else {
+    root.setAttribute('data-noise-disabled', '');
+  }
+}
+
 function ColorWheel({ size, onSelect }: { size: number; onSelect: (hex: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -140,7 +180,6 @@ function ColorWheel({ size, onSelect }: { size: number; onSelect: (hex: string) 
       ctx.fill();
     }
 
-    // Inner white circle for ring look
     ctx.beginPath();
     ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
     ctx.fillStyle = 'var(--card, #111113)';
@@ -199,6 +238,77 @@ function ColorWheel({ size, onSelect }: { size: number; onSelect: (hex: string) 
   );
 }
 
+interface VisualEffectsState {
+  gradientEnabled: boolean;
+  gradientFrom: string;
+  gradientTo: string;
+  noiseEnabled: boolean;
+  noiseOpacity: number;
+  metallicTextEnabled: boolean;
+  metallicFrom: string;
+  metallicVia: string;
+  metallicTo: string;
+  btnGlowEnabled: boolean;
+  cardGlowEnabled: boolean;
+  pageBgGradientEnabled: boolean;
+  navGradientEnabled: boolean;
+}
+
+const DEFAULT_EFFECTS: VisualEffectsState = {
+  gradientEnabled: true,
+  gradientFrom: '',
+  gradientTo: '',
+  noiseEnabled: true,
+  noiseOpacity: 0.03,
+  metallicTextEnabled: true,
+  metallicFrom: '',
+  metallicVia: '',
+  metallicTo: '',
+  btnGlowEnabled: true,
+  cardGlowEnabled: true,
+  pageBgGradientEnabled: true,
+  navGradientEnabled: true,
+};
+
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${checked ? 'bg-primary' : 'bg-muted'}`}
+    >
+      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      <span className="sr-only">{label}</span>
+    </button>
+  );
+}
+
+function ColorPicker({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value || '#8b5cf6'}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-8 h-8 p-0 border-0 rounded cursor-pointer shrink-0"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (/^#[0-9A-Fa-f]{0,6}$/.test(v) || v === '') {
+            onChange(v);
+          }
+        }}
+        className="px-2 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground w-24 font-mono"
+        placeholder={placeholder || '#000000'}
+        maxLength={7}
+      />
+    </div>
+  );
+}
+
 export default function ThemePage() {
   const { loading, getSetting, saveSettings } = useAdminSettings();
   const [theme, setTheme] = useState('green');
@@ -208,6 +318,7 @@ export default function ThemePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [effects, setEffects] = useState<VisualEffectsState>(DEFAULT_EFFECTS);
 
   useEffect(() => {
     if (!loading && !initialized) {
@@ -230,9 +341,34 @@ export default function ThemePage() {
         setCustomHex(savedCustomHex);
       }
       setMode(savedMode);
+
+      // Load visual effects settings
+      setEffects({
+        gradientEnabled: getSetting('theme_gradient_enabled') !== 'false',
+        gradientFrom: getSetting('theme_gradient_from') || '',
+        gradientTo: getSetting('theme_gradient_to') || '',
+        noiseEnabled: getSetting('theme_noise_enabled') !== 'false',
+        noiseOpacity: Number(getSetting('theme_noise_opacity')) || 0.03,
+        metallicTextEnabled: getSetting('theme_metallic_text_enabled') !== 'false',
+        metallicFrom: getSetting('theme_metallic_from') || '',
+        metallicVia: getSetting('theme_metallic_via') || '',
+        metallicTo: getSetting('theme_metallic_to') || '',
+        btnGlowEnabled: getSetting('theme_btn_glow_enabled') !== 'false',
+        cardGlowEnabled: getSetting('theme_card_glow_enabled') !== 'false',
+        pageBgGradientEnabled: getSetting('theme_page_bg_gradient_enabled') !== 'false',
+        navGradientEnabled: getSetting('theme_nav_gradient_enabled') !== 'false',
+      });
+
       setInitialized(true);
     }
   }, [loading, initialized, getSetting]);
+
+  // Apply visual effects preview whenever they change
+  useEffect(() => {
+    if (!initialized) return;
+    const primaryHex = isCustom ? customHex : (THEMES.find((t) => t.id === theme)?.hex || '#22C55E');
+    applyVisualEffectsLocal(effects, primaryHex);
+  }, [effects, theme, customHex, isCustom, initialized]);
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
@@ -256,6 +392,10 @@ export default function ThemePage() {
     applyThemeMode(newMode);
   };
 
+  const updateEffect = <K extends keyof VisualEffectsState>(key: K, value: VisualEffectsState[K]) => {
+    setEffects(prev => ({ ...prev, [key]: value }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -263,6 +403,20 @@ export default function ThemePage() {
       const settings = [
         { key: 'theme_color', value: theme },
         { key: 'theme_mode', value: mode },
+        // Visual effects
+        { key: 'theme_gradient_enabled', value: effects.gradientEnabled ? 'true' : 'false' },
+        { key: 'theme_gradient_from', value: effects.gradientFrom },
+        { key: 'theme_gradient_to', value: effects.gradientTo },
+        { key: 'theme_noise_enabled', value: effects.noiseEnabled ? 'true' : 'false' },
+        { key: 'theme_noise_opacity', value: String(effects.noiseOpacity) },
+        { key: 'theme_metallic_text_enabled', value: effects.metallicTextEnabled ? 'true' : 'false' },
+        { key: 'theme_metallic_from', value: effects.metallicFrom },
+        { key: 'theme_metallic_via', value: effects.metallicVia },
+        { key: 'theme_metallic_to', value: effects.metallicTo },
+        { key: 'theme_btn_glow_enabled', value: effects.btnGlowEnabled ? 'true' : 'false' },
+        { key: 'theme_card_glow_enabled', value: effects.cardGlowEnabled ? 'true' : 'false' },
+        { key: 'theme_page_bg_gradient_enabled', value: effects.pageBgGradientEnabled ? 'true' : 'false' },
+        { key: 'theme_nav_gradient_enabled', value: effects.navGradientEnabled ? 'true' : 'false' },
       ];
       if (theme === 'custom') {
         settings.push({ key: 'theme_custom_hex', value: customHex });
@@ -277,6 +431,17 @@ export default function ThemePage() {
     }
   };
 
+  const handleReset = () => {
+    setTheme('green');
+    setMode('dark');
+    setIsCustom(false);
+    setCustomHex('#22C55E');
+    setEffects(DEFAULT_EFFECTS);
+    applyThemeColor('#22C55E');
+    applyThemeMode('dark');
+    applyVisualEffectsLocal(DEFAULT_EFFECTS, '#22C55E');
+  };
+
   const currentHex = isCustom ? customHex : (THEMES.find((t) => t.id === theme)?.hex || '#22C55E');
 
   if (loading) {
@@ -287,6 +452,7 @@ export default function ThemePage() {
     <div className="space-y-6">
       {message && <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{message.text}</div>}
 
+      {/* === 主色调 === */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Palette className="w-4 h-4 text-primary" />
@@ -304,6 +470,7 @@ export default function ThemePage() {
         </div>
       </div>
 
+      {/* === 自定义颜色 === */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Pipette className="w-4 h-4 text-primary" />
@@ -352,6 +519,7 @@ export default function ThemePage() {
         </div>
       </div>
 
+      {/* === 显示模式 === */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h3 className="text-sm font-semibold text-foreground">显示模式</h3>
         <div className="grid grid-cols-2 gap-3">
@@ -363,18 +531,178 @@ export default function ThemePage() {
         </div>
       </div>
 
+      {/* === 渐变配色 === */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">渐变配色</h3>
+          </div>
+          <Toggle checked={effects.gradientEnabled} onChange={(v) => updateEffect('gradientEnabled', v)} label="渐变配色" />
+        </div>
+        {effects.gradientEnabled && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">控制页面渐变效果的起始色和结束色，留空则根据主色自动推导</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">渐变起始色</label>
+                <ColorPicker value={effects.gradientFrom} onChange={(v) => updateEffect('gradientFrom', v)} placeholder="自动" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">渐变结束色</label>
+                <ColorPicker value={effects.gradientTo} onChange={(v) => updateEffect('gradientTo', v)} placeholder="自动" />
+              </div>
+            </div>
+            {/* Gradient preview */}
+            <div
+              className="h-8 rounded-lg border border-border"
+              style={{
+                background: `linear-gradient(135deg, ${effects.gradientFrom || currentHex}, ${effects.gradientTo || deriveSecondaryColor(currentHex)})`,
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* === 噪点纹理 === */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">噪点纹理</h3>
+          </div>
+          <Toggle checked={effects.noiseEnabled} onChange={(v) => updateEffect('noiseEnabled', v)} label="噪点纹理" />
+        </div>
+        {effects.noiseEnabled && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">为页面添加微妙的噪点纹理，增加质感深度</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground">纹理强度</label>
+                <span className="text-xs font-mono text-foreground">{(effects.noiseOpacity * 100).toFixed(0)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.005"
+                max="0.08"
+                step="0.005"
+                value={effects.noiseOpacity}
+                onChange={(e) => updateEffect('noiseOpacity', Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none bg-muted accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>微弱</span>
+                <span>强烈</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* === 金属文字 === */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">金属文字效果</h3>
+          </div>
+          <Toggle checked={effects.metallicTextEnabled} onChange={(v) => updateEffect('metallicTextEnabled', v)} label="金属文字效果" />
+        </div>
+        {effects.metallicTextEnabled && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">Logo 和标题的金属渐变文字效果，留空则根据主色自动推导</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">起始色</label>
+                <ColorPicker value={effects.metallicFrom} onChange={(v) => updateEffect('metallicFrom', v)} placeholder="自动" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">中间高光色</label>
+                <ColorPicker value={effects.metallicVia} onChange={(v) => updateEffect('metallicVia', v)} placeholder="自动" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">结束色</label>
+                <ColorPicker value={effects.metallicTo} onChange={(v) => updateEffect('metallicTo', v)} placeholder="自动" />
+              </div>
+            </div>
+            {/* Metallic preview */}
+            <div
+              className="h-10 rounded-lg flex items-center justify-center text-lg font-bold border border-border"
+              style={{
+                background: `linear-gradient(135deg, ${effects.metallicFrom || currentHex} 0%, ${effects.metallicVia || (isLightColor(currentHex) ? '#ffffff' : '#f0e6ff')} 50%, ${effects.metallicTo || deriveSecondaryColor(currentHex)} 100%)`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              SparkAI
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* === 光效开关 === */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">光效与发光</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">控制按钮、卡片等元素的发光效果</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <div>
+              <div className="text-sm text-foreground">按钮光效</div>
+              <div className="text-xs text-muted-foreground">主色按钮的柔和发光效果</div>
+            </div>
+            <Toggle checked={effects.btnGlowEnabled} onChange={(v) => updateEffect('btnGlowEnabled', v)} label="按钮光效" />
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <div>
+              <div className="text-sm text-foreground">卡片发光</div>
+              <div className="text-xs text-muted-foreground">卡片边框的渐变发光效果</div>
+            </div>
+            <Toggle checked={effects.cardGlowEnabled} onChange={(v) => updateEffect('cardGlowEnabled', v)} label="卡片发光" />
+          </div>
+        </div>
+      </div>
+
+      {/* === 页面与导航效果 === */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Monitor className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">页面与导航效果</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">控制页面背景渐变和导航栏的特殊效果</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <div>
+              <div className="flex items-center gap-2">
+                <Square className="w-3.5 h-3.5 text-muted-foreground" />
+                <div className="text-sm text-foreground">页面背景渐变</div>
+              </div>
+              <div className="text-xs text-muted-foreground">页面顶部的主题色渐变过渡</div>
+            </div>
+            <Toggle checked={effects.pageBgGradientEnabled} onChange={(v) => updateEffect('pageBgGradientEnabled', v)} label="页面背景渐变" />
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <Navigation className="w-3.5 h-3.5 text-muted-foreground" />
+                <div className="text-sm text-foreground">导航栏渐变</div>
+              </div>
+              <div className="text-xs text-muted-foreground">导航栏的主题色渐变背景</div>
+            </div>
+            <Toggle checked={effects.navGradientEnabled} onChange={(v) => updateEffect('navGradientEnabled', v)} label="导航栏渐变" />
+          </div>
+        </div>
+      </div>
+
+      {/* === 保存按钮 === */}
       <div className="flex gap-3">
         <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
           <Save className="w-4 h-4" />{saving ? '保存中...' : '保存主题'}
         </button>
-        <button onClick={() => {
-          setTheme('green');
-          setMode('dark');
-          setIsCustom(false);
-          setCustomHex('#22C55E');
-          applyThemeColor('#22C55E');
-          applyThemeMode('dark');
-        }} className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors">
+        <button onClick={handleReset} className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors">
           <RefreshCcw className="w-4 h-4" />重置
         </button>
       </div>
