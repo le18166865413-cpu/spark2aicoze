@@ -212,22 +212,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
                 unoptimized={true}
                 onError={() => setImgError(true)}
               />
-              {/* Reference Image Badge */}
-              {image.referenceImageUrl && (
-                <div className="absolute bottom-2 left-2 z-10">
-                  <div className="w-10 h-10 rounded-md overflow-hidden border-2 border-white/80 shadow-md bg-white/20 backdrop-blur-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={image.referenceImageUrl}
-                      alt="参考图"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+
             </div>
           )}
 
@@ -395,7 +380,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
 
         {/* Left Image Side */}
         <div className="flex-shrink-0 md:flex-1 md:flex-[1.5] lg:flex-[2] bg-muted/20 flex items-center justify-center relative overflow-hidden h-[35vh] md:h-full min-w-0 md:min-w-[50%]">
-          <div className="relative w-full h-full p-2 md:p-6 flex items-center justify-center">
+          <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 p-2 md:p-6 overflow-hidden">
             {detailImgError ? (
               <div className="flex flex-col items-center text-muted-foreground">
                 <ImageOff className="w-16 h-16 mb-4 opacity-30" />
@@ -403,31 +388,30 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
               </div>
             ) : (
               <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image.url}
-                alt={image.prompt}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-xl cursor-zoom-in"
-                onError={() => setDetailImgError(true)}
-                onClick={() => setPreviewOpen(true)}
-              />
-              {/* Reference Image Thumbnail */}
-              {image.referenceImageUrl && (
-                <div className="absolute bottom-3 left-3 z-10 group/ref">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white/80 shadow-lg bg-white/20 backdrop-blur-sm cursor-pointer transition-transform hover:scale-125">
+                {/* Generated Image - main area */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={image.url}
+                  alt={image.prompt}
+                  className="max-w-full flex-1 min-h-0 object-contain rounded-lg shadow-xl cursor-zoom-in"
+                  onError={() => setDetailImgError(true)}
+                  onClick={() => setPreviewOpen(true)}
+                />
+                {/* Reference Image - small below, with divider */}
+                {image.referenceImageUrl && (
+                  <div className="flex-shrink-0 w-full flex flex-col items-center gap-1.5 pt-2 border-t border-border/50">
+                    <span className="text-xs text-muted-foreground">参考图</span>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image.referenceImageUrl}
                       alt="参考图"
-                      className="w-full h-full object-cover"
+                      className="max-w-[120px] max-h-[120px] object-contain rounded-md border border-border/50 shadow-sm"
                       onError={(e) => {
                         (e.target as HTMLImageElement).parentElement!.style.display = 'none';
                       }}
                     />
                   </div>
-                  <span className="absolute -top-6 left-0 text-xs text-white bg-black/60 px-2 py-0.5 rounded opacity-0 group-hover/ref:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">参考图</span>
-                </div>
-              )}
+                )}
               </>
             )}
           </div>
