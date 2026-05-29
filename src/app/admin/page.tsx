@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
               <TrendingUp className="w-4 h-4 text-primary" />
               近 30 天生成趋势
             </h2>
-            <div className="space-y-1 max-h-[300px] overflow-y-auto">
+            <div className="space-y-1 max-h-[600px] overflow-y-auto">
               {dailyTrend.map((item) => {
                 const pct = trendMax > 0 ? (item.count / trendMax) * 100 : 0;
                 const dayLabel = item.date.slice(5);
