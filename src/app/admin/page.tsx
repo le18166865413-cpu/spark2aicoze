@@ -89,12 +89,11 @@ export default function AdminDashboardPage() {
     { href: '/admin/creation', label: '创作配置', desc: '模板、模型、比例、限制等配置' },
     { href: '/admin/users', label: '用户管理', desc: '审批用户、管理权限' },
     { href: '/admin/storage', label: '图片存储', desc: '管理 S3 存储和文件配置' },
-
     { href: '/admin/theme', label: '主题配色', desc: '自定义网站颜色和主题风格' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Error */}
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center gap-3">
@@ -106,29 +105,10 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-muted/50 ${stat.color}`}>
-                <stat.icon className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-xl font-bold text-foreground">
-                  {loading ? '...' : stat.value.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Pending users alert */}
       {overview && overview.pendingUsers > 0 && (
         <Link href="/admin/users" className="block">
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center gap-3 hover:bg-amber-500/15 transition-colors">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3 hover:bg-amber-500/15 transition-colors">
             <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
               <p className="text-sm font-medium text-amber-600">
@@ -141,121 +121,160 @@ export default function AdminDashboardPage() {
         </Link>
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Daily Trend */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            近 30 天生成趋势
-          </h2>
-          <div className="space-y-1 max-h-[300px] overflow-y-auto">
-            {dailyTrend.map((item) => {
-              const pct = trendMax > 0 ? (item.count / trendMax) * 100 : 0;
-              const dayLabel = item.date.slice(5);
-              return (
-                <div key={item.date} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-10 text-right shrink-0">{dayLabel}</span>
-                  <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${Math.max(pct, item.count > 0 ? 6 : 0)}%` }}
-                    />
+      {/* Main two-column layout */}
+      <div className="grid lg:grid-cols-5 gap-4">
+        {/* Left column - stats + trend */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {statCards.map((stat) => (
+              <div key={stat.label} className="bg-card border border-border rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md bg-muted/50 ${stat.color}`}>
+                    <stat.icon className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-xs font-medium w-6 text-right shrink-0">{item.count}</span>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+                    <p className="text-base font-bold text-foreground">
+                      {loading ? '...' : stat.value.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
-        </div>
 
-        {/* Top Creators */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" />
-            创作者排行
-          </h2>
-          {topCreators.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">暂无数据</p>
-          ) : (
-            <div className="space-y-3">
-              {topCreators.map((creator, idx) => {
-                const maxCount = topCreators[0]?.count || 1;
-                const pct = (creator.count / maxCount) * 100;
+          {/* Daily Trend - narrow and long */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              近 30 天生成趋势
+            </h2>
+            <div className="flex items-end gap-[3px] h-32">
+              {dailyTrend.map((item) => {
+                const pct = trendMax > 0 ? (item.count / trendMax) * 100 : 0;
+                const dayLabel = item.date.slice(8);
                 return (
-                  <div key={creator.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          idx === 0 ? 'bg-amber-500/20 text-amber-500' :
-                          idx === 1 ? 'bg-gray-400/20 text-gray-400' :
-                          idx === 2 ? 'bg-orange-500/20 text-orange-500' :
-                          'bg-muted text-muted-foreground'
-                        }`}>{idx + 1}</span>
-                        <span className="text-sm">{creator.name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{creator.count} 张</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div key={item.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="w-full bg-muted rounded-sm overflow-hidden" style={{ height: '100px' }}>
                       <div
-                        className={`h-full rounded-full ${
-                          idx === 0 ? 'bg-amber-500' :
-                          idx === 1 ? 'bg-gray-400' :
-                          idx === 2 ? 'bg-orange-500' :
-                          'bg-primary/50'
-                        }`}
-                        style={{ width: `${pct}%` }}
+                        className="w-full bg-primary/80 rounded-sm group-hover:bg-primary transition-colors"
+                        style={{ height: `${Math.max(pct, item.count > 0 ? 8 : 2)}%`, marginTop: `${100 - Math.max(pct, item.count > 0 ? 8 : 2)}%` }}
                       />
                     </div>
+                    <span className="text-[8px] text-muted-foreground leading-none">{dayLabel}</span>
+                    {/* Tooltip */}
+                    {item.count > 0 && (
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                        {item.date.slice(5)}: {item.count}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+          </div>
+
+          {/* Model Distribution */}
+          {modelEntries.length > 0 && (
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                模型使用分布
+              </h2>
+              <div className="space-y-2">
+                {modelEntries.map(([model, count]) => {
+                  const total = overview?.totalImages || 1;
+                  const pct = ((count / total) * 100).toFixed(1);
+                  return (
+                    <div key={model} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{MODEL_LABELS[model] || model}</span>
+                      <div className="flex-1 h-5 bg-muted rounded-sm overflow-hidden">
+                        <div
+                          className="h-full bg-primary/70 rounded-sm"
+                          style={{ width: `${(count / modelMax) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium w-16 text-right shrink-0">{count} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Model Distribution */}
-      {modelEntries.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            模型使用分布
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {modelEntries.map(([model, count]) => {
-              const total = overview?.totalImages || 1;
-              const pct = ((count / total) * 100).toFixed(1);
-              return (
-                <div key={model} className="bg-muted/50 rounded-xl p-3 text-center">
-                  <p className="text-sm font-medium">{MODEL_LABELS[model] || model}</p>
-                  <p className="text-lg font-bold text-primary">{count}</p>
-                  <p className="text-xs text-muted-foreground">{pct}%</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Quick Links */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground mb-3">快捷操作</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {quickLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 transition-colors group"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Zap className="w-3 h-3 text-primary" />
-                <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                  {link.label}
-                </span>
+        {/* Right column - creators + quick links */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Top Creators */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              创作者排行
+            </h2>
+            {topCreators.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">暂无数据</p>
+            ) : (
+              <div className="space-y-2">
+                {topCreators.map((creator, idx) => {
+                  const maxCount = topCreators[0]?.count || 1;
+                  const pct = (creator.count / maxCount) * 100;
+                  return (
+                    <div key={creator.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                            idx === 0 ? 'bg-amber-500/20 text-amber-500' :
+                            idx === 1 ? 'bg-gray-400/20 text-gray-400' :
+                            idx === 2 ? 'bg-orange-500/20 text-orange-500' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{idx + 1}</span>
+                          <span className="text-sm">{creator.name}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{creator.count} 张</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            idx === 0 ? 'bg-amber-500' :
+                            idx === 1 ? 'bg-gray-400' :
+                            idx === 2 ? 'bg-orange-500' :
+                            'bg-primary/50'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">{link.desc}</p>
-            </Link>
-          ))}
+            )}
+          </div>
+
+          {/* Quick Links */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              快捷操作
+            </h2>
+            <div className="space-y-2">
+              {quickLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="block border border-border rounded-lg p-3 hover:border-primary/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Zap className="w-3 h-3 text-primary" />
+                    <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                      {link.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-5">{link.desc}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
