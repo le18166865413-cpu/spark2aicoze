@@ -150,25 +150,20 @@ export default function AdminDashboardPage() {
               <TrendingUp className="w-4 h-4 text-primary" />
               近 30 天生成趋势
             </h2>
-            <div className="flex items-end gap-[3px] h-64">
+            <div className="space-y-1 max-h-[300px] overflow-y-auto">
               {dailyTrend.map((item) => {
                 const pct = trendMax > 0 ? (item.count / trendMax) * 100 : 0;
-                const dayLabel = item.date.slice(8);
+                const dayLabel = item.date.slice(5);
                 return (
-                  <div key={item.date} className="flex-1 flex flex-col items-center gap-1 group relative">
-                    <div className="w-full bg-muted rounded-sm overflow-hidden" style={{ height: '220px' }}>
+                  <div key={item.date} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-10 text-right shrink-0">{dayLabel}</span>
+                    <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="w-full bg-primary/80 rounded-sm group-hover:bg-primary transition-colors"
-                        style={{ height: `${Math.max(pct, item.count > 0 ? 8 : 2)}%`, marginTop: `${100 - Math.max(pct, item.count > 0 ? 8 : 2)}%` }}
+                        className="h-full bg-primary rounded-full"
+                        style={{ width: `${Math.max(pct, item.count > 0 ? 6 : 0)}%` }}
                       />
                     </div>
-                    <span className="text-[8px] text-muted-foreground leading-none">{dayLabel}</span>
-                    {/* Tooltip */}
-                    {item.count > 0 && (
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-foreground text-background text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                        {item.date.slice(5)}: {item.count}
-                      </div>
-                    )}
+                    <span className="text-xs font-medium w-6 text-right shrink-0">{item.count}</span>
                   </div>
                 );
               })}
