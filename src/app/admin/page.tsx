@@ -150,13 +150,13 @@ export default function AdminDashboardPage() {
               <TrendingUp className="w-4 h-4 text-primary" />
               近 30 天生成趋势
             </h2>
-            <div className="flex items-end gap-[3px] h-32">
+            <div className="flex items-end gap-[3px] h-64">
               {dailyTrend.map((item) => {
                 const pct = trendMax > 0 ? (item.count / trendMax) * 100 : 0;
                 const dayLabel = item.date.slice(8);
                 return (
                   <div key={item.date} className="flex-1 flex flex-col items-center gap-1 group relative">
-                    <div className="w-full bg-muted rounded-sm overflow-hidden" style={{ height: '100px' }}>
+                    <div className="w-full bg-muted rounded-sm overflow-hidden" style={{ height: '220px' }}>
                       <div
                         className="w-full bg-primary/80 rounded-sm group-hover:bg-primary transition-colors"
                         style={{ height: `${Math.max(pct, item.count > 0 ? 8 : 2)}%`, marginTop: `${100 - Math.max(pct, item.count > 0 ? 8 : 2)}%` }}
