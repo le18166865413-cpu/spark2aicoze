@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Heart, BookOpen, Search, Sparkles, ImagePlus, Palette } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Heart, BookOpen, Search, Sparkles, ImagePlus, Palette, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -36,11 +36,17 @@ interface GalleryImage {
   userId?: string | null;
   isPinned?: boolean;
   liked?: boolean;
+  referenceImageKey?: string | null;
+  referenceImageUrl?: string | null;
+  referenceImageUrls?: string[];
 }
 
 export default function Home() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState<SortBy>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [period, setPeriod] = useState<Period>("all");
@@ -52,6 +58,7 @@ export default function Home() {
   const [gallerySubtitle, setGallerySubtitle] = useState("查看通过 SparkAI 生成的所有海报作品");
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role: string; nickname?: string } | null>(null);
   const hasLoadedOnce = useRef(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Load current user
   useEffect(() => {
@@ -83,14 +90,14 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (offset: number = 0, append: boolean = false) => {
     // Only show loading spinner on initial load (no images yet)
-    // On subsequent fetches (filter change, visibility change), keep showing stale data
-    const isInitialLoad = !hasLoadedOnce.current;
+    const isInitialLoad = !hasLoadedOnce.current && offset === 0;
     if (isInitialLoad) setLoading(true);
+    if (offset > 0) setLoadingMore(true);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for large datasets
 
     try {
       const queryParams = new URLSearchParams();
@@ -99,12 +106,19 @@ export default function Home() {
       if (period && period !== "all") queryParams.set("period", period);
       if (debouncedSearch) queryParams.set("search", debouncedSearch);
       queryParams.set("limit", String(pageSize));
+      if (offset > 0) queryParams.set("offset", String(offset));
 
       const res = await fetch(`/api/images?${queryParams.toString()}`, { credentials: "include", signal: controller.signal });
       clearTimeout(timeoutId);
       const rawData = await res.json();
       hasLoadedOnce.current = true;
-      const data: GalleryImage[] = rawData.map((item: Record<string, unknown>) => ({
+
+      // Handle new paginated response format
+      const imagesArray = Array.isArray(rawData) ? rawData : (rawData.images || []);
+      const total = typeof rawData.total === 'number' ? rawData.total : imagesArray.length;
+      const hasNext = typeof rawData.hasNext === 'boolean' ? rawData.hasNext : false;
+
+      const data: GalleryImage[] = imagesArray.map((item: Record<string, unknown>) => ({
         id: item.id as string,
         url: item.url as string,
         prompt: item.prompt as string,
@@ -124,22 +138,52 @@ export default function Home() {
         referenceImageUrl: item.referenceImageUrl as string | null | undefined,
         referenceImageUrls: item.referenceImageUrls as string[] | null | undefined,
       }));
-      setImages(data);
+
+      if (append) {
+        setImages(prev => [...prev, ...data]);
+      } else {
+        setImages(data);
+      }
+      setTotalCount(total);
+      setHasMore(hasNext);
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof DOMException && error.name === "AbortError") {
-        console.warn("fetchImages timed out after 15s");
+        console.warn("fetchImages timed out after 30s");
       } else {
         console.error(error);
       }
       // On error, keep existing images (don't clear them)
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [sortBy, sortOrder, period, debouncedSearch, pageSize]);
 
+  // Load more images
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    fetchImages(images.length, true);
+  }, [fetchImages, images.length, loadingMore, hasMore]);
+
+  // Intersection Observer for infinite scroll
   useEffect(() => {
-    fetchImages();
+    const ref = loadMoreRef.current;
+    if (!ref) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(ref);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadingMore]);
+
+  useEffect(() => {
+    fetchImages(0, false);
   }, [fetchImages]);
 
   // Refresh when page becomes visible (user navigates back from create page)
@@ -148,9 +192,8 @@ export default function Home() {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        // Delay 300ms to avoid rapid re-fetches
         refreshTimer = setTimeout(() => {
-          fetchImages();
+          fetchImages(0, false);
         }, 300);
       }
     };
@@ -382,26 +425,42 @@ export default function Home() {
           </Button>
         </div>
       ) : (
-        <div className="flex justify-center gap-1 md:gap-4">
-          {columns.map((colImages, colIndex) => (
-            <div key={colIndex} className="flex flex-col gap-1 md:gap-4 flex-1 min-w-0 max-w-[360px]">
-              {colImages.map((img, imgIndex) => {
-                const globalIndex = colIndex * Math.ceil(images.length / columns.length) + imgIndex;
-                return (
-                  <ImageCard
-                    key={img.id}
-                    image={img}
-                    isAdmin={currentUser?.role === "admin"}
-                    onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
-                    onHide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleHideImage : undefined}
-                    onUnhide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleUnhideImage : undefined}
-                    priority={globalIndex < 4}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="flex justify-center gap-1 md:gap-4">
+            {columns.map((colImages, colIndex) => (
+              <div key={colIndex} className="flex flex-col gap-1 md:gap-4 flex-1 min-w-0 max-w-[360px]">
+                {colImages.map((img, imgIndex) => {
+                  const globalIndex = colIndex * Math.ceil(images.length / columns.length) + imgIndex;
+                  return (
+                    <ImageCard
+                      key={img.id}
+                      image={img}
+                      isAdmin={currentUser?.role === "admin"}
+                      onDelete={currentUser?.role === "admin" ? handleDeleteImage : undefined}
+                      onHide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleHideImage : undefined}
+                      onUnhide={currentUser?.role === "admin" || (currentUser?.id && currentUser.id === img.userId) ? handleUnhideImage : undefined}
+                      priority={globalIndex < 4}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {/* Infinite scroll trigger */}
+          <div ref={loadMoreRef} className="flex items-center justify-center py-8">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                加载更多...
+              </div>
+            )}
+            {!hasMore && images.length > 0 && (
+              <p className="text-muted-foreground/50 text-xs">
+                已加载全部 {totalCount} 张作品
+              </p>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

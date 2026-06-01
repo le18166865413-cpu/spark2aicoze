@@ -137,9 +137,51 @@ export async function GET(request: NextRequest) {
     const ascending = sortOrder === "asc";
     query = query.order(sortColumn, { ascending });
 
-    // Limit
-    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 10), 200);
-    query = query.limit(limit);
+    // Pagination: offset-based with total count
+    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 1), 500);
+    const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
+
+    // Get total count first (for pagination info)
+    let totalCount = 0;
+    {
+      let countQuery = supabase
+        .from("gallery_images")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null);
+
+      // Apply same filters for count
+      const siteFilter2 = await getSiteFilter();
+      if (siteFilter2) {
+        countQuery = countQuery.eq(siteFilter2.column, siteFilter2.value);
+      }
+      if (imageIds) {
+        countQuery = countQuery.in("id", imageIds);
+      }
+      if (userId) {
+        countQuery = countQuery.eq("user_id", userId);
+      } else if (!favorites) {
+        countQuery = countQuery.eq("is_hidden", false);
+      }
+      if (search) {
+        countQuery = countQuery.ilike("prompt", `%${search}%`);
+      }
+      if (period && period !== "all" && ["day", "week", "month"].includes(period)) {
+        const now = new Date();
+        let cutoff: Date;
+        if (period === "day") {
+          cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        } else if (period === "week") {
+          cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else {
+          cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
+        countQuery = countQuery.gte("created_at", cutoff.toISOString());
+      }
+      const { count } = await countQuery;
+      totalCount = count || 0;
+    }
+
+    query = query.range(offset, offset + limit - 1);
 
     const { data: images, error } = await query;
 
@@ -149,7 +191,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!images || images.length === 0) {
-      return NextResponse.json([]);
+      return NextResponse.json({ images: [], total: totalCount, hasNext: false });
     }
 
     // Check if current user has favorited each image
@@ -229,7 +271,11 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json(imagesWithUrls);
+    return NextResponse.json({
+      images: imagesWithUrls,
+      total: totalCount,
+      hasNext: offset + limit < totalCount,
+    });
   } catch (error) {
     console.error("Images API error:", error);
     return NextResponse.json({ error: "Failed to load images" }, { status: 500 });
