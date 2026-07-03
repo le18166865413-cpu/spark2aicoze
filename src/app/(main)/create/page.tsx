@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, LogIn, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -108,7 +108,7 @@ interface GenerationResult {
 function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, session, loading: authLoading, sendOtp, verifyOtp } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const isAdmin = user?.role === "admin";
   // Helper: get auth headers for API calls
   const getAuthHeaders = (): Record<string, string> => {
@@ -122,24 +122,10 @@ function CreatePageInner() {
   const canGenerate = !user || user.status === "approved" ? (user?.canGenerate !== false) : false;
   const generateDisabledReason = !user ? "" : user.status === "pending" ? "账号审核中，审核通过后即可生图" : user.status === "rejected" ? "账号审核未通过" : user.canGenerate === false ? "生图权限已被禁用，请联系管理员" : "";
   
-  // Login dialog state
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showPromptConfirm, setShowPromptConfirm] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState("");
   const [showBatchPromptConfirm, setShowBatchPromptConfirm] = useState(false);
   const [pendingBatchPrompts, setPendingBatchPrompts] = useState<{index: number; prompt: string}[]>([]);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginCode, setLoginCode] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState("");
-  const [loginCountdown, setLoginCountdown] = useState(0);
-
-  // Login countdown effect
-  useEffect(() => {
-    if (loginCountdown <= 0) return;
-    const timer = setTimeout(() => setLoginCountdown(loginCountdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [loginCountdown]);
   
   // Get params from URL (for "做同款")
   const initialPrompt = searchParams.get("prompt") || "";
@@ -416,50 +402,6 @@ function CreatePageInner() {
   }, []);
 
   // Parse batch pages from prompt text
-  // Login submit handler (in-dialog email code login)
-  const handleLoginSubmit = useCallback(async () => {
-    if (!loginEmail.trim() || !loginCode.trim()) {
-      setLoginError("请输入邮箱和验证码");
-      return;
-    }
-    setLoginLoading(true);
-    setLoginError("");
-    try {
-      const { error } = await verifyOtp(loginEmail, loginCode);
-      if (error) {
-        setLoginError(error);
-        return;
-      }
-      setShowLoginDialog(false);
-      setLoginEmail("");
-      setLoginCode("");
-      toast.success("登录成功");
-    } catch (err: unknown) {
-      setLoginError(err instanceof Error ? err.message : "登录失败");
-    } finally {
-      setLoginLoading(false);
-    }
-  }, [loginEmail, loginCode, verifyOtp]);
-
-  // Send code handler
-  const handleSendLoginCode = useCallback(async () => {
-    if (!loginEmail.trim()) {
-      setLoginError("请输入邮箱地址");
-      return;
-    }
-    setLoginError("");
-    try {
-      const { error } = await sendOtp(loginEmail);
-      if (error) {
-        setLoginError(error);
-        return;
-      }
-      setLoginCountdown(60);
-    } catch (err: unknown) {
-      setLoginError(err instanceof Error ? err.message : "发送失败");
-    }
-  }, [loginEmail, sendOtp]);
-
   // Batch page editing handlers
   const toggleBatchSelect = useCallback((index: number) => {
     setBatchSelectedIndices((prev) => {
@@ -780,7 +722,7 @@ function CreatePageInner() {
   const handleGenerate = useCallback(async () => {
     // Check login status first (skip if anonymous generate is enabled)
     if (!user && !anonymousGenerate) {
-      setShowLoginDialog(true);
+      window.location.href = "/login";
       return;
     }
 
@@ -868,7 +810,8 @@ function CreatePageInner() {
         if (!response.ok) {
           const error = await response.json();
           if (response.status === 401) {
-            setShowLoginDialog(true);
+            window.location.href = "/login";
+            return;
           }
           taskErrors.push((error as Record<string, string>).error || "任务提交失败");
           continue;
@@ -2242,64 +2185,6 @@ function CreatePageInner() {
                 onClick={() => setPreviewImage(null)}
               />
             )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Login Dialog */}
-        <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <LogIn className="w-5 h-5" />
-                登录后即可创作
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              {loginError && (
-                <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{loginError}</div>
-              )}
-              <div>
-                <Label className="text-sm mb-1.5 block">邮箱</Label>
-                <Input
-                  type="email"
-                  placeholder="请输入邮箱"
-                  value={loginEmail}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLoginEmail(e.target.value); setLoginError(""); }}
-                />
-              </div>
-              <div>
-                <Label className="text-sm mb-1.5 block">验证码</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="6位验证码"
-                    value={loginCode}
-                    maxLength={6}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLoginCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setLoginError(""); }}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleLoginSubmit()}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={handleSendLoginCode}
-                    disabled={loginCountdown > 0 || !loginEmail.trim()}
-                  >
-                    {loginCountdown > 0 ? `${loginCountdown}s` : "获取验证码"}
-                  </Button>
-                </div>
-              </div>
-              <Button
-                className="w-full"
-                onClick={handleLoginSubmit}
-                disabled={loginLoading}
-              >
-                {loginLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                登录
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                新邮箱将自动注册并登录
-              </p>
-            </div>
           </DialogContent>
         </Dialog>
 

@@ -33,14 +33,41 @@ export async function verifyUserFromRequest(request: NextRequest): Promise<{
           .eq('id', user.id)
           .single();
 
+        if (profile) {
+          return {
+            id: user.id,
+            email: user.email ?? null,
+            role: profile.role,
+            username: profile.username,
+            nickname: profile.nickname,
+            status: profile.status,
+            canGenerate: profile.status === 'approved',
+          };
+        }
+
+        // Auto-create user record for new Supabase Auth users
+        // so admin can see and manage them in backend
+        const email = user.email ?? '';
+        const newUser = {
+          id: user.id,
+          email,
+          username: email.split('@')[0] || `user_${user.id.slice(0, 8)}`,
+          nickname: email.split('@')[0] || '新用户',
+          role: 'user',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await supabase.from('users').insert(newUser);
+
         return {
           id: user.id,
           email: user.email ?? null,
-          role: profile?.role ?? 'user',
-          username: profile?.username,
-          nickname: profile?.nickname,
-          status: profile?.status ?? 'approved',
-          canGenerate: profile?.status === 'approved',
+          role: 'user',
+          username: newUser.username,
+          nickname: newUser.nickname,
+          status: 'pending',
+          canGenerate: false,
         };
       }
     } catch {
