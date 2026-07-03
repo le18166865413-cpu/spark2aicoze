@@ -1,197 +1,237 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 
-// Supabase Auth server client (for JWT verification only, uses service role key)
-function getSupabaseAuth() {
-  return createClient(
-    process.env.COZE_SUPABASE_URL!,
-    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
-}
-
-// Verify user from x-session header or cookie
-export async function verifyUserFromRequest(request: NextRequest): Promise<{
-  id: string;
-  email: string | null;
-  phone?: string | null;
-  role: string;
-  username?: string;
-  nickname?: string;
-  avatar?: string;
-  wechat?: string;
-  status?: string;
-  canGenerate?: boolean;
-} | null> {
-  const db = getSupabaseClient();
-
-  // Try x-session header first (Supabase Auth JWT)
-  const sessionToken = request.headers.get('x-session');
-  if (sessionToken) {
-    try {
-      const authClient = getSupabaseAuth();
-      const { data: { user }, error: authErr } = await authClient.auth.getUser(sessionToken);
-      if (authErr) {
-        console.error('[auth/me] JWT verify error:', authErr.message);
-      }
-      if (user) {
-        // Look up user profile in users table via DB client
-        const { data: profile, error: profileErr } = await db
-          .from('users')
-          .select('id, username, nickname, role, status, avatar, wechat')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profileErr) {
-          console.error('[auth/me] profile lookup error:', profileErr);
-        }
-
-        if (profile) {
-          return {
-            id: user.id,
-            email: user.email ?? null,
-            phone: user.phone ?? null,
-            role: profile.role,
-            username: profile.username,
-            nickname: profile.nickname,
-            avatar: profile.avatar,
-            wechat: profile.wechat,
-            status: profile.status,
-            canGenerate: profile.status === 'approved',
-          };
-        }
-
-        const email = user.email ?? '';
-        const phone = user.phone ?? '';
-
-        // Migrate: try to match existing user by email or phone
-        let matchField: 'email' | 'phone' | null = null;
-        let matchValue = '';
-        if (email) { matchField = 'email'; matchValue = email; }
-        else if (phone) { matchField = 'phone'; matchValue = phone; }
-
-        if (matchField && matchValue) {
-          const { data: existingUser, error: matchErr } = await db
-            .from('users')
-            .select('id, username, nickname, role, status')
-            .eq(matchField, matchValue)
-            .maybeSingle();
-
-          if (matchErr) console.error('[auth/me] match lookup error:', matchErr);
-
-          if (existingUser && existingUser.id !== user.id) {
-            const { error: migrateUserErr } = await db
-              .from('users')
-              .update({ id: user.id, updated_at: new Date().toISOString() })
-              .eq('id', existingUser.id);
-            if (migrateUserErr) console.error('[auth/me] migrate user error:', migrateUserErr);
-
-            const { error: migrateImgErr } = await db
-              .from('gallery_images')
-              .update({ user_id: user.id })
-              .eq('user_id', existingUser.id);
-            if (migrateImgErr) console.error('[auth/me] migrate images error:', migrateImgErr);
-
-            return {
-              id: user.id,
-              email: user.email ?? null,
-              phone: user.phone ?? null,
-              role: existingUser.role,
-              username: existingUser.username,
-              nickname: existingUser.nickname,
-              status: existingUser.status,
-              canGenerate: existingUser.status === 'approved',
-            };
-          }
-        }
-
-        // No existing user found — auto-create new record
-        const username = email.split('@')[0] || phone || `user_${user.id.slice(0, 8)}`;
-        const newUser: Record<string, unknown> = {
-          id: user.id,
-          username,
-          password: '',
-          nickname: username || '新用户',
-          role: 'user',
-          status: 'pending',
-          can_generate: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        if (email) newUser.email = email;
-        if (phone) newUser.phone = phone;
-
-        const { error: insertErr } = await db.from('users').insert(newUser);
-        if (insertErr) {
-          console.error('[auth/me] create user error:', JSON.stringify(insertErr));
-        }
-
-        return {
-          id: user.id,
-          email: user.email ?? null,
-          phone: user.phone ?? null,
-          role: 'user',
-          username,
-          nickname: username || '新用户',
-          status: 'pending',
-          canGenerate: false,
-        };
-      }
-    } catch (e) {
-      console.error('[auth/me] JWT path exception:', e);
-    }
-  }
-
-  // Fallback: try cookie session (legacy admin login)
-  const cookie = request.cookies.get('user_session');
-  if (cookie) {
-    try {
-      const db = getSupabaseClient();
-      const { data: sessionData, error: sessErr } = await db
-        .from('user_sessions')
-        .select('user_id, expires_at')
-        .eq('id', cookie.value)
-        .maybeSingle();
-
-      if (sessErr) console.error('[auth/me] cookie session lookup error:', sessErr);
-
-      if (sessionData && new Date(sessionData.expires_at) > new Date()) {
-        const { data: profile, error: profileErr } = await db
-          .from('users')
-          .select('id, username, nickname, email, phone, role, status, avatar, wechat')
-          .eq('id', sessionData.user_id)
-          .maybeSingle();
-
-        if (profileErr) console.error('[auth/me] cookie profile lookup error:', profileErr);
-
-        if (profile) {
-          return {
-            id: profile.id,
-            email: profile.email,
-            phone: profile.phone,
-            role: profile.role,
-            username: profile.username,
-            nickname: profile.nickname,
-            avatar: profile.avatar,
-            wechat: profile.wechat,
-            status: profile.status,
-            canGenerate: profile.status === 'approved',
-          };
-        }
-      }
-    } catch (e) {
-      console.error('[auth/me] cookie path exception:', e);
-    }
-  }
-
-  return null;
-}
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const user = await verifyUserFromRequest(request);
-  if (!user) {
+  try {
+    const authHeader = request.headers.get('x-session');
+    const cookieToken = request.cookies.get('user_session')?.value;
+    const token = authHeader || cookieToken;
+
+    if (!token) {
+      return NextResponse.json({ user: null });
+    }
+
+    // 先尝试 Supabase JWT 认证
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    let supabaseUserId: string | null = null;
+    let supabaseEmail: string | undefined;
+    let supabasePhone: string | undefined;
+    let supabaseName: string | undefined;
+
+    if (supabaseUrl && supabaseAnonKey) {
+      try {
+        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { data, error } = await authClient.auth.getUser(token);
+        if (!error && data.user) {
+          supabaseUserId = data.user.id;
+          supabaseEmail = data.user.email || undefined;
+          supabasePhone = data.user.phone || undefined;
+          const supabaseMeta = data.user.user_metadata || {};
+          supabaseName =
+            (supabaseMeta as Record<string, unknown>).nickname as string | undefined ||
+            (supabaseMeta as Record<string, unknown>).full_name as string | undefined ||
+            data.user.email?.split('@')[0] ||
+            (data.user.phone ? '手机用户' : undefined);
+        }
+      } catch {
+        // token 不是有效的 Supabase JWT，继续走 cookie 认证
+      }
+    }
+
+    const db = getSupabaseClient();
+
+    // Supabase Auth 用户
+    if (supabaseUserId) {
+      // 查询数据库中是否有对应用户记录
+      const { data: dbUser } = await db
+        .from('users')
+        .select('*')
+        .eq('id', supabaseUserId)
+        .maybeSingle();
+
+      if (dbUser) {
+        // 更新邮箱和手机号（如果 Supabase 有且本地没有）
+        const updates: Record<string, unknown> = {};
+        if (supabaseEmail && !dbUser.email) updates.email = supabaseEmail;
+        if (supabasePhone && !dbUser.phone) updates.phone = supabasePhone;
+        if (supabaseName && !dbUser.nickname) updates.nickname = supabaseName;
+        if (Object.keys(updates).length > 0) {
+          await db.from('users').update(updates).eq('id', supabaseUserId);
+        }
+
+        return NextResponse.json({
+          user: {
+            id: dbUser.id,
+            username: dbUser.username,
+            email: dbUser.email,
+            phone: dbUser.phone,
+            nickname: dbUser.nickname,
+            avatar: dbUser.avatar,
+            bio: dbUser.bio,
+            role: dbUser.role,
+            status: dbUser.status,
+            can_generate: dbUser.can_generate,
+            credits: dbUser.credits,
+          },
+        });
+      }
+
+      // 旧用户迁移：按邮箱匹配，把旧账号 id 更新为 Supabase UUID
+      if (supabaseEmail) {
+        const { data: oldUser } = await db
+          .from('users')
+          .select('*')
+          .eq('email', supabaseEmail)
+          .maybeSingle();
+
+        if (oldUser) {
+          // 先把 gallery_images 中旧 ID 更新为新 UUID
+          await db
+            .from('gallery_images')
+            .update({ user_id: supabaseUserId })
+            .eq('user_id', oldUser.id);
+
+          // 再更新 users 表 id
+          await db.from('users').delete().eq('id', oldUser.id);
+          const { data: migratedUser, error: insertErr } = await db
+            .from('users')
+            .insert({
+              id: supabaseUserId,
+              username: oldUser.username || supabaseEmail.split('@')[0],
+              email: supabaseEmail,
+              phone: oldUser.phone || supabasePhone || null,
+              nickname: oldUser.nickname || supabaseName || '新用户',
+              avatar: oldUser.avatar || null,
+              bio: oldUser.bio || null,
+              password: oldUser.password || '',
+              role: oldUser.role || 'user',
+              status: oldUser.status || 'pending',
+              can_generate: oldUser.can_generate ?? true,
+              credits: oldUser.credits ?? 50,
+              created_at: oldUser.created_at || new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (!insertErr && migratedUser) {
+            return NextResponse.json({
+              user: {
+                id: migratedUser.id,
+                username: migratedUser.username,
+                email: migratedUser.email,
+                phone: migratedUser.phone,
+                nickname: migratedUser.nickname,
+                avatar: migratedUser.avatar,
+                bio: migratedUser.bio,
+                role: migratedUser.role,
+                status: migratedUser.status,
+                can_generate: migratedUser.can_generate,
+                credits: migratedUser.credits,
+              },
+            });
+          }
+        }
+      }
+
+      // 新用户：自动创建记录（status=pending，需管理员审批）
+      const username = supabaseEmail
+        ? supabaseEmail.split('@')[0]
+        : (supabasePhone ? 'm_' + supabasePhone.replace(/\D/g, '').slice(-8) : crypto.randomUUID().slice(0, 8));
+      const { data: newUser, error: createErr } = await db
+        .from('users')
+        .insert({
+          id: supabaseUserId,
+          username,
+          email: supabaseEmail || null,
+          phone: supabasePhone || null,
+          nickname: supabaseName || (supabasePhone ? '手机用户' : '新用户'),
+          avatar: null,
+          bio: null,
+          password: '',
+          role: 'user',
+          status: 'pending',
+          can_generate: true,
+          credits: 50,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createErr) {
+        console.error('[auth/me] 创建用户失败:', createErr);
+        // 即使创建 DB 记录失败，也返回 Supabase 用户信息（避免登录循环）
+        return NextResponse.json({
+          user: {
+            id: supabaseUserId,
+            username,
+            email: supabaseEmail || null,
+            phone: supabasePhone || null,
+            nickname: supabaseName || (supabasePhone ? '手机用户' : '新用户'),
+            avatar: null,
+            bio: null,
+            role: 'user',
+            status: 'pending',
+            can_generate: true,
+            credits: 50,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          phone: newUser.phone,
+          nickname: newUser.nickname,
+          avatar: newUser.avatar,
+          bio: newUser.bio,
+          role: newUser.role,
+          status: newUser.status,
+          can_generate: newUser.can_generate,
+          credits: newUser.credits,
+        },
+      });
+    }
+
+    // Cookie 认证（旧管理员登录）
+    const { data: cookieUser } = await db
+      .from('users')
+      .select('*')
+      .eq('id', token)
+      .maybeSingle();
+
+    if (!cookieUser) {
+      return NextResponse.json({ user: null });
+    }
+
+    return NextResponse.json({
+      user: {
+        id: cookieUser.id,
+        username: cookieUser.username,
+        email: cookieUser.email,
+        phone: cookieUser.phone,
+        nickname: cookieUser.nickname,
+        avatar: cookieUser.avatar,
+        bio: cookieUser.bio,
+        role: cookieUser.role,
+        status: cookieUser.status,
+        can_generate: cookieUser.can_generate,
+        credits: cookieUser.credits,
+      },
+    });
+  } catch (error) {
+    console.error('[auth/me] 错误:', error);
     return NextResponse.json({ user: null });
   }
-  return NextResponse.json({ user });
 }

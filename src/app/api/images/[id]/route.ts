@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { storage } from "@/utils/storage";
-import { verifyUserFromRequest } from "@/app/api/auth/me/route";
+import { verifyUserFromRequest } from "@/lib/admin-auth";
 
 export async function PATCH(
   request: NextRequest,

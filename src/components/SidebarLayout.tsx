@@ -37,6 +37,7 @@ export default function SidebarLayout({
 }) {
   const pathname = usePathname();
   const [siteName, setSiteName] = useState('SparkAI');
+  const [pendingCount, setPendingCount] = useState(0);
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -51,6 +52,25 @@ export default function SidebarLayout({
         if (data.siteName) setSiteName(data.siteName);
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // 拉取待审核用户数（侧边栏红点提示）
+    const loadPending = async () => {
+      try {
+        const res = await fetch('/api/admin/users', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const pending = (data.users || []).filter((u: { status: string }) => u.status === 'pending').length;
+          setPendingCount(pending);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadPending();
+    const interval = setInterval(loadPending, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -68,6 +88,7 @@ export default function SidebarLayout({
         <nav className="flex-1 space-y-1 p-4">
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
+            const isUsers = item.href === '/admin/users';
             return (
               <Link
                 key={item.href}
@@ -80,7 +101,12 @@ export default function SidebarLayout({
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {isUsers && pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -139,6 +165,7 @@ export default function SidebarLayout({
             <nav className="space-y-1 p-4">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
+                const isUsers = item.href === '/admin/users';
                 return (
                   <Link
                     key={item.href}
@@ -152,7 +179,12 @@ export default function SidebarLayout({
                     onClick={() => onMobileMenuChange?.(false)}
                   >
                     <item.icon className="h-4 w-4" />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {isUsers && pendingCount > 0 && (
+                      <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 text-[10px] font-bold text-white bg-amber-500 rounded-full">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
