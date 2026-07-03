@@ -131,8 +131,13 @@ export async function PUT(request: Request) {
     if (can_generate !== undefined) updates.can_generate = can_generate;
     if (status && ['approved', 'rejected', 'pending'].includes(status)) {
       updates.status = status;
-      // If rejected, delete all sessions to force logout
+      if (status === 'approved') {
+        // 审核通过自动授予开图权限
+        updates.can_generate = true;
+      }
       if (status === 'rejected') {
+        // 驳回时撤销开图权限，删除所有会话强制登出
+        updates.can_generate = false;
         await getSupabaseClient().from('user_sessions').delete().eq('user_id', id);
       }
     }
