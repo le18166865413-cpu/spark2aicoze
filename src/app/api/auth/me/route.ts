@@ -33,13 +33,17 @@ export async function GET(request: NextRequest) {
         if (!error && data.user) {
           supabaseUserId = data.user.id;
           supabaseEmail = data.user.email || undefined;
-          supabasePhone = data.user.phone || undefined;
+          // 统一手机号格式：去掉 +86 / 86 前缀，存 11 位
+          const rawPhone = data.user.phone;
+          if (rawPhone) {
+            supabasePhone = rawPhone.replace(/^\+?86/, '').replace(/\D/g, '');
+          }
           const supabaseMeta = data.user.user_metadata || {};
           supabaseName =
             (supabaseMeta as Record<string, unknown>).nickname as string | undefined ||
             (supabaseMeta as Record<string, unknown>).full_name as string | undefined ||
             data.user.email?.split('@')[0] ||
-            (data.user.phone ? '手机用户' : undefined);
+            (supabasePhone ? '用户' + supabasePhone.slice(-4) : undefined);
         }
       } catch {
         // token 不是有效的 Supabase JWT，继续走 cookie 认证
@@ -64,22 +68,29 @@ export async function GET(request: NextRequest) {
         if (supabasePhone && !dbUser.phone) updates.phone = supabasePhone;
         if (supabaseName && !dbUser.nickname) updates.nickname = supabaseName;
         if (Object.keys(updates).length > 0) {
-          await db.from('users').update(updates).eq('id', supabaseUserId);
+          const { error: updateErr } = await db.from('users').update(updates).eq('id', supabaseUserId);
+          if (updateErr) {
+            console.error('[auth/me] update user error:', updateErr);
+          } else {
+            // merge updates into dbUser for response
+            Object.assign(dbUser, updates);
+          }
         }
 
+        console.log('[auth/me] returning dbUser:', { id: dbUser.id, nickname: dbUser.nickname, username: dbUser.username });
         return NextResponse.json({
           user: {
             id: dbUser.id,
             username: dbUser.username,
-            email: dbUser.email,
-            phone: dbUser.phone,
-            nickname: dbUser.nickname,
-            avatar: dbUser.avatar,
-            bio: dbUser.bio,
-            role: dbUser.role,
-            status: dbUser.status,
-            can_generate: dbUser.can_generate,
-            credits: dbUser.credits,
+            email: dbUser.email || null,
+            phone: dbUser.phone || null,
+            nickname: dbUser.nickname || null,
+            avatar: dbUser.avatar || null,
+            bio: dbUser.bio || null,
+            role: dbUser.role || 'user',
+            status: dbUser.status || 'pending',
+            can_generate: dbUser.can_generate ?? true,
+            credits: dbUser.credits ?? 0,
           },
         });
       }

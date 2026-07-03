@@ -100,7 +100,11 @@ export async function PUT(request: NextRequest) {
     // Build update object - only include provided fields
     const updates: Record<string, string | null> = {};
     if (nickname !== undefined) updates.nickname = nickname.trim() || null;
-    if (phone !== undefined) updates.phone = phone.trim() || null;
+    if (phone !== undefined) {
+      // Normalize phone: strip +86/86 prefix, keep 11 digits
+      const norm = phone.trim().replace(/^\+?86/, '').replace(/\D/g, '');
+      updates.phone = norm || null;
+    }
     if (wechat !== undefined) updates.wechat = wechat.trim() || null;
     if (avatar !== undefined) updates.avatar = avatar.trim() || null;
 
@@ -146,6 +150,9 @@ export async function PUT(request: NextRequest) {
       let migratedStatus = 'pending';
       let migratedUsername = (email?.split('@')[0]) || phone || `user_${userId.slice(0, 8)}`;
 
+      // Normalize phone: strip +86/86 prefix
+      const normalizedPhone = phone ? phone.replace(/^\+?86/, '').replace(/\D/g, '') : null;
+
       if (email) {
         const { data: oldUser } = await sb
           .from('users')
@@ -161,6 +168,26 @@ export async function PUT(request: NextRequest) {
           migratedRole = oldUser.role;
           migratedStatus = oldUser.status;
           migratedUsername = oldUser.username || migratedUsername;
+        }
+      }
+
+      // Also try to match by normalized phone
+      if (normalizedPhone && !migratedUsername.startsWith('user_')) {
+        // already matched by email
+      } else if (normalizedPhone) {
+        const { data: phoneUser } = await sb
+          .from('users')
+          .select('id, username, nickname, role, status, email')
+          .eq('phone', normalizedPhone)
+          .maybeSingle();
+        if (phoneUser && phoneUser.id !== userId) {
+          const { error: migrateErr } = await sb.from('users').update({ id: userId, updated_at: new Date().toISOString() }).eq('id', phoneUser.id);
+          if (migrateErr) console.error('[profile] phone migrate user error:', migrateErr);
+          const { error: imgErr } = await sb.from('gallery_images').update({ user_id: userId }).eq('user_id', phoneUser.id);
+          if (imgErr) console.error('[profile] phone migrate images error:', imgErr);
+          migratedRole = phoneUser.role;
+          migratedStatus = phoneUser.status;
+          migratedUsername = phoneUser.username || migratedUsername;
         }
       }
 

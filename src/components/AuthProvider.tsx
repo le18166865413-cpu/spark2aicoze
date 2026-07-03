@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { setAuthToken } from '@/utils/auth-fetch';
 
 export interface User {
   id: string;
@@ -101,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth state changes
         const { data: { subscription } } = client.auth.onAuthStateChange((_event, newSession) => {
           setSession(newSession);
+          // Sync token to authFetch immediately (avoid async getSession timing issues)
+          setAuthToken(newSession?.access_token || null);
           // Use newSession directly — no stale closure issue
           fetchUserProfile(newSession);
         });
@@ -109,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         client.auth.getSession().then(({ data: { session: existingSession } }) => {
           if (!mounted) return;
           setSession(existingSession);
+          setAuthToken(existingSession?.access_token || null);
           if (existingSession?.user) {
             fetchUserProfile(existingSession);
           } else {
@@ -159,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try { await client.auth.signOut(); } catch { /* ignore */ }
     }
     try { await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' }); } catch { /* ignore */ }
+    setAuthToken(null);
     setUser(null);
     setSession(null);
   }, []);

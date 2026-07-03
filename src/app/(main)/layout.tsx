@@ -49,21 +49,29 @@ function KickedNotification() {
 }
 
 function NicknameGuide() {
-  const { user, refresh } = useAuth();
+  const { user, session, refresh } = useAuth();
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [show, setShow] = useState(false);
-  const router = useRouter();
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // 当用户已登录但没有昵称时，显示引导
-    if (user && !user.nickname) {
+    // 当用户已登录但没有昵称且未被手动关闭时，显示引导
+    if (user && !user.nickname && !dismissed) {
       setShow(true);
+      // 智能预填默认昵称：从邮箱前缀或手机号生成
+      if (!nickname) {
+        if (user.email) {
+          setNickname(user.email.split('@')[0]);
+        } else if (user.phone) {
+          setNickname('用户' + user.phone.slice(-4));
+        }
+      }
     } else {
       setShow(false);
     }
-  }, [user]);
+  }, [user, dismissed]);
 
   if (!show || !user) return null;
 
@@ -73,19 +81,28 @@ function NicknameGuide() {
     setSaving(true);
     setError("");
     try {
-      const res = await authFetch("/api/auth/profile", {
+      // 直接从 session 取 token，避免 authFetch 的异步获取时序问题
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["x-session"] = session.access_token;
+      }
+      const res = await fetch("/api/auth/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify({ nickname: trimmed }),
       });
-      if (res.ok) {
-        await refresh();
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.user) {
+        // 保存成功，立即关闭弹窗再刷新用户信息
         setShow(false);
+        setDismissed(true);
+        await refresh();
       } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "保存失败，请重试");
+        setError(data.error || `保存失败 (HTTP ${res.status})，请重试`);
       }
-    } catch {
+    } catch (e) {
+      console.error("[NicknameGuide] save error:", e);
       setError("网络错误，请重试");
     } finally {
       setSaving(false);
