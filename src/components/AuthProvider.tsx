@@ -61,29 +61,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [configLoading]);
 
   // Sync user info from backend (role, status, etc.)
+  // Supports both Supabase Auth (x-session) and legacy Cookie session
   const syncUserProfile = useCallback(async (sbUser: { id: string; email?: string | null } | null) => {
-    if (!sbUser) {
-      setUser(null);
-      return;
-    }
     try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { data: { session: currentSession } } = await client.auth.getSession();
-      const token = currentSession?.access_token;
-      if (!token) {
-        setUser(null);
-        return;
+      // Try Supabase Auth session first
+      let token: string | undefined;
+      if (sbUser) {
+        const client = await getSupabaseBrowserClientWithRetry();
+        const { data: { session: currentSession } } = await client.auth.getSession();
+        token = currentSession?.access_token;
       }
-      const res = await fetch('/api/auth/me', {
-        headers: { 'x-session': token },
-      });
+
+      const headers: Record<string, string> = {};
+      if (token) headers['x-session'] = token;
+
+      const res = await fetch('/api/auth/me', { headers });
       const data = await res.json();
+
       if (data.user) {
         setUser(data.user);
         if (data.user.status === 'rejected') {
           setKickedMessage('您的账号已被禁用，请联系管理员');
         }
-      } else {
+        return;
+      }
+
+      // No user from backend
+      if (sbUser) {
         setUser({
           id: sbUser.id,
           email: sbUser.email ?? null,
@@ -91,15 +95,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           status: 'pending',
           canGenerate: false,
         });
+      } else {
+        setUser(null);
       }
     } catch {
-      setUser({
-        id: sbUser.id,
-        email: sbUser.email ?? null,
-        role: 'user',
-        status: 'pending',
-        canGenerate: false,
-      });
+      if (sbUser) {
+        setUser({
+          id: sbUser.id,
+          email: sbUser.email ?? null,
+          role: 'user',
+          status: 'pending',
+          canGenerate: false,
+        });
+      } else {
+        setUser(null);
+      }
     }
   }, []);
 
@@ -107,10 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       setSession(initialSession);
       setAuthSession(initialSession);
-      syncUserProfile(initialSession?.user ?? null);
+      await syncUserProfile(initialSession?.user ?? null);
+      // If no Supabase session, also try legacy cookie session
+      if (!initialSession) {
+        await syncUserProfile(null);
+      }
       setLoading(false);
     });
 
@@ -131,15 +145,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase, syncUserProfile]);
 
   const refresh = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      // No Supabase client, try legacy cookie session directly
+      await syncUserProfile(null);
+      return;
+    }
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     setSession(currentSession);
     await syncUserProfile(currentSession?.user ?? null);
   }, [supabase, syncUserProfile]);
 
   const logout = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    // Sign out from Supabase Auth
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    // Also clear legacy cookie session
+    try {
+      await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' });
+    } catch {
+      // ignore
+    }
     setUser(null);
     setSession(null);
   }, [supabase]);
