@@ -359,7 +359,7 @@ function CreatePageInner() {
         formData.append("file", file);
         formData.append("forGrsai", "true");
 
-        const res = await fetch("/api/upload", {
+        const res = await authFetch("/api/upload", {
           method: "POST",
           body: formData,
         });
@@ -561,6 +561,7 @@ function CreatePageInner() {
             headers: { "Content-Type": "application/json", ...getAuthHeaders() },
             body: JSON.stringify(body),
             signal: controller.signal,
+            credentials: "include",
           });
           clearTimeout(timeoutId);
 
@@ -644,7 +645,7 @@ function CreatePageInner() {
       while (!batchStopRef.current && Date.now() - pollStart < maxWait) {
         await new Promise((res) => setTimeout(res, 3000));
         try {
-          const pollRes = await fetch("/api/pending-tasks", { credentials: "include" });
+          const pollRes = await authFetch("/api/pending-tasks");
           const pollData = await pollRes.json();
           const task = (pollData.tasks as Array<Record<string, unknown>>)?.find(
             (t: Record<string, unknown>) => t.taskId === r.taskId

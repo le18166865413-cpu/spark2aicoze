@@ -63,7 +63,7 @@ export default function Home() {
 
   // Load current user
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+    authFetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) setCurrentUser(data.user);
@@ -246,11 +246,10 @@ export default function Home() {
   // Handle image hide - call API then remove from local state
   const handleHideImage = async (imageId: string) => {
     try {
-      const res = await fetch(`/api/images/${imageId}`, {
+      const res = await authFetch(`/api/images/${imageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isHidden: true }),
-        credentials: "include",
       });
       if (res.ok) {
         toast.success("已隐藏");
@@ -267,11 +266,10 @@ export default function Home() {
   // Handle image unhide - call API then refresh
   const handleUnhideImage = async (imageId: string) => {
     try {
-      const res = await fetch(`/api/images/${imageId}`, {
+      const res = await authFetch(`/api/images/${imageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isHidden: false }),
-        credentials: "include",
       });
       if (res.ok) {
         toast.success("已恢复显示");

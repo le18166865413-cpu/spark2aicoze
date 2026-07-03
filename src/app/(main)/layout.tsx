@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { authFetch } from "@/utils/auth-fetch";
 
 function KickedNotification() {
   const { kickedMessage, clearKickedMessage, user } = useAuth();
@@ -48,7 +49,7 @@ function KickedNotification() {
 }
 
 function NicknameGuide() {
-  const { user, refresh, session } = useAuth();
+  const { user, refresh } = useAuth();
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -72,16 +73,9 @@ function NicknameGuide() {
     setSaving(true);
     setError("");
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (session?.access_token) {
-        headers["x-session"] = session.access_token;
-      }
-      const res = await fetch("/api/auth/profile", {
+      const res = await authFetch("/api/auth/profile", {
         method: "PUT",
-        headers,
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname: trimmed }),
       });
       if (res.ok) {

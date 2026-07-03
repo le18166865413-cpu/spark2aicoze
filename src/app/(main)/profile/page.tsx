@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, User, Mail, Phone, MessageCircle, Camera } from 'lucide-react';
+import { authFetch } from '@/utils/auth-fetch';
 
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
@@ -42,7 +43,7 @@ export default function ProfilePage() {
     setMessage(null);
 
     try {
-      const res = await fetch('/api/auth/profile', {
+      const res = await authFetch('/api/auth/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,7 +81,7 @@ export default function ProfilePage() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.key) {
         setAvatar(data.url || data.key);

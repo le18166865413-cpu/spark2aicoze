@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Loader2, TrendingUp, Calendar, BarChart3, PieChart, Heart, Image, Users, Clock, Zap, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { authFetch } from '@/utils/auth-fetch';
 
 interface UserStats {
   today: number;
@@ -53,7 +54,7 @@ export default function StatsPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/stats', { credentials: 'include' });
+      const res = await authFetch('/api/stats');
       if (res.status === 401) {
         router.replace('/login?redirect=/stats');
         return;

@@ -7,6 +7,7 @@ import { ImageCard } from '@/components/ImageCard';
 import { Loader2, ImageOff, FolderHeart, EyeOff, Images } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { authFetch } from '@/utils/auth-fetch';
 
 type TabKey = 'works' | 'favorites' | 'hidden';
 
@@ -49,7 +50,7 @@ export default function MyWorksPage() {
     if (!user?.id) return;
     try {
       // Fetch user's own works
-      const worksRes = await fetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=1000&userId=${user.id}`, { credentials: 'include' });
+      const worksRes = await authFetch(`/api/images?sortBy=created_at&sortOrder=desc&limit=1000&userId=${user.id}`);
       let worksCount = 0;
       let hiddenCount = 0;
       if (worksRes.ok) {
@@ -79,7 +80,7 @@ export default function MyWorksPage() {
       }
 
       // Fetch favorites count separately
-      const favRes = await fetch('/api/images?sortBy=created_at&sortOrder=desc&limit=1000&favorites=1', { credentials: 'include' });
+      const favRes = await authFetch('/api/images?sortBy=created_at&sortOrder=desc&limit=1000&favorites=1');
       let favoritesCount = 0;
       if (favRes.ok) {
         const favData = await favRes.json();
@@ -109,7 +110,7 @@ export default function MyWorksPage() {
         url = `/api/images?sortBy=created_at&sortOrder=desc&limit=200&userId=${user.id}`;
       }
 
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await authFetch(url);
       if (!res.ok) return;
       const data = await res.json();
       const rawList = Array.isArray(data) ? data : (data.images || []);
@@ -164,9 +165,8 @@ export default function MyWorksPage() {
 
   const handleHide = async (id: string) => {
     try {
-      const res = await fetch(`/api/images/${id}`, {
+      const res = await authFetch(`/api/images/${id}`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isHidden: true }),
       });
@@ -184,9 +184,8 @@ export default function MyWorksPage() {
 
   const handleUnhide = async (id: string) => {
     try {
-      const res = await fetch(`/api/images/${id}`, {
+      const res = await authFetch(`/api/images/${id}`, {
         method: 'PATCH',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isHidden: false }),
       });
