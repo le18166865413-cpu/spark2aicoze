@@ -12,7 +12,13 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ url, anonKey });
+    return NextResponse.json({
+      url,
+      anonKey,
+      iconUrl:
+        'https://coze-coding-project.tos.coze.site/gen_project_icon/2026-05-01/7634939144061435913_1777649612.png?sign=4905101053-395fbf74d1-0-cf84c40e85c5b1b6c82bd3ffdca1125637e1dde2ce6c932b938e42cc587c1e66',
+      name: 'Spark生图源站',
+    });
   } catch (error) {
     console.error('Failed to get Supabase config:', error);
     return NextResponse.json(

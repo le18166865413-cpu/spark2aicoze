@@ -1,68 +1,61 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Mail, ArrowRight, Loader2 } from "lucide-react";
-import { getSupabaseBrowserClientWithRetry } from "@/lib/supabase-browser";
-import { useSupabaseConfig } from "@/lib/supabase-config-inject";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { getSupabaseBrowserClientAsync } from '@/lib/supabase-browser';
+import { useSupabaseConfig } from '@/lib/supabase-config-inject';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { isLoading: configLoading } = useSupabaseConfig();
+  const { config } = useSupabaseConfig();
 
-  // Email OTP state
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [countdown, setCountdown] = useState(0);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  // Tab state: 'phone' | 'email'
+  const [activeTab, setActiveTab] = useState<'phone' | 'email'>('phone');
 
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Phone login state
+  const [phone, setPhone] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
 
-  // Cleanup countdown on unmount
+  // Email login state
+  const [email, setEmail] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailCountdown, setEmailCountdown] = useState(0);
+
+  // Common state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const phoneTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const emailTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Countdown cleanup
   useEffect(() => {
     return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (phoneTimerRef.current) clearInterval(phoneTimerRef.current);
+      if (emailTimerRef.current) clearInterval(emailTimerRef.current);
     };
   }, []);
 
-  // Listen for auth state changes (auto redirect after login)
-  useEffect(() => {
-    if (configLoading) return;
-
-    let subscription: { unsubscribe: () => void } | null = null;
-
-    getSupabaseBrowserClientWithRetry()
-      .then((client) => {
-        const { data } = client.auth.onAuthStateChange((event) => {
-          if (event === "SIGNED_IN") {
-            router.push("/");
-            router.refresh();
-          }
-        });
-        subscription = data.subscription;
-      })
-      .catch(console.error);
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [configLoading, router]);
-
-  // Start countdown timer
-  const startCountdown = useCallback(() => {
-    setCountdown(60);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
+  const startPhoneCountdown = useCallback(() => {
+    setPhoneCountdown(60);
+    if (phoneTimerRef.current) clearInterval(phoneTimerRef.current);
+    phoneTimerRef.current = setInterval(() => {
+      setPhoneCountdown((prev) => {
         if (prev <= 1) {
-          if (countdownRef.current) clearInterval(countdownRef.current);
-          countdownRef.current = null;
+          if (phoneTimerRef.current) clearInterval(phoneTimerRef.current);
           return 0;
         }
         return prev - 1;
@@ -70,206 +63,306 @@ export default function LoginPage() {
     }, 1000);
   }, []);
 
-  // Send OTP to email
-  const handleSendCode = useCallback(async () => {
-    if (!email.trim()) {
-      setError("请输入邮箱地址");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("请输入有效的邮箱地址");
-      return;
-    }
-
-    setError("");
-    setSendingCode(true);
-
-    try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { error: otpError } = await client.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-        },
+  const startEmailCountdown = useCallback(() => {
+    setEmailCountdown(60);
+    if (emailTimerRef.current) clearInterval(emailTimerRef.current);
+    emailTimerRef.current = setInterval(() => {
+      setEmailCountdown((prev) => {
+        if (prev <= 1) {
+          if (emailTimerRef.current) clearInterval(emailTimerRef.current);
+          return 0;
+        }
+        return prev - 1;
       });
-      if (otpError) throw otpError;
-      setCodeSent(true);
-      setSuccess("验证码已发送到您的邮箱");
-      startCountdown();
-    } catch (err: unknown) {
-      setCountdown(0);
-      const message = err instanceof Error ? err.message : "发送失败";
-      if (message.includes("rate limit")) {
-        setError("发送过于频繁，请稍后再试");
-      } else if (message.includes("invalid email")) {
-        setError("邮箱格式不正确");
-      } else {
-        setError(message);
-      }
-    } finally {
-      setSendingCode(false);
-    }
-  }, [email, startCountdown]);
+    }, 1000);
+  }, []);
 
-  // Verify OTP
-  const handleVerifyOtp = useCallback(async () => {
-    if (!email.trim()) {
-      setError("请输入邮箱地址");
+  const handleSendPhoneCode = async () => {
+    if (!phone || phone.length < 11) {
+      setError('请输入有效的手机号');
       return;
     }
-    if (!code.trim() || code.trim().length !== 6) {
-      setError("请输入6位验证码");
-      return;
-    }
-
-    setError("");
-    setVerifying(true);
+    setError('');
+    setIsLoading(true);
     try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { error: verifyError } = await client.auth.verifyOtp({
-        email: email.trim(),
-        token: code.trim(),
-        type: "email",
+      const supabase = await getSupabaseBrowserClientAsync();
+      const { error: sendError } = await supabase.auth.signInWithOtp({
+        phone: '+86' + phone,
       });
-      if (verifyError) throw verifyError;
-      // Auth state change listener will handle redirect
-      setSuccess("登录成功，正在跳转...");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "验证失败";
-      if (message.includes("expired")) {
-        setError("验证码已过期，请重新获取");
-      } else if (message.includes("invalid")) {
-        setError("验证码不正确");
-      } else {
-        setError(message);
+      if (sendError) {
+        setError(sendError.message || '发送验证码失败');
+        return;
       }
+      startPhoneCountdown();
+    } catch {
+      setError('发送验证码失败，请稍后重试');
     } finally {
-      setVerifying(false);
-    }
-  }, [email, code]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      if (codeSent) {
-        handleVerifyOtp();
-      } else {
-        handleSendCode();
-      }
+      setIsLoading(false);
     }
   };
 
-  if (configLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleSendEmailCode = async () => {
+    if (!email || !email.includes('@')) {
+      setError('请输入有效的邮箱地址');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const supabase = await getSupabaseBrowserClientAsync();
+      const { error: sendError } = await supabase.auth.signInWithOtp({
+        email,
+      });
+      if (sendError) {
+        setError(sendError.message || '发送验证码失败');
+        return;
+      }
+      startEmailCountdown();
+    } catch {
+      setError('发送验证码失败，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhoneLogin = async () => {
+    if (!phoneOtp || phoneOtp.length !== 6) {
+      setError('请输入6位验证码');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const supabase = await getSupabaseBrowserClientAsync();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        phone: '+86' + phone,
+        token: phoneOtp,
+        type: 'sms',
+      });
+      if (verifyError) {
+        setError('验证码错误或已过期，请重试或重新获取');
+        return;
+      }
+      router.push('/');
+    } catch {
+      setError('登录失败，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailLogin = async () => {
+    if (!emailOtp || emailOtp.length !== 6) {
+      setError('请输入6位验证码');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const supabase = await getSupabaseBrowserClientAsync();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: emailOtp,
+        type: 'email',
+      });
+      if (verifyError) {
+        setError('验证码错误或已过期，请重试或重新获取');
+        return;
+      }
+      router.push('/');
+    } catch {
+      setError('登录失败，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground">登录</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            输入邮箱验证码即可登录，新邮箱自动注册
-          </p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm text-center">
-            {error}
-          </div>
-        )}
-
-        {/* Success */}
-        {success && !error && (
-          <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm text-center">
-            {success}
-          </div>
-        )}
-
-        {/* Email OTP Login Form */}
-        <div className="space-y-4" onKeyDown={handleKeyDown}>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-              邮箱地址
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="请输入邮箱"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={verifying}
-                className="pl-10"
+    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur">
+        <CardHeader className="space-y-4 text-center">
+          {config?.iconUrl && (
+            <div className="flex justify-center">
+              <Image
+                src={config.iconUrl}
+                alt={config.name || 'App Icon'}
+                width={64}
+                height={64}
+                className="rounded-xl"
               />
             </div>
+          )}
+          <div>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              {config?.name || '登录'}
+            </CardTitle>
+            <CardDescription className="text-muted-foreground mt-1">
+              欢迎回来，请选择登录方式
+            </CardDescription>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Tabs */}
+          <div className="flex rounded-lg bg-muted p-1">
+            <button
+              onClick={() => {
+                setActiveTab('phone');
+                setError('');
+              }}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'phone'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              手机号登录
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('email');
+                setError('');
+              }}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'email'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              邮箱登录
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-              验证码
-            </label>
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder="6位数字验证码"
-                value={code}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                  setCode(val);
-                }}
-                maxLength={6}
-                disabled={verifying}
-                className="flex-1"
-              />
+          {/* Error */}
+          {error && (
+            <div className="text-sm text-destructive text-center bg-destructive/10 rounded-lg py-2">
+              {error}
+            </div>
+          )}
+
+          {/* Phone Login */}
+          {activeTab === 'phone' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">手机号</Label>
+                <div className="flex">
+                  <div className="flex items-center px-3 bg-muted border border-r-0 border-input rounded-l-md text-sm text-muted-foreground">
+                    +86
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="请输入手机号"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                    className="rounded-l-none"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone-otp">验证码</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="phone-otp"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="请输入6位验证码"
+                    value={phoneOtp}
+                    onChange={(e) =>
+                      setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    className="flex-1"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={handleSendPhoneCode}
+                    disabled={isLoading || phoneCountdown > 0 || !phone}
+                    className="min-w-[110px] whitespace-nowrap"
+                  >
+                    {phoneCountdown > 0 ? `${phoneCountdown}s` : '获取验证码'}
+                  </Button>
+                </div>
+              </div>
+
               <Button
-                type="button"
-                variant="outline"
-                onClick={handleSendCode}
-                disabled={countdown > 0 || sendingCode || !email.trim()}
-                className="shrink-0 min-w-[120px]"
+                onClick={handlePhoneLogin}
+                disabled={isLoading || !phone || !phoneOtp}
+                className="w-full"
               >
-                {sendingCode ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : countdown > 0 ? (
-                  `${countdown}秒后重试`
-                ) : codeSent ? (
-                  "重新获取"
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    登录中...
+                  </>
                 ) : (
-                  "获取验证码"
+                  '登录 / 注册'
                 )}
               </Button>
             </div>
-          </div>
+          )}
 
-          <Button
-            onClick={handleVerifyOtp}
-            disabled={verifying || !email.trim() || code.trim().length !== 6}
-            className="w-full"
-          >
-            {verifying ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                验证中...
-              </>
-            ) : (
-              <>
-                登录
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </>
-            )}
-          </Button>
+          {/* Email Login */}
+          {activeTab === 'email' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="请输入邮箱地址"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
 
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            新邮箱将自动注册账号，登录后即可使用
-          </p>
-        </div>
-      </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-otp">验证码</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="email-otp"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="请输入6位验证码"
+                    value={emailOtp}
+                    onChange={(e) =>
+                      setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    className="flex-1"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={handleSendEmailCode}
+                    disabled={isLoading || emailCountdown > 0 || !email}
+                    className="min-w-[110px] whitespace-nowrap"
+                  >
+                    {emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码'}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleEmailLogin}
+                disabled={isLoading || !email || !emailOtp}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    登录中...
+                  </>
+                ) : (
+                  '登录'
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

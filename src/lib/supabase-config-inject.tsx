@@ -5,6 +5,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 interface SupabaseConfig {
   url: string;
   anonKey: string;
+  iconUrl?: string;
+  name?: string;
 }
 
 interface SupabaseConfigContextType {
