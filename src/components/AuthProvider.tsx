@@ -1,21 +1,20 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export interface User {
   id: string;
-  email?: string;
-  phone?: string;
-  nickname?: string;
+  email?: string | null;
+  phone?: string | null;
+  nickname?: string | null;
   role: string;
   status: string;
   canGenerate: boolean;
-  username?: string;
-  avatar?: string;
-  wechat?: string;
+  username?: string | null;
+  avatar?: string | null;
+  wechat?: string | null;
 }
 
 interface AuthContextType {
@@ -39,96 +38,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
-  const initRef = useRef(false);
 
-  // Initialize Supabase client (singleton)
-  useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
+  // Use ref to hold supabase client — avoids stale closure issues
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+  const [supabase, setSupabaseState] = useState<SupabaseClient | null>(null);
 
-    getSupabaseBrowserClient()
-      .then((client) => {
-        setSupabase(client);
-
-        // Listen for auth state changes
-        client.auth.onAuthStateChange((_event, newSession) => {
-          setSession(newSession);
-          if (newSession?.user) {
-            syncUserProfile(newSession.user.id, newSession.user.email, newSession.user.phone);
-          } else {
-            setUser(null);
-            setLoading(false);
-          }
-        });
-
-        // Check existing session
-        client.auth.getSession().then(({ data: { session: existingSession } }) => {
-          setSession(existingSession);
-          if (existingSession?.user) {
-            syncUserProfile(existingSession.user.id, existingSession.user.email, existingSession.user.phone);
-          } else {
-            checkLegacyCookieSession();
-          }
-        }).catch(() => {
-          checkLegacyCookieSession();
-        });
-      })
-      .catch((err) => {
-        console.warn('[AuthProvider] Supabase init failed:', err);
-        checkLegacyCookieSession();
-      });
-  }, []);
-
-  const syncUserProfile = useCallback(async (supabaseUserId: string, email?: string, phone?: string) => {
+  // Fetch user profile from /api/auth/me using the access token from the session
+  const fetchUserProfile = useCallback(async (sess: Session | null) => {
     try {
-      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
       const headers: Record<string, string> = {};
-      if (token) headers['x-session'] = token;
-
-      const res = await fetch('/api/auth/me', { headers });
+      if (sess?.access_token) {
+        headers['x-session'] = sess.access_token;
+      }
+      const res = await fetch('/api/auth/me', { headers, credentials: 'include' });
       const data = await res.json();
       if (data.user) {
         setUser(data.user);
-      } else {
-        // No user record yet, create minimal one
+      } else if (sess?.user) {
+        // Backend didn't return a user — set minimal placeholder
         setUser({
-          id: supabaseUserId,
-          email,
-          phone,
-          nickname: '',
+          id: sess.user.id,
+          email: sess.user.email ?? null,
+          phone: sess.user.phone ?? null,
+          nickname: null,
           role: 'user',
           status: 'pending',
           canGenerate: false,
         });
+      } else {
+        setUser(null);
       }
-    } catch {
-      setUser({
-        id: supabaseUserId,
-        email,
-        phone,
-        nickname: '',
-        role: 'user',
-        status: 'pending',
-        canGenerate: false,
-      });
+    } catch (e) {
+      console.error('[AuthProvider] fetchUserProfile error:', e);
+      if (sess?.user) {
+        setUser({
+          id: sess.user.id,
+          email: sess.user.email ?? null,
+          phone: sess.user.phone ?? null,
+          nickname: null,
+          role: 'user',
+          status: 'pending',
+          canGenerate: false,
+        });
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
-  const checkLegacyCookieSession = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      const data = await res.json();
-      if (data.user) {
-        setUser(data.user);
+  // Initialize: get singleton Supabase client and set up auth listener
+  useEffect(() => {
+    let mounted = true;
+
+    getSupabaseBrowserClient()
+      .then((client) => {
+        if (!mounted) return;
+        supabaseRef.current = client;
+        setSupabaseState(client);
+
+        // Listen for auth state changes
+        const { data: { subscription } } = client.auth.onAuthStateChange((_event, newSession) => {
+          setSession(newSession);
+          // Use newSession directly — no stale closure issue
+          fetchUserProfile(newSession);
+        });
+
+        // Check existing session on mount
+        client.auth.getSession().then(({ data: { session: existingSession } }) => {
+          if (!mounted) return;
+          setSession(existingSession);
+          if (existingSession?.user) {
+            fetchUserProfile(existingSession);
+          } else {
+            // No Supabase session — try legacy cookie session
+            fetchLegacyCookie();
+          }
+        }).catch(() => {
+          fetchLegacyCookie();
+        });
+
+        return () => {
+          mounted = false;
+          subscription.unsubscribe();
+        };
+      })
+      .catch((err) => {
+        console.warn('[AuthProvider] Supabase init failed:', err);
+        fetchLegacyCookie();
+      });
+
+    async function fetchLegacyCookie() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const data = await res.json();
+        if (mounted && data.user) {
+          setUser(data.user);
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (mounted) setLoading(false);
       }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
     }
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = useCallback(() => {
@@ -136,69 +154,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    try {
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
-    } catch {
-      // ignore
+    const client = supabaseRef.current;
+    if (client) {
+      try { await client.auth.signOut(); } catch { /* ignore */ }
     }
-    try {
-      await fetch('/api/auth/logout', { method: 'DELETE' });
-    } catch {
-      // ignore
-    }
+    try { await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' }); } catch { /* ignore */ }
     setUser(null);
     setSession(null);
-  }, [supabase]);
+  }, []);
 
   const sendOtp = useCallback(async (emailOrPhone: string, isPhone = false): Promise<{ error: string | null }> => {
-    if (!supabase) return { error: '系统初始化中，请稍后重试' };
+    const client = supabaseRef.current;
+    if (!client) return { error: '系统初始化中，请稍后重试' };
     try {
-      if (isPhone) {
-        const { error } = await supabase.auth.signInWithOtp({ phone: emailOrPhone });
-        return { error: error?.message || null };
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({ email: emailOrPhone });
-        return { error: error?.message || null };
-      }
+      const { error } = isPhone
+        ? await client.auth.signInWithOtp({ phone: emailOrPhone })
+        : await client.auth.signInWithOtp({ email: emailOrPhone });
+      return { error: error?.message || null };
     } catch {
       return { error: '发送验证码失败，请稍后重试' };
     }
-  }, [supabase]);
+  }, []);
 
   const verifyOtp = useCallback(async (emailOrPhone: string, token: string, isPhone = false): Promise<{ error: string | null }> => {
-    if (!supabase) return { error: '系统初始化中，请稍后重试' };
+    const client = supabaseRef.current;
+    if (!client) return { error: '系统初始化中，请稍后重试' };
     try {
-      if (isPhone) {
-        const { error } = await supabase.auth.verifyOtp({ phone: emailOrPhone, token, type: 'sms' });
-        return { error: error?.message || null };
-      } else {
-        const { error } = await supabase.auth.verifyOtp({ email: emailOrPhone, token, type: 'email' });
-        return { error: error?.message || null };
-      }
+      const { error } = isPhone
+        ? await client.auth.verifyOtp({ phone: emailOrPhone, token, type: 'sms' })
+        : await client.auth.verifyOtp({ email: emailOrPhone, token, type: 'email' });
+      return { error: error?.message || null };
     } catch {
       return { error: '验证失败，请稍后重试' };
     }
-  }, [supabase]);
+  }, []);
 
   const clearKickedMessage = useCallback(() => setKickedMessage(null), []);
 
   const refresh = useCallback(async () => {
-    try {
-      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
-      const headers: Record<string, string> = {};
-      if (token) headers['x-session'] = token;
-
-      const res = await fetch('/api/auth/me', { headers });
-      const data = await res.json();
-      if (data.user) {
-        setUser(data.user);
-      }
-    } catch {
-      // ignore
+    const client = supabaseRef.current;
+    let currentSession: Session | null = null;
+    if (client) {
+      try {
+        const { data } = await client.auth.getSession();
+        currentSession = data.session;
+      } catch { /* ignore */ }
     }
-  }, [supabase]);
+    await fetchUserProfile(currentSession);
+  }, [fetchUserProfile]);
 
   return (
     <AuthContext.Provider
