@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { AuthProvider } from '@/components/AuthProvider';
 import { DynamicTitle } from '@/components/DynamicTitle';
 import { ConsoleFilter } from '@/components/ConsoleFilter';
-import { SupabaseConfigProvider } from '@/lib/supabase-config-inject';
+
 import { getSiteConfig } from '@/lib/site-config';
 
 // Start GrsAI dashboard auto sync cron (server-side only)
@@ -39,13 +39,11 @@ export default function RootLayout({
     <html lang="zh-CN" className="dark">
       <body className="antialiased min-h-screen bg-background font-sans selection:bg-primary selection:text-primary-foreground">
         <ThemeProvider>
-          <SupabaseConfigProvider>
             <AuthProvider>
               <DynamicTitle />
               <ConsoleFilter />
               {children}
             </AuthProvider>
-          </SupabaseConfigProvider>
         </ThemeProvider>
         <Toaster />
       </body>

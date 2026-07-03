@@ -1,36 +1,35 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { getSupabaseBrowserClientWithRetry } from '@/lib/supabase-browser';
-import { useSupabaseConfig } from '@/lib/supabase-config-inject';
-import { setAuthSession } from '@/utils/auth-fetch';
-import type { SupabaseClient, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
-interface User {
+export interface User {
   id: string;
-  email: string | null;
-  username?: string;
+  email?: string;
+  phone?: string;
   nickname?: string;
   role: string;
-  status?: string;
-  canGenerate?: boolean;
-  phone?: string;
-  wechat?: string;
+  status: string;
+  canGenerate: boolean;
+  username?: string;
   avatar?: string;
+  wechat?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
   session: Session | null;
+  loading: boolean;
   supabase: SupabaseClient | null;
+  login: () => void;
   logout: () => Promise<void>;
-  refresh: () => Promise<void>;
-  login: (email: string) => Promise<{ error: string | null }>;
-  sendOtp: (email: string) => Promise<{ error: string | null }>;
-  verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  sendOtp: (emailOrPhone: string, isPhone?: boolean) => Promise<{ error: string | null }>;
+  verifyOtp: (emailOrPhone: string, token: string, isPhone?: boolean) => Promise<{ error: string | null }>;
   kickedMessage: string | null;
   clearKickedMessage: () => void;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,131 +40,111 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
-
-  const { isLoading: configLoading } = useSupabaseConfig();
   const initRef = useRef(false);
 
-  // Initialize Supabase client once config is ready
+  // Initialize Supabase client (singleton)
   useEffect(() => {
-    if (configLoading || initRef.current) return;
-
+    if (initRef.current) return;
     initRef.current = true;
-    getSupabaseBrowserClientWithRetry()
+
+    getSupabaseBrowserClient()
       .then((client) => {
         setSupabase(client);
+
+        // Listen for auth state changes
+        client.auth.onAuthStateChange((_event, newSession) => {
+          setSession(newSession);
+          if (newSession?.user) {
+            syncUserProfile(newSession.user.id, newSession.user.email, newSession.user.phone);
+          } else {
+            setUser(null);
+            setLoading(false);
+          }
+        });
+
+        // Check existing session
+        client.auth.getSession().then(({ data: { session: existingSession } }) => {
+          setSession(existingSession);
+          if (existingSession?.user) {
+            syncUserProfile(existingSession.user.id, existingSession.user.email, existingSession.user.phone);
+          } else {
+            checkLegacyCookieSession();
+          }
+        }).catch(() => {
+          checkLegacyCookieSession();
+        });
       })
       .catch((err) => {
-        console.warn('[AuthProvider] Supabase client initialization failed:', err);
-        setLoading(false);
+        console.warn('[AuthProvider] Supabase init failed:', err);
+        checkLegacyCookieSession();
       });
-  }, [configLoading]);
+  }, []);
 
-  // Sync user info from backend (role, status, etc.)
-  // Supports both Supabase Auth (x-session) and legacy Cookie session
-  const syncUserProfile = useCallback(async (sbUser: { id: string; email?: string | null } | null) => {
+  const syncUserProfile = useCallback(async (supabaseUserId: string, email?: string, phone?: string) => {
     try {
-      // Try Supabase Auth session first
-      let token: string | undefined;
-      if (sbUser) {
-        const client = await getSupabaseBrowserClientWithRetry();
-        const { data: { session: currentSession } } = await client.auth.getSession();
-        token = currentSession?.access_token;
-      }
-
+      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
       const headers: Record<string, string> = {};
       if (token) headers['x-session'] = token;
 
       const res = await fetch('/api/auth/me', { headers });
       const data = await res.json();
-
       if (data.user) {
         setUser(data.user);
-        if (data.user.status === 'rejected') {
-          setKickedMessage('您的账号已被禁用，请联系管理员');
-        }
-        return;
-      }
-
-      // No user from backend
-      if (sbUser) {
+      } else {
+        // No user record yet, create minimal one
         setUser({
-          id: sbUser.id,
-          email: sbUser.email ?? null,
+          id: supabaseUserId,
+          email,
+          phone,
+          nickname: '',
           role: 'user',
           status: 'pending',
           canGenerate: false,
         });
-      } else {
-        setUser(null);
       }
     } catch {
-      if (sbUser) {
-        setUser({
-          id: sbUser.id,
-          email: sbUser.email ?? null,
-          role: 'user',
-          status: 'pending',
-          canGenerate: false,
-        });
-      } else {
-        setUser(null);
+      setUser({
+        id: supabaseUserId,
+        email,
+        phone,
+        nickname: '',
+        role: 'user',
+        status: 'pending',
+        canGenerate: false,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  const checkLegacyCookieSession = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.user) {
+        setUser(data.user);
       }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Listen for auth state changes
-  useEffect(() => {
-    if (!supabase) {
-      // No Supabase client yet, try legacy cookie session directly
-      syncUserProfile(null).finally(() => setLoading(false));
-      return;
-    }
-
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setAuthSession(initialSession);
-      await syncUserProfile(initialSession?.user ?? null);
-      // If no Supabase session, also try legacy cookie session
-      if (!initialSession) {
-        await syncUserProfile(null);
-      }
-    }).finally(() => setLoading(false));
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        setSession(newSession);
-        setAuthSession(newSession);
-        if (event === 'SIGNED_IN' && newSession?.user) {
-          await syncUserProfile(newSession.user);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setSession(null);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [supabase, syncUserProfile]);
-
-  const refresh = useCallback(async () => {
-    if (!supabase) {
-      // No Supabase client, try legacy cookie session directly
-      await syncUserProfile(null);
-      return;
-    }
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    setSession(currentSession);
-    await syncUserProfile(currentSession?.user ?? null);
-  }, [supabase, syncUserProfile]);
+  const login = useCallback(() => {
+    window.location.href = '/login';
+  }, []);
 
   const logout = useCallback(async () => {
-    // Sign out from Supabase Auth
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
-    // Also clear legacy cookie session
     try {
-      await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' });
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      await fetch('/api/auth/logout', { method: 'DELETE' });
     } catch {
       // ignore
     }
@@ -173,51 +152,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, [supabase]);
 
-  const login = useCallback(async (email: string) => {
+  const sendOtp = useCallback(async (emailOrPhone: string, isPhone = false): Promise<{ error: string | null }> => {
+    if (!supabase) return { error: '系统初始化中，请稍后重试' };
     try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { error } = await client.auth.signInWithOtp({ email });
-      return { error: error?.message ?? null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : '登录失败' };
+      if (isPhone) {
+        const { error } = await supabase.auth.signInWithOtp({ phone: emailOrPhone });
+        return { error: error?.message || null };
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({ email: emailOrPhone });
+        return { error: error?.message || null };
+      }
+    } catch {
+      return { error: '发送验证码失败，请稍后重试' };
     }
-  }, []);
+  }, [supabase]);
 
-  const sendOtp = useCallback(async (email: string) => {
+  const verifyOtp = useCallback(async (emailOrPhone: string, token: string, isPhone = false): Promise<{ error: string | null }> => {
+    if (!supabase) return { error: '系统初始化中，请稍后重试' };
     try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { error } = await client.auth.signInWithOtp({ email });
-      return { error: error?.message ?? null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : '发送验证码失败' };
+      if (isPhone) {
+        const { error } = await supabase.auth.verifyOtp({ phone: emailOrPhone, token, type: 'sms' });
+        return { error: error?.message || null };
+      } else {
+        const { error } = await supabase.auth.verifyOtp({ email: emailOrPhone, token, type: 'email' });
+        return { error: error?.message || null };
+      }
+    } catch {
+      return { error: '验证失败，请稍后重试' };
     }
-  }, []);
+  }, [supabase]);
 
-  const verifyOtp = useCallback(async (email: string, token: string) => {
+  const clearKickedMessage = useCallback(() => setKickedMessage(null), []);
+
+  const refresh = useCallback(async () => {
     try {
-      const client = await getSupabaseBrowserClientWithRetry();
-      const { error } = await client.auth.verifyOtp({ email, token, type: 'email' });
-      return { error: error?.message ?? null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : '验证失败' };
-    }
-  }, []);
+      const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+      const headers: Record<string, string> = {};
+      if (token) headers['x-session'] = token;
 
-  const clearKickedMessage = useCallback(() => {
-    setKickedMessage(null);
-  }, []);
+      const res = await fetch('/api/auth/me', { headers });
+      const data = await res.json();
+      if (data.user) {
+        setUser(data.user);
+      }
+    } catch {
+      // ignore
+    }
+  }, [supabase]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, session, supabase, logout, refresh, login, sendOtp, verifyOtp, kickedMessage, clearKickedMessage }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        loading,
+        supabase,
+        login,
+        logout,
+        sendOtp,
+        verifyOtp,
+        kickedMessage,
+        clearKickedMessage,
+        refresh,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }

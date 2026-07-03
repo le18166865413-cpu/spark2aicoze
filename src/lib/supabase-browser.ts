@@ -1,108 +1,51 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-declare global {
-  interface Window {
-    __SUPABASE_CONFIG__?: {
-      url: string;
-      anonKey: string;
-    };
+let browserClient: SupabaseClient | null = null;
+let initPromise: Promise<SupabaseClient> | null = null;
+
+async function fetchConfig(): Promise<{ url: string; anonKey: string }> {
+  const res = await fetch('/api/supabase-config');
+  if (!res.ok) {
+    throw new Error('Failed to fetch Supabase config');
   }
+  return res.json();
 }
 
-const SUPABASE_CONFIG_READY_EVENT = 'supabase-config-ready';
-
-let browserClient: SupabaseClient | null = null;
-
-function waitForConfig(maxWait = 5000): Promise<boolean> {
-  if (window.__SUPABASE_CONFIG__?.url && window.__SUPABASE_CONFIG__?.anonKey) {
-    return Promise.resolve(true);
-  }
-
-  return new Promise((resolve) => {
-    let resolved = false;
-
-    const handler = () => {
-      if (!resolved) {
-        resolved = true;
-        window.removeEventListener(SUPABASE_CONFIG_READY_EVENT, handler);
-        resolve(true);
-      }
-    };
-
-    window.addEventListener(SUPABASE_CONFIG_READY_EVENT, handler);
-
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        window.removeEventListener(SUPABASE_CONFIG_READY_EVENT, handler);
-        resolve(window.__SUPABASE_CONFIG__?.url && window.__SUPABASE_CONFIG__?.anonKey ? true : false);
-      }
-    }, maxWait);
+async function initClient(): Promise<SupabaseClient> {
+  const { url, anonKey } = await fetchConfig();
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
   });
 }
 
-function isConfigReady(): boolean {
-  return !!(window.__SUPABASE_CONFIG__?.url && window.__SUPABASE_CONFIG__?.anonKey);
-}
+/**
+ * Get the singleton Supabase browser client.
+ * On first call, fetches config from /api/supabase-config and creates the client.
+ * Subsequent calls return the same instance immediately.
+ */
+async function getSupabaseBrowserClient(): Promise<SupabaseClient> {
+  if (browserClient) return browserClient;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getSupabaseBrowserClient(): SupabaseClient {
-  if (browserClient === null) {
-    const config = window.__SUPABASE_CONFIG__;
-
-    if (!config || !config.url || !config.anonKey) {
-      throw new Error(
-        'Supabase config not found. Make sure SupabaseConfigProvider is included in your layout.tsx and use useSupabaseConfig() to wait for config to be ready.'
-      );
-    }
-
-    browserClient = createClient(config.url, config.anonKey, {
-      db: {
-        timeout: 60000,
-      },
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-      },
+  if (!initPromise) {
+    initPromise = initClient().then((client) => {
+      browserClient = client;
+      return client;
+    }).catch((err) => {
+      initPromise = null; // Allow retry on failure
+      throw err;
     });
   }
 
-  return browserClient;
+  return initPromise;
 }
 
-async function getSupabaseBrowserClientWithRetry(maxRetries = 5, retryInterval = 1000): Promise<SupabaseClient> {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return getSupabaseBrowserClient();
-    } catch {
-      if (i < maxRetries - 1) {
-        await sleep(retryInterval);
-      }
-    }
-  }
-  return getSupabaseBrowserClient();
-}
+export { getSupabaseBrowserClient };
 
-async function getSupabaseBrowserClientAsync(): Promise<SupabaseClient> {
-  if (browserClient !== null) {
-    return browserClient;
-  }
-
-  const ready = await waitForConfig();
-  if (!ready) {
-    throw new Error(
-      'Supabase config not found after waiting. Make sure SupabaseConfigProvider is included in your layout.tsx'
-    );
-  }
-
-  return getSupabaseBrowserClient();
-}
-
-export { getSupabaseBrowserClient, getSupabaseBrowserClientWithRetry, getSupabaseBrowserClientAsync, waitForConfig, isConfigReady };
-
-// Legacy aliases for backward compatibility
-export const getSupabaseBrowser = getSupabaseBrowserClientWithRetry;
-export const getSupabaseBrowserClientAlias = getSupabaseBrowserClient;
+// Legacy aliases
+export const getSupabaseBrowser = getSupabaseBrowserClient;
+export const getSupabaseBrowserClientAsync = getSupabaseBrowserClient;
+export const getSupabaseBrowserClientWithRetry = getSupabaseBrowserClient;
