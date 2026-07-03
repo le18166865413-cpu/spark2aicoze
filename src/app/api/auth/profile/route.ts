@@ -52,11 +52,13 @@ export async function GET(request: NextRequest) {
     }
 
     const sb = getSupabaseClient();
-    const { data: user } = await sb
+    const { data: user, error: getErr } = await sb
       .from('users')
       .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
+
+    if (getErr) console.error('[profile GET] error:', getErr);
 
     return NextResponse.json({
       user: user ? {
@@ -107,62 +109,85 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if user exists in users table
-    const { data: existingUser } = await sb
+    const { data: existingUser, error: lookupError } = await sb
       .from('users')
       .select('id')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error('[profile] lookup error:', lookupError);
+    }
 
     if (!existingUser) {
       // New Supabase Auth user - get email/phone from auth
-      const supabase = getSupabaseServer();
-      const { data: { user: authUser } } = await supabase.auth.getUser(
-        request.headers.get('x-session') || undefined
-      );
+      let email: string | null = null;
+      let phone: string | null = null;
 
-      const email = authUser?.email ?? null;
-      const phone = authUser?.phone ?? null;
+      const sessionToken = request.headers.get('x-session');
+      if (sessionToken) {
+        try {
+          const supabase = getSupabaseServer();
+          const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser(sessionToken);
+          if (authErr) {
+            console.error('[profile] getUser error:', authErr);
+          }
+          if (authUser) {
+            email = authUser.email ?? null;
+            phone = authUser.phone ?? null;
+          }
+        } catch (e) {
+          console.error('[profile] getUser exception:', e);
+        }
+      }
 
       // Migrate: try to match existing user by email or phone
       let migratedRole = 'user';
       let migratedStatus = 'pending';
-      let migratedUsername = email?.split('@')[0] || phone || userId.slice(0, 8);
+      let migratedUsername = (email?.split('@')[0]) || phone || `user_${userId.slice(0, 8)}`;
 
       if (email) {
         const { data: oldUser } = await sb
           .from('users')
           .select('id, username, nickname, role, status')
           .eq('email', email)
-          .single();
+          .maybeSingle();
         if (oldUser && oldUser.id !== userId) {
           // Migrate old record to new id
-          await sb.from('users').update({ id: userId, updated_at: new Date().toISOString() }).eq('id', oldUser.id);
-          await sb.from('gallery_images').update({ user_id: userId }).eq('user_id', oldUser.id);
+          const { error: migrateErr } = await sb.from('users').update({ id: userId, updated_at: new Date().toISOString() }).eq('id', oldUser.id);
+          if (migrateErr) console.error('[profile] migrate user error:', migrateErr);
+          const { error: imgErr } = await sb.from('gallery_images').update({ user_id: userId }).eq('user_id', oldUser.id);
+          if (imgErr) console.error('[profile] migrate images error:', imgErr);
           migratedRole = oldUser.role;
           migratedStatus = oldUser.status;
-          migratedUsername = oldUser.username;
+          migratedUsername = oldUser.username || migratedUsername;
         }
       }
 
       // Create user record (or re-insert if id was just migrated)
-      const { data: checkAgain } = await sb.from('users').select('id').eq('id', userId).single();
+      const { data: checkAgain } = await sb.from('users').select('id').eq('id', userId).maybeSingle();
       if (!checkAgain) {
-        const { error: insertError } = await sb.from('users').insert({
+        const insertData: Record<string, unknown> = {
           id: userId,
-          username: migratedUsername || email || phone || userId.slice(0, 8),
-          email,
-          phone,
-          nickname: updates.nickname ?? null,
-          wechat: updates.wechat ?? null,
-          avatar: updates.avatar ?? null,
+          username: migratedUsername,
+          password: '',
           role: migratedRole,
           status: migratedStatus,
           can_generate: migratedStatus === 'approved',
-        });
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (email) insertData.email = email;
+        if (phone) insertData.phone = phone;
+        if (updates.nickname !== undefined) insertData.nickname = updates.nickname;
+        if (updates.wechat !== undefined) insertData.wechat = updates.wechat;
+        if (updates.avatar !== undefined) insertData.avatar = updates.avatar;
+
+        const { error: insertError } = await sb.from('users').insert(insertData);
 
         if (insertError) {
-          console.error('Profile create error:', insertError);
-          return NextResponse.json({ error: '创建用户失败' }, { status: 500 });
+          console.error('[profile] create error:', JSON.stringify(insertError));
+          return NextResponse.json({ error: '创建用户失败: ' + insertError.message }, { status: 500 });
         }
       }
     } else {
@@ -179,11 +204,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Return updated user
-    const { data: user } = await sb
+    const { data: user, error: fetchErr } = await sb
       .from('users')
       .select('id, username, nickname, role, status, email, phone, wechat, avatar, can_generate')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.error('[profile] fetch after update error:', fetchErr);
+    }
 
     return NextResponse.json({
       user: user ? {
