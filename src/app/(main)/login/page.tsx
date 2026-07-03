@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowRight, Loader2 } from "lucide-react";
-import { getSupabaseBrowser } from "@/utils/supabase-browser";
+import { getSupabaseBrowserClientWithRetry } from "@/lib/supabase-browser";
+import { useSupabaseConfig } from "@/lib/supabase-config-inject";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { isLoading: configLoading } = useSupabaseConfig();
 
   // Email OTP state
   const [email, setEmail] = useState("");
@@ -20,28 +22,53 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Supabase client (lazy init, may be null if env vars missing)
-  const supabase = useMemo(() => {
-    try {
-      return getSupabaseBrowser();
-    } catch {
-      return null;
-    }
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup countdown on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, []);
 
   // Listen for auth state changes (auto redirect after login)
   useEffect(() => {
-    if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event) => {
-        if (event === "SIGNED_IN") {
-          router.push("/");
-          router.refresh();
+    if (configLoading) return;
+
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    getSupabaseBrowserClientWithRetry()
+      .then((client) => {
+        const { data } = client.auth.onAuthStateChange((event) => {
+          if (event === "SIGNED_IN") {
+            router.push("/");
+            router.refresh();
+          }
+        });
+        subscription = data.subscription;
+      })
+      .catch(console.error);
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [configLoading, router]);
+
+  // Start countdown timer
+  const startCountdown = useCallback(() => {
+    setCountdown(60);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          countdownRef.current = null;
+          return 0;
         }
-      }
-    );
-    return () => subscription.unsubscribe();
-  }, [supabase, router]);
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   // Send OTP to email
   const handleSendCode = useCallback(async () => {
@@ -56,24 +83,10 @@ export default function LoginPage() {
 
     setError("");
     setSendingCode(true);
-    // Start countdown immediately
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
 
     try {
-      if (!supabase) {
-        setError("系统未配置，无法登录");
-        return;
-      }
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { error: otpError } = await client.auth.signInWithOtp({
         email: email.trim(),
         options: {
           emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
@@ -82,11 +95,10 @@ export default function LoginPage() {
       if (otpError) throw otpError;
       setCodeSent(true);
       setSuccess("验证码已发送到您的邮箱");
+      startCountdown();
     } catch (err: unknown) {
-      clearInterval(timer);
       setCountdown(0);
       const message = err instanceof Error ? err.message : "发送失败";
-      // Translate common Supabase errors
       if (message.includes("rate limit")) {
         setError("发送过于频繁，请稍后再试");
       } else if (message.includes("invalid email")) {
@@ -97,7 +109,7 @@ export default function LoginPage() {
     } finally {
       setSendingCode(false);
     }
-  }, [email, supabase]);
+  }, [email, startCountdown]);
 
   // Verify OTP
   const handleVerifyOtp = useCallback(async () => {
@@ -109,15 +121,12 @@ export default function LoginPage() {
       setError("请输入6位验证码");
       return;
     }
-    if (!supabase) {
-      setError("系统加载中，请稍后重试");
-      return;
-    }
 
     setError("");
     setVerifying(true);
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { error: verifyError } = await client.auth.verifyOtp({
         email: email.trim(),
         token: code.trim(),
         type: "email",
@@ -137,13 +146,25 @@ export default function LoginPage() {
     } finally {
       setVerifying(false);
     }
-  }, [email, code, supabase]);
+  }, [email, code]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleVerifyOtp();
+      if (codeSent) {
+        handleVerifyOtp();
+      } else {
+        handleSendCode();
+      }
     }
   };
+
+  if (configLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

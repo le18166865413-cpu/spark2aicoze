@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
-import { getSupabaseBrowser } from '@/utils/supabase-browser';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { getSupabaseBrowserClientWithRetry } from '@/lib/supabase-browser';
+import { useSupabaseConfig } from '@/lib/supabase-config-inject';
 import { setAuthSession } from '@/utils/auth-fetch';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 
@@ -39,16 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
-  // Initialize Supabase client (singleton, may be null if env vars missing)
-  const supabase = useMemo(() => {
-    try {
-      return getSupabaseBrowser();
-    } catch {
-      console.warn('[AuthProvider] Supabase client initialization failed — auth features will be unavailable');
-      return null;
-    }
-  }, []);
+  const { isLoading: configLoading } = useSupabaseConfig();
+  const initRef = useRef(false);
+
+  // Initialize Supabase client once config is ready
+  useEffect(() => {
+    if (configLoading || initRef.current) return;
+
+    initRef.current = true;
+    getSupabaseBrowserClientWithRetry()
+      .then((client) => {
+        setSupabase(client);
+      })
+      .catch((err) => {
+        console.warn('[AuthProvider] Supabase client initialization failed:', err);
+        setLoading(false);
+      });
+  }, [configLoading]);
 
   // Sync user info from backend (role, status, etc.)
   const syncUserProfile = useCallback(async (sbUser: { id: string; email?: string | null } | null) => {
@@ -56,19 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       return;
     }
-    if (!supabase) {
-      // Supabase not configured — set basic profile from auth data
-      setUser({
-        id: sbUser.id,
-        email: sbUser.email ?? null,
-        role: 'user',
-        status: 'pending',
-        canGenerate: false,
-      });
-      return;
-    }
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { data: { session: currentSession } } = await client.auth.getSession();
       const token = currentSession?.access_token;
       if (!token) {
         setUser(null);
@@ -80,12 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (data.user) {
         setUser(data.user);
-        // Check if user was kicked
         if (data.user.status === 'rejected') {
           setKickedMessage('您的账号已被禁用，请联系管理员');
         }
       } else {
-        // Backend doesn't know this user yet — create a basic profile
         setUser({
           id: sbUser.id,
           email: sbUser.email ?? null,
@@ -103,14 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canGenerate: false,
       });
     }
-  }, [supabase]);
+  }, []);
 
   // Listen for auth state changes
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
@@ -150,34 +145,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const login = useCallback(async (email: string) => {
-    if (!supabase) return { error: 'Supabase 未配置' };
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { error } = await client.auth.signInWithOtp({ email });
       return { error: error?.message ?? null };
     } catch (e) {
       return { error: e instanceof Error ? e.message : '登录失败' };
     }
-  }, [supabase]);
+  }, []);
 
   const sendOtp = useCallback(async (email: string) => {
-    if (!supabase) return { error: 'Supabase 未配置' };
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { error } = await client.auth.signInWithOtp({ email });
       return { error: error?.message ?? null };
     } catch (e) {
       return { error: e instanceof Error ? e.message : '发送验证码失败' };
     }
-  }, [supabase]);
+  }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
-    if (!supabase) return { error: 'Supabase 未配置' };
     try {
-      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+      const client = await getSupabaseBrowserClientWithRetry();
+      const { error } = await client.auth.verifyOtp({ email, token, type: 'email' });
       return { error: error?.message ?? null };
     } catch (e) {
       return { error: e instanceof Error ? e.message : '验证失败' };
     }
-  }, [supabase]);
+  }, []);
 
   const clearKickedMessage = useCallback(() => {
     setKickedMessage(null);
