@@ -48,9 +48,10 @@ function KickedNotification() {
 }
 
 function NicknameGuide() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, session } = useAuth();
   const [nickname, setNickname] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [show, setShow] = useState(false);
   const router = useRouter();
 
@@ -69,17 +70,29 @@ function NicknameGuide() {
     const trimmed = nickname.trim();
     if (!trimmed) return;
     setSaving(true);
+    setError("");
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (session?.access_token) {
+        headers["x-session"] = session.access_token;
+      }
       const res = await fetch("/api/auth/profile", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include",
         body: JSON.stringify({ nickname: trimmed }),
       });
       if (res.ok) {
         await refresh();
         setShow(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "保存失败，请重试");
       }
+    } catch {
+      setError("网络错误，请重试");
     } finally {
       setSaving(false);
     }
@@ -106,9 +119,10 @@ function NicknameGuide() {
           placeholder="输入你的昵称"
           maxLength={20}
           onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4"
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 mb-2"
           autoFocus
         />
+        {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
         <button
           onClick={handleSave}
           disabled={!nickname.trim() || saving}
