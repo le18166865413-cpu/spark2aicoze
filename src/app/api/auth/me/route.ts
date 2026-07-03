@@ -1,76 +1,97 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { cleanupExpiredSessions } from '@/lib/admin-auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// 上次清理时间，用于节流（每小时最多清理一次）
-let lastCleanupTime = 0;
+// Create server-side Supabase client for token verification
+function getSupabaseServer() {
+  return createClient(
+    process.env.COZE_SUPABASE_URL!,
+    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
-export async function GET() {
-  try {
-    // 每小时最多执行一次清理
-    const now = Date.now();
-    if (now - lastCleanupTime > 60 * 60 * 1000) {
-      lastCleanupTime = now;
-      cleanupExpiredSessions().catch(() => {}); // fire-and-forget
+// Verify user from x-session header or cookie
+export async function verifyUserFromRequest(request: NextRequest): Promise<{
+  id: string;
+  email: string | null;
+  role: string;
+  username?: string;
+  nickname?: string;
+  status?: string;
+  canGenerate?: boolean;
+} | null> {
+  // Try x-session header first (Supabase Auth JWT)
+  const sessionToken = request.headers.get('x-session');
+  if (sessionToken) {
+    try {
+      const supabase = getSupabaseServer();
+      const { data: { user } } = await supabase.auth.getUser(sessionToken);
+      if (user) {
+        // Look up user profile in users table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id, username, nickname, role, status')
+          .eq('id', user.id)
+          .single();
+
+        return {
+          id: user.id,
+          email: user.email ?? null,
+          role: profile?.role ?? 'user',
+          username: profile?.username,
+          nickname: profile?.nickname,
+          status: profile?.status ?? 'approved',
+          canGenerate: profile?.status === 'approved',
+        };
+      }
+    } catch {
+      // Token invalid, continue
     }
+  }
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get('user_session')?.value;
+  // Fallback: try cookie session (legacy admin login)
+  const cookie = request.cookies.get('user_session');
+  if (cookie) {
+    try {
+      const supabase = getSupabaseServer();
+      const { data: sessionData } = await supabase
+        .from('user_sessions')
+        .select('user_id, expires_at')
+        .eq('id', cookie.value)
+        .single();
 
-    if (!token) {
-      return NextResponse.json({ user: null });
+      if (sessionData && new Date(sessionData.expires_at) > new Date()) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id, username, nickname, email, role, status')
+          .eq('id', sessionData.user_id)
+          .single();
+
+        if (profile) {
+          return {
+            id: profile.id,
+            email: profile.email,
+            role: profile.role,
+            username: profile.username,
+            nickname: profile.nickname,
+            status: profile.status,
+            canGenerate: profile.status === 'approved',
+          };
+        }
+      }
+    } catch {
+      // Cookie session invalid
     }
+  }
 
-    // Find session
-    const { data: session, error: sessionError } = await getSupabaseClient()
-      .from('user_sessions')
-      .select('user_id, expires_at')
-      .eq('id', token)
-      .single();
+  return null;
+}
 
-    if (sessionError || !session) {
-      return NextResponse.json({ user: null, kicked: true });
-    }
+export async function GET(request: NextRequest) {
+  const user = await verifyUserFromRequest(request);
 
-    // Check expiry
-    if (new Date(session.expires_at) < new Date()) {
-      await getSupabaseClient().from('user_sessions').delete().eq('id', token);
-      return NextResponse.json({ user: null, kicked: true });
-    }
-
-    // Get user
-    const { data: user, error: userError } = await getSupabaseClient()
-      .from('users')
-      .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
-      .eq('id', session.user_id)
-      .single();
-
-    if (userError || !user) {
-      return NextResponse.json({ user: null, kicked: true });
-    }
-
-    // 更新 last_active_at（fire-and-forget）
-    void getSupabaseClient()
-      .from('user_sessions')
-      .update({ last_active_at: new Date().toISOString() })
-      .eq('id', token);
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        username: user.username,
-        nickname: user.nickname,
-        role: user.role,
-        status: user.status,
-        email: user.email,
-        wechat: user.wechat,
-        avatar: user.avatar,
-        canGenerate: user.can_generate,
-      },
-    });
-  } catch (error) {
-    console.error('Auth check error:', error);
+  if (!user) {
     return NextResponse.json({ user: null });
   }
+
+  return NextResponse.json({ user });
 }

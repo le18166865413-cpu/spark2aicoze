@@ -1,29 +1,33 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { getSupabaseBrowser } from '@/utils/supabase-browser';
+import { setAuthSession } from '@/utils/auth-fetch';
+import type { SupabaseClient, Session } from '@supabase/supabase-js';
 
 interface User {
   id: string;
-  username: string;
-  nickname: string | null;
-  role: 'user' | 'admin';
-  status: 'pending' | 'approved' | 'rejected';
-  email?: string | null;
-  phone?: string | null;
-  wechat?: string | null;
-  avatar?: string | null;
+  email: string | null;
+  username?: string;
+  nickname?: string;
+  role: string;
+  status?: string;
   canGenerate?: boolean;
+  phone?: string;
+  wechat?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  loginWithEmail: (email: string, code: string) => Promise<void>;
-  sendCode: (email: string) => Promise<void>;
-  register: (username: string, password: string, nickname: string) => Promise<void>;
+  session: Session | null;
+  supabase: SupabaseClient;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  login: (email: string) => Promise<{ error: string | null }>;
+  sendOtp: (email: string) => Promise<{ error: string | null }>;
+  verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   kickedMessage: string | null;
   clearKickedMessage: () => void;
 }
@@ -32,113 +36,127 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
-  const [prevUserId, setPrevUserId] = useState<string | null>(null);
+
+  // Initialize Supabase client synchronously (singleton)
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
+
+  // Sync user info from backend (role, status, etc.)
+  const syncUserProfile = useCallback(async (sbUser: { id: string; email?: string | null } | null) => {
+    if (!sbUser) {
+      setUser(null);
+      return;
+    }
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const token = currentSession?.access_token;
+      if (!token) {
+        setUser(null);
+        return;
+      }
+      const res = await fetch('/api/auth/me', {
+        headers: { 'x-session': token },
+      });
+      const data = await res.json();
+      if (data.user) {
+        setUser(data.user);
+        // Check if user was kicked
+        if (data.user.status === 'rejected') {
+          setKickedMessage('您的账号已被禁用，请联系管理员');
+        }
+      } else {
+        // Backend doesn't know this user yet — create a basic profile
+        setUser({
+          id: sbUser.id,
+          email: sbUser.email ?? null,
+          role: 'user',
+          status: 'pending',
+          canGenerate: false,
+        });
+      }
+    } catch {
+      setUser({
+        id: sbUser.id,
+        email: sbUser.email ?? null,
+        role: 'user',
+        status: 'pending',
+        canGenerate: false,
+      });
+    }
+  }, [supabase]);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setAuthSession(initialSession);
+      syncUserProfile(initialSession?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        setSession(newSession);
+        setAuthSession(newSession);
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          await syncUserProfile(newSession.user);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [supabase, syncUserProfile]);
 
   const refresh = useCallback(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    setSession(currentSession);
+    await syncUserProfile(currentSession?.user ?? null);
+  }, [supabase, syncUserProfile]);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+  }, [supabase]);
+
+  const login = useCallback(async (email: string) => {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
-      const data = await res.json();
-      
-      // 检测被踢：之前有用户，现在没了，且不是主动登出
-      if (prevUserId && !data.user && data.kicked) {
-        setKickedMessage('你的账号已在其他设备登录，如非本人操作请及时修改密码');
-      }
-      
-      setUser(data.user || null);
-      setPrevUserId(data.user?.id || null);
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      return { error: error?.message ?? null };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : '登录失败' };
     }
-  }, [prevUserId]);
+  }, [supabase]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const sendOtp = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      return { error: error?.message ?? null };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : '发送验证码失败' };
+    }
+  }, [supabase]);
 
-  // 定期检查 session 有效性（每 30 秒）
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        const data = await res.json();
-        if (!data.user && data.kicked) {
-          setKickedMessage('你的账号已在其他设备登录，如非本人操作请及时修改密码');
-        }
-        setUser(data.user || null);
-      } catch {
-        // 忽略网络错误
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
+  const verifyOtp = useCallback(async (email: string, token: string) => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+      return { error: error?.message ?? null };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : '验证失败' };
+    }
+  }, [supabase]);
 
   const clearKickedMessage = useCallback(() => {
     setKickedMessage(null);
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '登录失败');
-    setUser(data.user || null);
-    setPrevUserId(data.user?.id || null);
-  };
-
-  const loginWithEmail = async (email: string, code: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, code }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '登录失败');
-    setUser(data.user || null);
-    setPrevUserId(data.user?.id || null);
-  };
-
-  const sendCode = async (email: string) => {
-    const res = await fetch('/api/auth/send-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '发送失败');
-  };
-
-  const register = async (username: string, password: string, nickname: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ username, password, nickname }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '注册失败');
-    setUser(data.user);
-    setPrevUserId(data.user?.id || null);
-  };
-
-  const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'DELETE', credentials: 'include' });
-    setUser(null);
-    setPrevUserId(null);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithEmail, sendCode, register, logout, refresh, kickedMessage, clearKickedMessage }}>
+    <AuthContext.Provider value={{ user, loading, session, supabase, logout, refresh, login, sendOtp, verifyOtp, kickedMessage, clearKickedMessage }}>
       {children}
     </AuthContext.Provider>
   );

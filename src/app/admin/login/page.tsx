@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, loading: authLoading, refresh } = useAuth();
 
   useEffect(() => {
     if (!authLoading && user && user.role === 'admin') {
@@ -27,9 +27,19 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      await login(username, password);
-      // After login, the auth provider will update the user
-      // The useEffect above will redirect if admin
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '登录失败');
+        return;
+      }
+      // Refresh auth state after cookie-based login
+      await refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '登录失败';
       setError(message);
@@ -38,7 +48,6 @@ export default function AdminLoginPage() {
     }
   };
 
-  // If already logged in as admin, redirect handled by useEffect
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

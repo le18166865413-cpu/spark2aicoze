@@ -1,36 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { useAuth } from "@/components/AuthProvider";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Mail, KeyRound, ArrowRight } from "lucide-react";
+import { Mail, ArrowRight, Loader2 } from "lucide-react";
+import { getSupabaseBrowser } from "@/utils/supabase-browser";
 
 export default function LoginPage() {
-  const { login, loginWithEmail, sendCode } = useAuth();
   const router = useRouter();
 
-  // Email login state
+  // Email OTP state
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
-
-  // Password login state
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  // Tab state
-  const [loginMode, setLoginMode] = useState<"email" | "password">("email");
-
-  // Common state
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  // Send verification code
-  const handleSendCode = async () => {
+  // Supabase client (lazy init)
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
+
+  // Listen for auth state changes (auto redirect after login)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === "SIGNED_IN") {
+          router.push("/");
+          router.refresh();
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, [supabase, router]);
+
+  // Send OTP to email
+  const handleSendCode = useCallback(async () => {
     if (!email.trim()) {
       setError("请输入邮箱地址");
       return;
@@ -39,9 +46,10 @@ export default function LoginPage() {
       setError("请输入有效的邮箱地址");
       return;
     }
+
     setError("");
     setSendingCode(true);
-    // Immediately start countdown to prevent double-click
+    // Start countdown immediately
     setCountdown(60);
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -54,21 +62,34 @@ export default function LoginPage() {
     }, 1000);
 
     try {
-      await sendCode(email.trim());
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+        },
+      });
+      if (otpError) throw otpError;
       setCodeSent(true);
+      setSuccess("验证码已发送到您的邮箱");
     } catch (err: unknown) {
-      // Reset countdown on failure so user can retry
       clearInterval(timer);
       setCountdown(0);
       const message = err instanceof Error ? err.message : "发送失败";
-      setError(message);
+      // Translate common Supabase errors
+      if (message.includes("rate limit")) {
+        setError("发送过于频繁，请稍后再试");
+      } else if (message.includes("invalid email")) {
+        setError("邮箱格式不正确");
+      } else {
+        setError(message);
+      }
     } finally {
       setSendingCode(false);
     }
-  };
+  }, [email, supabase]);
 
-  // Email code login
-  const handleEmailLogin = async () => {
+  // Verify OTP
+  const handleVerifyOtp = useCallback(async () => {
     if (!email.trim()) {
       setError("请输入邮箱地址");
       return;
@@ -77,46 +98,39 @@ export default function LoginPage() {
       setError("请输入6位验证码");
       return;
     }
-    setError("");
-    setLoading(true);
-    try {
-      await loginWithEmail(email.trim(), code.trim());
-      router.push("/");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "登录失败";
-      setError(message);
-    } finally {
-      setLoading(false);
+    if (!supabase) {
+      setError("系统加载中，请稍后重试");
+      return;
     }
-  };
 
-  // Password login
-  const handlePasswordLogin = async () => {
-    if (!username.trim()) {
-      setError("请输入账号");
-      return;
-    }
-    if (!password) {
-      setError("请输入密码");
-      return;
-    }
     setError("");
-    setLoading(true);
+    setVerifying(true);
     try {
-      await login(username.trim(), password);
-      router.push("/");
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: "email",
+      });
+      if (verifyError) throw verifyError;
+      // Auth state change listener will handle redirect
+      setSuccess("登录成功，正在跳转...");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "登录失败";
-      setError(message);
+      const message = err instanceof Error ? err.message : "验证失败";
+      if (message.includes("expired")) {
+        setError("验证码已过期，请重新获取");
+      } else if (message.includes("invalid")) {
+        setError("验证码不正确");
+      } else {
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      setVerifying(false);
     }
-  };
+  }, [email, code, supabase]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      if (loginMode === "email") handleEmailLogin();
-      else handlePasswordLogin();
+      handleVerifyOtp();
     }
   };
 
@@ -131,32 +145,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Mode Tabs */}
-        <div className="flex mb-6 bg-muted/50 rounded-lg p-1">
-          <button
-            onClick={() => { setLoginMode("email"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${
-              loginMode === "email"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Mail className="w-4 h-4" />
-            邮箱验证码登录
-          </button>
-          <button
-            onClick={() => { setLoginMode("password"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-all ${
-              loginMode === "password"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <KeyRound className="w-4 h-4" />
-            账号密码登录
-          </button>
-        </div>
-
         {/* Error */}
         {error && (
           <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm text-center">
@@ -164,115 +152,91 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Email Login Form */}
-        {loginMode === "email" && (
-          <div className="space-y-4" onKeyDown={handleKeyDown}>
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                邮箱地址
-              </label>
+        {/* Success */}
+        {success && !error && (
+          <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm text-center">
+            {success}
+          </div>
+        )}
+
+        {/* Email OTP Login Form */}
+        <div className="space-y-4" onKeyDown={handleKeyDown}>
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+              邮箱地址
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="email"
                 placeholder="请输入邮箱"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
+                disabled={verifying}
+                className="pl-10"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                验证码
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="6位数字验证码"
-                  value={code}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                    setCode(val);
-                  }}
-                  maxLength={6}
-                  disabled={loading}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSendCode}
-                  disabled={countdown > 0 || sendingCode || !email.trim()}
-                  className="shrink-0 min-w-[120px]"
-                >
-                  {sendingCode
-                    ? "发送中..."
-                    : countdown > 0
-                      ? `${countdown}秒后重试`
-                      : codeSent
-                        ? "重新获取"
-                        : "获取验证码"}
-                </Button>
-              </div>
-            </div>
-
-            <Button
-              onClick={handleEmailLogin}
-              disabled={loading || !email.trim() || code.trim().length !== 6}
-              className="w-full"
-            >
-              {loading ? "登录中..." : "登录"}
-              {!loading && <ArrowRight className="w-4 h-4 ml-1" />}
-            </Button>
-
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              新邮箱将自动注册，注册后需管理员审核通过方可使用生图功能
-            </p>
           </div>
-        )}
 
-        {/* Password Login Form */}
-        {loginMode === "password" && (
-          <div className="space-y-4" onKeyDown={handleKeyDown}>
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                账号
-              </label>
+          <div>
+            <label className="block text-sm font-medium text-muted-foreground mb-1.5">
+              验证码
+            </label>
+            <div className="flex gap-2">
               <Input
                 type="text"
-                placeholder="请输入账号"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={loading}
+                placeholder="6位数字验证码"
+                value={code}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setCode(val);
+                }}
+                maxLength={6}
+                disabled={verifying}
+                className="flex-1"
               />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSendCode}
+                disabled={countdown > 0 || sendingCode || !email.trim()}
+                className="shrink-0 min-w-[120px]"
+              >
+                {sendingCode ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : countdown > 0 ? (
+                  `${countdown}秒后重试`
+                ) : codeSent ? (
+                  "重新获取"
+                ) : (
+                  "获取验证码"
+                )}
+              </Button>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1.5">
-                密码
-              </label>
-              <Input
-                type="password"
-                placeholder="请输入密码"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            <Button
-              onClick={handlePasswordLogin}
-              disabled={loading || !username.trim() || !password}
-              className="w-full"
-            >
-              {loading ? "登录中..." : "登录"}
-              {!loading && <ArrowRight className="w-4 h-4 ml-1" />}
-            </Button>
-
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              仅限已有账号的用户使用此方式登录
-            </p>
           </div>
-        )}
+
+          <Button
+            onClick={handleVerifyOtp}
+            disabled={verifying || !email.trim() || code.trim().length !== 6}
+            className="w-full"
+          >
+            {verifying ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                验证中...
+              </>
+            ) : (
+              <>
+                登录
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </>
+            )}
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            新邮箱将自动注册账号，登录后即可使用
+          </p>
+        </div>
       </div>
     </div>
   );

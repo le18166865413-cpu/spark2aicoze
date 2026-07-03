@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { storage } from "@/utils/storage";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { getStorageErrorMessage } from "@/utils/storage-error";
-import { verifyUser } from "@/lib/admin-auth";
+import { verifyUserFromRequest } from "@/lib/admin-auth";
 import { buildSiteInsertData } from "@/lib/multi-site";
 
 // Save task_id to auto_sync_tasks immediately so results can be recovered if user disconnects
@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user info from session
-    const userInfo = await verifyUser();
+    const userInfo = await verifyUserFromRequest(request);
     const userId = userInfo?.id || null;
     const creatorName = userInfo?.nickname || null;
 

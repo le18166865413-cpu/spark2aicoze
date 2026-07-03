@@ -143,15 +143,15 @@ export default function Navbar() {
                 className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-secondary/60 transition-all"
               >
                 <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-1 ring-primary/30">
-                  {(user.nickname || user.email || user.username).charAt(0).toUpperCase()}
+                  {(user.nickname || user.email || user.username || "U").charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden md:inline text-sm font-medium">{user.nickname || user.email || user.username}</span>
+                <span className="hidden md:inline text-sm font-medium">{user.nickname || user.email || user.username || "用户"}</span>
               </button>
 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-50">
                   <div className="px-4 py-3 border-b border-border">
-                    <p className="text-sm font-semibold">{user.nickname || user.email || user.username}</p>
+                    <p className="text-sm font-semibold">{user.nickname || user.email || user.username || "用户"}</p>
                     <p className="text-xs text-muted-foreground">@{user.username}</p>
                   </div>
                   <div className="py-1">

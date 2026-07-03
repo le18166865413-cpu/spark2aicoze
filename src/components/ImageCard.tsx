@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/utils/auth-fetch";
 
 interface GalleryImage {
   id: string;
@@ -56,7 +57,7 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
     if (likeLoading) return;
     setLikeLoading(true);
     try {
-      const res = await fetch(`/api/images/${image.id}/like`, { method: "POST", credentials: "include" });
+      const res = await authFetch(`/api/images/${image.id}/like`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         setLiked(data.liked);
@@ -148,9 +149,8 @@ export function ImageCard({ image, onDelete, onHide, onUnhide, onPin, isAdmin = 
     }
 
     try {
-      const response = await fetch(`/api/images/${image.id}`, {
+      const response = await authFetch(`/api/images/${image.id}`, {
         method: "DELETE",
-        credentials: "include",
       });
 
       if (response.ok) {

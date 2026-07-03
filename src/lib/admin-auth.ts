@@ -1,8 +1,12 @@
 import { cookies } from 'next/headers';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { createServerClient } from '@supabase/ssr';
 import bcrypt from 'bcryptjs';
 
 // 返回当前登录的用户信息（如果已登录）
+// 支持两种认证方式：
+// 1. Cookie session（旧方式，user_sessions 表）
+// 2. x-session Header（Supabase Auth JWT）
 export async function verifyUser(): Promise<{
   id: string;
   username: string;
@@ -10,7 +14,11 @@ export async function verifyUser(): Promise<{
   role: string;
   status: string;
   can_generate: boolean | null;
+  email?: string;
 } | null> {
+  // 先尝试 x-session Header（Supabase Auth JWT）
+  // 注意：在 Server Action 中无法直接读取 request headers
+  // 这个函数主要用于 Cookie 认证，x-session 认证请使用 verifyUserFromRequest
   const cookieStore = await cookies();
   const token = cookieStore.get('user_session')?.value;
 
@@ -48,6 +56,102 @@ export async function verifyUser(): Promise<{
   return user;
 }
 
+// 从 Request 对象验证用户（支持 x-session Header）
+export async function verifyUserFromRequest(request: Request): Promise<{
+  id: string;
+  username: string;
+  nickname: string | null;
+  role: string;
+  status: string;
+  can_generate: boolean | null;
+  email?: string;
+} | null> {
+  // 1. 先尝试 x-session Header（Supabase Auth JWT）
+  const xSession = request.headers.get('x-session');
+  if (xSession) {
+    try {
+      const supabaseUrl = process.env.COZE_SUPABASE_URL;
+      const supabaseKey = process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseKey) return null;
+
+      const supabase = getSupabaseClient();
+      const { data: { user: authUser }, error } = await supabase.auth.getUser(xSession);
+
+      if (error || !authUser) return null;
+
+      // 用 Supabase Auth 的 email 查找或创建本地用户
+      const email = authUser.email;
+      if (!email) return null;
+
+      const { data: localUser } = await supabase
+        .from('users')
+        .select('id, username, nickname, role, status, can_generate')
+        .eq('email', email)
+        .single();
+
+      if (localUser) {
+        return { ...localUser, email };
+      }
+
+      // 用户在 Supabase Auth 中存在但本地 users 表没有记录
+      // 自动创建本地用户（默认 role=user, status=approved）
+      const username = email.split('@')[0];
+      const { data: newUser } = await supabase
+        .from('users')
+        .insert({
+          username,
+          email,
+          nickname: username,
+          role: 'user',
+          status: 'approved',
+          can_generate: true,
+        })
+        .select('id, username, nickname, role, status, can_generate')
+        .single();
+
+      if (newUser) {
+        return { ...newUser, email };
+      }
+
+      return null;
+    } catch {
+      // x-session 验证失败，继续尝试 Cookie 方式
+    }
+  }
+
+  // 2. 尝试 Cookie session（旧方式）
+  const cookieStore = await cookies();
+  const token = cookieStore.get('user_session')?.value;
+
+  if (!token) return null;
+
+  const supabase = getSupabaseClient();
+
+  const { data: session } = await supabase
+    .from('user_sessions')
+    .select('user_id, expires_at')
+    .eq('id', token)
+    .single();
+
+  if (!session) return null;
+
+  if (new Date(session.expires_at) < new Date()) {
+    await supabase.from('user_sessions').delete().eq('id', token);
+    return null;
+  }
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, username, nickname, role, status, can_generate')
+    .eq('id', session.user_id)
+    .single();
+
+  if (!user) return null;
+
+  return user;
+}
+
 // 清理过期 session
 export async function cleanupExpiredSessions() {
   const supabase = getSupabaseClient();
@@ -64,9 +168,16 @@ export async function cleanupExpiredSessions() {
     .lt('last_active_at', thirtyDaysAgo);
 }
 
-// 验证管理员身份
+// 验证管理员身份（Cookie 方式，用于 Server Actions）
 export async function verifyAdmin() {
   const user = await verifyUser();
+  if (!user || user.role !== 'admin') return null;
+  return user;
+}
+
+// 从 Request 验证管理员身份（支持 x-session Header）
+export async function verifyAdminFromRequest(request: Request) {
+  const user = await verifyUserFromRequest(request);
   if (!user || user.role !== 'admin') return null;
   return user;
 }
@@ -110,7 +221,6 @@ export async function verifyApiToken(request: Request): Promise<{
 }
 
 // 从环境变量初始化管理员账号
-// 环境变量：ADMIN_USERNAME, ADMIN_PASSWORD
 let adminInitialized = false;
 
 export async function ensureAdminFromEnv() {
@@ -124,7 +234,6 @@ export async function ensureAdminFromEnv() {
   const supabase = getSupabaseClient();
 
   try {
-    // 检查是否已存在该管理员
     const { data: existing } = await supabase
       .from('users')
       .select('id, username, role')
@@ -132,7 +241,6 @@ export async function ensureAdminFromEnv() {
       .single();
 
     if (existing) {
-      // 管理员已存在，更新密码（确保与环境变量一致）
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
       await supabase
         .from('users')
@@ -144,7 +252,6 @@ export async function ensureAdminFromEnv() {
         })
         .eq('id', existing.id);
     } else {
-      // 创建管理员
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
       await supabase
         .from('users')

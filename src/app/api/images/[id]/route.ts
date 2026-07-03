@@ -1,29 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { storage } from "@/utils/storage";
-import { cookies } from "next/headers";
-
-async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('user_session')?.value;
-  if (!token) return null;
-
-  const { data: session } = await getSupabaseClient()
-    .from('user_sessions')
-    .select('user_id, expires_at')
-    .eq('id', token)
-    .single();
-
-  if (!session || new Date(session.expires_at) < new Date()) return null;
-
-  const { data: user } = await getSupabaseClient()
-    .from('users')
-    .select('id, username, nickname, role, status')
-    .eq('id', session.user_id)
-    .single();
-
-  return user;
-}
+import { verifyUserFromRequest } from "@/app/api/auth/me/route";
 
 export async function PATCH(
   request: NextRequest,
@@ -33,7 +11,7 @@ export async function PATCH(
     const { id } = await params;
     const { isHidden } = await request.json();
 
-    const user = await getCurrentUser();
+    const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
@@ -80,7 +58,7 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const user = await getCurrentUser();
+    const user = await verifyUserFromRequest(_request);
     if (!user) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { authFetch } from "@/utils/auth-fetch";
 import { ImageCard } from "@/components/ImageCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,7 +109,7 @@ export default function Home() {
       queryParams.set("limit", String(pageSize));
       if (offset > 0) queryParams.set("offset", String(offset));
 
-      const res = await fetch(`/api/images?${queryParams.toString()}`, { credentials: "include", signal: controller.signal });
+      const res = await authFetch(`/api/images?${queryParams.toString()}`, { signal: controller.signal });
       clearTimeout(timeoutId);
       const rawData = await res.json();
       hasLoadedOnce.current = true;

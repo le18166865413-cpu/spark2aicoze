@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
+import { authFetch } from "@/utils/auth-fetch";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -107,8 +108,16 @@ interface GenerationResult {
 function CreatePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loginWithEmail, sendCode, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, sendOtp, verifyOtp } = useAuth();
   const isAdmin = user?.role === "admin";
+  // Helper: get auth headers for API calls
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (session?.access_token) {
+      headers["x-session"] = session.access_token;
+    }
+    return headers;
+  };
   // Permission: can generate only if approved and can_generate is not false
   const canGenerate = !user || user.status === "approved" ? (user?.canGenerate !== false) : false;
   const generateDisabledReason = !user ? "" : user.status === "pending" ? "账号审核中，审核通过后即可生图" : user.status === "rejected" ? "账号审核未通过" : user.canGenerate === false ? "生图权限已被禁用，请联系管理员" : "";
@@ -416,7 +425,11 @@ function CreatePageInner() {
     setLoginLoading(true);
     setLoginError("");
     try {
-      await loginWithEmail(loginEmail, loginCode);
+      const { error } = await verifyOtp(loginEmail, loginCode);
+      if (error) {
+        setLoginError(error);
+        return;
+      }
       setShowLoginDialog(false);
       setLoginEmail("");
       setLoginCode("");
@@ -426,7 +439,7 @@ function CreatePageInner() {
     } finally {
       setLoginLoading(false);
     }
-  }, [loginEmail, loginCode, loginWithEmail]);
+  }, [loginEmail, loginCode, verifyOtp]);
 
   // Send code handler
   const handleSendLoginCode = useCallback(async () => {
@@ -436,12 +449,16 @@ function CreatePageInner() {
     }
     setLoginError("");
     try {
-      await sendCode(loginEmail);
+      const { error } = await sendOtp(loginEmail);
+      if (error) {
+        setLoginError(error);
+        return;
+      }
       setLoginCountdown(60);
     } catch (err: unknown) {
       setLoginError(err instanceof Error ? err.message : "发送失败");
     }
-  }, [loginEmail, sendCode]);
+  }, [loginEmail, sendOtp]);
 
   // Batch page editing handlers
   const toggleBatchSelect = useCallback((index: number) => {
@@ -599,7 +616,7 @@ function CreatePageInner() {
 
           const res = await fetch("/api/generate", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...getAuthHeaders() },
             body: JSON.stringify(body),
             signal: controller.signal,
           });
@@ -843,7 +860,7 @@ function CreatePageInner() {
 
         const response = await fetch("/api/generate", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify(body),
           credentials: "include",
         });
@@ -918,7 +935,7 @@ function CreatePageInner() {
               // Task not returned by API - could be completed & imported earlier, or processing
               // Check if it was already imported to gallery
               try {
-                const checkRes = await fetch(`/api/images?search=${encodeURIComponent(taskId)}&limit=1`);
+                const checkRes = await authFetch(`/api/images?search=${encodeURIComponent(taskId)}&limit=1`);
                 const checkData = await checkRes.json();
                 const existing = checkData.images?.find((img: Record<string, unknown>) => img.taskId === taskId);
                 if (existing) {
