@@ -115,7 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth state changes
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      // No Supabase client yet, try legacy cookie session directly
+      syncUserProfile(null).finally(() => setLoading(false));
+      return;
+    }
 
     supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       setSession(initialSession);
@@ -125,8 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!initialSession) {
         await syncUserProfile(null);
       }
-      setLoading(false);
-    });
+    }).finally(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
