@@ -114,29 +114,56 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (!existingUser) {
-      // New Supabase Auth user - get email from auth
+      // New Supabase Auth user - get email/phone from auth
       const supabase = getSupabaseServer();
       const { data: { user: authUser } } = await supabase.auth.getUser(
         request.headers.get('x-session') || undefined
       );
 
-      // Create user record
-      const { error: insertError } = await sb.from('users').insert({
-        id: userId,
-        username: authUser?.email || userId.slice(0, 8),
-        email: authUser?.email || null,
-        nickname: updates.nickname ?? null,
-        phone: updates.phone ?? null,
-        wechat: updates.wechat ?? null,
-        avatar: updates.avatar ?? null,
-        role: 'user',
-        status: 'approved',
-        can_generate: true,
-      });
+      const email = authUser?.email ?? null;
+      const phone = authUser?.phone ?? null;
 
-      if (insertError) {
-        console.error('Profile create error:', insertError);
-        return NextResponse.json({ error: '创建用户失败' }, { status: 500 });
+      // Migrate: try to match existing user by email or phone
+      let migratedRole = 'user';
+      let migratedStatus = 'pending';
+      let migratedUsername = email?.split('@')[0] || phone || userId.slice(0, 8);
+
+      if (email) {
+        const { data: oldUser } = await sb
+          .from('users')
+          .select('id, username, nickname, role, status')
+          .eq('email', email)
+          .single();
+        if (oldUser && oldUser.id !== userId) {
+          // Migrate old record to new id
+          await sb.from('users').update({ id: userId, updated_at: new Date().toISOString() }).eq('id', oldUser.id);
+          await sb.from('gallery_images').update({ user_id: userId }).eq('user_id', oldUser.id);
+          migratedRole = oldUser.role;
+          migratedStatus = oldUser.status;
+          migratedUsername = oldUser.username;
+        }
+      }
+
+      // Create user record (or re-insert if id was just migrated)
+      const { data: checkAgain } = await sb.from('users').select('id').eq('id', userId).single();
+      if (!checkAgain) {
+        const { error: insertError } = await sb.from('users').insert({
+          id: userId,
+          username: migratedUsername,
+          email,
+          phone,
+          nickname: updates.nickname ?? null,
+          wechat: updates.wechat ?? null,
+          avatar: updates.avatar ?? null,
+          role: migratedRole,
+          status: migratedStatus,
+          can_generate: migratedStatus === 'approved',
+        });
+
+        if (insertError) {
+          console.error('Profile create error:', insertError);
+          return NextResponse.json({ error: '创建用户失败' }, { status: 500 });
+        }
       }
     } else {
       // Update existing user
