@@ -149,7 +149,7 @@ export async function PUT(request: NextRequest) {
       if (!checkAgain) {
         const { error: insertError } = await sb.from('users').insert({
           id: userId,
-          username: migratedUsername,
+          username: migratedUsername || email || phone || userId.slice(0, 8),
           email,
           phone,
           nickname: updates.nickname ?? null,
