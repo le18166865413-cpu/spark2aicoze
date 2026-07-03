@@ -13,8 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { getSupabaseBrowserClientAsync } from '@/lib/supabase-browser';
+import { Loader2 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 import { useSupabaseConfig } from '@/lib/supabase-config-inject';
 
 export default function LoginPage() {
@@ -85,7 +85,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = await getSupabaseBrowserClientAsync();
+      const supabase = createClient(config!.url, config!.anonKey);
       const { error: sendError } = await supabase.auth.signInWithOtp({
         phone: '+86' + phone,
       });
@@ -109,7 +109,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = await getSupabaseBrowserClientAsync();
+      const supabase = createClient(config!.url, config!.anonKey);
       const { error: sendError } = await supabase.auth.signInWithOtp({
         email,
       });
@@ -133,7 +133,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = await getSupabaseBrowserClientAsync();
+      const supabase = createClient(config!.url, config!.anonKey);
       const { error: verifyError } = await supabase.auth.verifyOtp({
         phone: '+86' + phone,
         token: phoneOtp,
@@ -159,7 +159,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = await getSupabaseBrowserClientAsync();
+      const supabase = createClient(config!.url, config!.anonKey);
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: emailOtp,
