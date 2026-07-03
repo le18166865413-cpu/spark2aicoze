@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,12 +13,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-import { useSupabaseConfig } from '@/lib/supabase-config-inject';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { config } = useSupabaseConfig();
+  const { supabase } = useAuth();
 
   // Tab state: 'phone' | 'email'
   const [activeTab, setActiveTab] = useState<'phone' | 'email'>('phone');
@@ -85,7 +83,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = createClient(config!.url, config!.anonKey);
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
       const { error: sendError } = await supabase.auth.signInWithOtp({
         phone: '+86' + phone,
       });
@@ -109,7 +107,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = createClient(config!.url, config!.anonKey);
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
       const { error: sendError } = await supabase.auth.signInWithOtp({
         email,
       });
@@ -133,7 +131,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = createClient(config!.url, config!.anonKey);
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
       const { error: verifyError } = await supabase.auth.verifyOtp({
         phone: '+86' + phone,
         token: phoneOtp,
@@ -143,6 +141,8 @@ export default function LoginPage() {
         setError('验证码错误或已过期，请重试或重新获取');
         return;
       }
+      // 验证成功后等 AuthProvider 同步用户状态
+      await new Promise(r => setTimeout(r, 500));
       router.push('/');
     } catch {
       setError('登录失败，请稍后重试');
@@ -159,7 +159,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const supabase = createClient(config!.url, config!.anonKey);
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email,
         token: emailOtp,
@@ -181,20 +181,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur">
         <CardHeader className="space-y-4 text-center">
-          {config?.iconUrl && (
-            <div className="flex justify-center">
-              <Image
-                src={config.iconUrl}
-                alt={config.name || 'App Icon'}
-                width={64}
-                height={64}
-                className="rounded-xl"
-              />
-            </div>
-          )}
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              {config?.name || '登录'}
+              Spark2AI
             </CardTitle>
             <CardDescription className="text-muted-foreground mt-1">
               欢迎回来，请选择登录方式
