@@ -22,7 +22,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   session: Session | null;
-  supabase: SupabaseClient;
+  supabase: SupabaseClient | null;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   login: (email: string) => Promise<{ error: string | null }>;
@@ -40,13 +40,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
 
-  // Initialize Supabase client synchronously (singleton)
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
+  // Initialize Supabase client (singleton, may be null if env vars missing)
+  const supabase = useMemo(() => {
+    try {
+      return getSupabaseBrowser();
+    } catch {
+      console.warn('[AuthProvider] Supabase client initialization failed — auth features will be unavailable');
+      return null;
+    }
+  }, []);
 
   // Sync user info from backend (role, status, etc.)
   const syncUserProfile = useCallback(async (sbUser: { id: string; email?: string | null } | null) => {
     if (!sbUser) {
       setUser(null);
+      return;
+    }
+    if (!supabase) {
+      // Supabase not configured — set basic profile from auth data
+      setUser({
+        id: sbUser.id,
+        email: sbUser.email ?? null,
+        role: 'user',
+        status: 'pending',
+        canGenerate: false,
+      });
       return;
     }
     try {
@@ -89,6 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth state changes
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
       setAuthSession(initialSession);
@@ -113,18 +136,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase, syncUserProfile]);
 
   const refresh = useCallback(async () => {
+    if (!supabase) return;
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     setSession(currentSession);
     await syncUserProfile(currentSession?.user ?? null);
   }, [supabase, syncUserProfile]);
 
   const logout = useCallback(async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
   }, [supabase]);
 
   const login = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Supabase 未配置' };
     try {
       const { error } = await supabase.auth.signInWithOtp({ email });
       return { error: error?.message ?? null };
@@ -134,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const sendOtp = useCallback(async (email: string) => {
+    if (!supabase) return { error: 'Supabase 未配置' };
     try {
       const { error } = await supabase.auth.signInWithOtp({ email });
       return { error: error?.message ?? null };
@@ -143,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
+    if (!supabase) return { error: 'Supabase 未配置' };
     try {
       const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
       return { error: error?.message ?? null };

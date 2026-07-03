@@ -20,11 +20,18 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Supabase client (lazy init)
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
+  // Supabase client (lazy init, may be null if env vars missing)
+  const supabase = useMemo(() => {
+    try {
+      return getSupabaseBrowser();
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Listen for auth state changes (auto redirect after login)
   useEffect(() => {
+    if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event) => {
         if (event === "SIGNED_IN") {
@@ -62,6 +69,10 @@ export default function LoginPage() {
     }, 1000);
 
     try {
+      if (!supabase) {
+        setError("系统未配置，无法登录");
+        return;
+      }
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
