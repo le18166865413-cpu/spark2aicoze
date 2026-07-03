@@ -34,6 +34,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  return phone.replace(/^\+?86/, '').replace(/\D/g, '') || null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -60,11 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: sess.user.id,
           email: sess.user.email ?? null,
-          phone: sess.user.phone ?? null,
+          phone: normalizePhone(sess.user.phone),
           nickname: null,
           role: 'user',
           status: 'pending',
           canGenerate: false,
+          wechat: null,
+          avatar: null,
         });
       } else {
         setUser(null);
@@ -75,11 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: sess.user.id,
           email: sess.user.email ?? null,
-          phone: sess.user.phone ?? null,
+          phone: normalizePhone(sess.user.phone),
           nickname: null,
           role: 'user',
           status: 'pending',
           canGenerate: false,
+          wechat: null,
+          avatar: null,
         });
       } else {
         setUser(null);
@@ -205,6 +214,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentSession = data.session;
       } catch { /* ignore */ }
     }
+    // Sync token to authFetch
+    setAuthToken(currentSession?.access_token || null);
     await fetchUserProfile(currentSession);
   }, [fetchUserProfile]);
 

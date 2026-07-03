@@ -99,14 +99,15 @@ export async function PUT(request: NextRequest) {
 
     // Build update object - only include provided fields
     const updates: Record<string, string | null> = {};
-    if (nickname !== undefined) updates.nickname = nickname.trim() || null;
+    if (nickname !== undefined) updates.nickname = (typeof nickname === 'string' ? nickname.trim() : '') || null;
     if (phone !== undefined) {
+      const phoneStr = typeof phone === 'string' ? phone : '';
       // Normalize phone: strip +86/86 prefix, keep 11 digits
-      const norm = phone.trim().replace(/^\+?86/, '').replace(/\D/g, '');
+      const norm = phoneStr.trim().replace(/^\+?86/, '').replace(/\D/g, '');
       updates.phone = norm || null;
     }
-    if (wechat !== undefined) updates.wechat = wechat.trim() || null;
-    if (avatar !== undefined) updates.avatar = avatar.trim() || null;
+    if (wechat !== undefined) updates.wechat = (typeof wechat === 'string' ? wechat.trim() : '') || null;
+    if (avatar !== undefined) updates.avatar = (typeof avatar === 'string' ? avatar.trim() : '') || null;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: '没有需要更新的字段' }, { status: 400 });
@@ -205,7 +206,8 @@ export async function PUT(request: NextRequest) {
           updated_at: new Date().toISOString(),
         };
         if (email) insertData.email = email;
-        if (phone) insertData.phone = phone;
+        // Normalize phone: strip +86/86 prefix
+        if (phone) insertData.phone = phone.replace(/^\+?86/, '').replace(/\D/g, '');
         if (updates.nickname !== undefined) insertData.nickname = updates.nickname;
         if (updates.wechat !== undefined) insertData.wechat = updates.wechat;
         if (updates.avatar !== undefined) insertData.avatar = updates.avatar;
@@ -240,6 +242,7 @@ export async function PUT(request: NextRequest) {
     if (fetchErr) {
       console.error('[profile] fetch after update error:', fetchErr);
     }
+    console.log('[profile PUT] saved user, nickname:', user?.nickname, 'wechat:', user?.wechat, 'phone:', user?.phone);
 
     return NextResponse.json({
       user: user ? {

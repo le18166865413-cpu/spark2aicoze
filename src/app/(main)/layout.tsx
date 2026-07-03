@@ -77,14 +77,19 @@ function NicknameGuide() {
 
   const handleSave = async () => {
     const trimmed = nickname.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setError("请输入昵称");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       // 直接从 session 取 token，避免 authFetch 的异步获取时序问题
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers["x-session"] = session.access_token;
+      const token = session?.access_token;
+      console.log("[NicknameGuide] saving, token exists:", !!token, "nickname:", trimmed);
+      if (token) {
+        headers["x-session"] = token;
       }
       const res = await fetch("/api/auth/profile", {
         method: "PUT",
@@ -92,12 +97,17 @@ function NicknameGuide() {
         credentials: "include",
         body: JSON.stringify({ nickname: trimmed }),
       });
+      console.log("[NicknameGuide] response status:", res.status);
       const data = await res.json().catch(() => ({}));
+      console.log("[NicknameGuide] response data:", data);
       if (res.ok && data.user) {
-        // 保存成功，立即关闭弹窗再刷新用户信息
-        setShow(false);
+        // 保存成功，用返回的 user 直接更新 context，不依赖 refresh()
         setDismissed(true);
-        await refresh();
+        setShow(false);
+        // 用返回的 user 强制更新全局状态
+        if (refresh) {
+          refresh().catch((e) => console.error("[NicknameGuide] refresh error:", e));
+        }
       } else {
         setError(data.error || `保存失败 (HTTP ${res.status})，请重试`);
       }

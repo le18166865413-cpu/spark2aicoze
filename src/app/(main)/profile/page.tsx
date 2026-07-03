@@ -62,7 +62,14 @@ export default function ProfilePage() {
       }
 
       if (data.user) {
-        await refresh();
+        // Directly update local form state from response (avoid refresh race)
+        setNickname(data.user.nickname || '');
+        setPhone(data.user.phone || '');
+        setWechat(data.user.wechat || '');
+        setEmail(data.user.email || '');
+        setAvatar(data.user.avatar || '');
+        // Then refresh global auth state
+        refresh().catch(() => {});
       }
       setMessage({ type: 'success', text: '保存成功' });
       setTimeout(() => setMessage(null), 3000);
