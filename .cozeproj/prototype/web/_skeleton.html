@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- 字体：使用 Google Fonts -->
+  <!-- 字体 -->
   <link href="https://fonts.googleapis.cn/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
   <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
@@ -14,73 +14,53 @@
 
   <style type="text/tailwindcss">
     @theme {
-      /* === 品牌色（电光紫科技感） === */
-      --color-primary:              #A855F7;
-      --color-primary-container:    #1E1B4B;
+      /* === 品牌色（黑绿风格） === */
+      --color-primary:              #22c55e;
+      --color-primary-container:    #14532d;
       --color-on-primary:           #ffffff;
-      --color-accent:               #6366F1;
+      --color-accent:               #16a34a;
       /* === 背景 / 表面（暗色模式） === */
-      --color-background:                 #0F172A;
-      --color-surface-container-lowest:   #020617;
-      --color-surface:                    #1E293B;
-      --color-surface-container:          #334155;
-      --color-surface-container-high:     #475569;
-      --color-surface-container-highest:  #64748B;
+      --color-background:                 #0a0a0a;
+      --color-surface-container-lowest:   #050505;
+      --color-surface:                    #171717;
+      --color-surface-container:          #262626;
+      --color-surface-container-high:     #404040;
+      --color-surface-container-highest:  #525252;
       /* === 文字 === */
-      --color-on-surface:           #F8FAFC;
-      --color-on-surface-variant:   #CBD5E1;
+      --color-on-surface:           #fafafa;
+      --color-on-surface-variant:   #a3a3a3;
       /* === 功能色 === */
       --color-success:  #22c55e;
       --color-error:    #ef4444;
       --color-warning:  #f59e0b;
       /* === 边框 === */
-      --color-outline:          #475569;
-      --color-outline-variant:  #334155;
+      --color-outline:          #404040;
+      --color-outline-variant:  #262626;
       /* === 圆角 === */
-      --radius-sm:   0.25rem;
+      --radius-sm:   0.375rem;
       --radius-md:   0.5rem;
       --radius-lg:   0.75rem;
       --radius-xl:   1rem;
       --radius-2xl:  1.5rem;
       --radius-full: 9999px;
-      /* === 阴影（暗色背景，opacity 较高） === */
+      /* === 阴影 === */
       --shadow-card:   0 2px 8px rgba(0,0,0,0.4);
       --shadow-float:  0 10px 25px rgba(0,0,0,0.5);
       --shadow-dialog: 0 25px 50px rgba(0,0,0,0.6);
-      /* === 紫色发光阴影（用于 hover 效果） === */
-      --shadow-glow-purple: 0 0 20px rgba(168, 85, 247, 0.3);
+      /* === 绿色发光阴影 === */
+      --shadow-glow:  0 0 15px rgba(34, 197, 94, 0.15);
       /* === 字体 === */
       --font-sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
     }
     
-    /* 自定义样式：渐变文字、金属按钮效果等 */
-    .gradient-text {
-      background: linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    /* 绿色发光效果 */
+    .glow-green {
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);
     }
     
-    .btn-metallic {
-      background: linear-gradient(135deg, #94A3B8 0%, #CBD5E1 50%, #94A3B8 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .btn-metallic:hover {
-      background: linear-gradient(135deg, #CBD5E1 0%, #F8FAFC 50%, #CBD5E1 100%);
-    }
-    
-    .card-glow:hover {
-      box-shadow: var(--shadow-glow-purple);
-      border-color: var(--color-primary);
-    }
-    
-    /* 背景网格纹理 */
-    .grid-bg {
-      background-image: 
-        linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
+    .glow-green-hover:hover {
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+      border-color: rgba(34, 197, 94, 0.5);
     }
   </style>
 
@@ -103,19 +83,19 @@
   </script>
 </head>
 
-<body class="bg-background text-on-surface font-sans grid-bg min-h-screen">
+<body class="bg-background text-on-surface font-sans min-h-screen">
 
   <!-- @nav:start 导航组件 -->
-  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-primary/20">
+  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-outline-variant/20">
     <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <i data-lucide="sparkles" class="w-6 h-6 text-primary"></i>
-        <span class="font-bold text-lg gradient-text">SparkAI</span>
+        <span class="font-bold text-lg">SparkAI</span>
       </div>
       <nav class="flex items-center gap-1">
         <a href="home.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">首页</a>
         <a href="create.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">创作中心</a>
-        <a href="my-works.html" class="px-3 py-1.5 text-sm font-medium bg-primary/10 text-primary rounded-md transition-colors" aria-current="page">我的作品</a>
+        <a href="my-works.html" class="px-3 py-1.5 text-sm font-medium bg-primary text-on-primary rounded-full glow-green transition-colors" aria-current="page">我的作品</a>
         <a href="stats.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">数据统计</a>
       </nav>
       <div class="flex items-center gap-3">
