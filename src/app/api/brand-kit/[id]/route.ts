@@ -2,16 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/storage/database/supabase-client";
 import { cookies } from "next/headers";
 
-// 获取当前用户ID
-async function getCurrentUserId(): Promise<string | null> {
+// 获取当前用户ID（支持 x-session header 和 cookie）
+async function getCurrentUserId(request: NextRequest): Promise<string | null> {
+  // 1. 先尝试 x-session header（Supabase JWT）
+  const sessionToken = request.headers.get('x-session');
+  if (sessionToken) {
+    try {
+      const supabaseUrl = process.env.COZE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const supabaseServiceKey = process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseServiceKey) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: { user } } = await supabase.auth.getUser(sessionToken);
+        if (user) return user.id;
+      }
+    } catch {
+      // Token invalid, continue to cookie check
+    }
+  }
+
+  // 2. 尝试 cookie（user_session）
   const cookieStore = await cookies();
-  const token = cookieStore.get('user_session')?.value;
-  if (!token) return null;
+  const cookieToken = cookieStore.get('user_session')?.value;
+  if (!cookieToken) return null;
 
   const { data: session } = await getSupabaseClient()
     .from('user_sessions')
     .select('user_id, expires_at')
-    .eq('id', token)
+    .eq('id', cookieToken)
     .single();
 
   if (!session || new Date(session.expires_at) < new Date()) return null;
@@ -62,7 +80,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const userId = await getCurrentUserId(request);
     if (!userId) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
@@ -132,7 +150,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const userId = await getCurrentUserId(request);
     if (!userId) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
