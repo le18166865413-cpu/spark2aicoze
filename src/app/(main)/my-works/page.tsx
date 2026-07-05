@@ -324,7 +324,7 @@ export default function MyWorksPage() {
         }
 
         const uploadData = await uploadRes.json();
-        imageKey = uploadData.key;
+        imageKey = uploadData.imageKey || uploadData.key;
         imageUrl = uploadData.url;
       }
 
@@ -397,7 +397,7 @@ export default function MyWorksPage() {
         }
 
         const uploadData = await uploadRes.json();
-        imageKey = uploadData.key;
+        imageKey = uploadData.imageKey || uploadData.key;
         imageUrl = uploadData.url;
       }
 

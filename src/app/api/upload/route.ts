@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     const widthStr = formData.get("width") as string | null;
     const heightStr = formData.get("height") as string | null;
     const forGrsai = formData.get("forGrsai") === "true";
+    const uploadType = formData.get("type") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -72,21 +73,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: getStorageErrorMessage(uploadError) }, { status: 500 });
     }
 
-    // If this is for GrsAI, return the key and a signed URL
-    if (forGrsai) {
-      let signedUrl = "";
+    // Get signed URL
+    let signedUrl = "";
+    try {
+      signedUrl = await getSignedUrl(key);
+    } catch {
       try {
-        signedUrl = await getSignedUrl(key);
+        signedUrl = await storage.generatePresignedUrl({ key, expireTime: 86400 });
       } catch {
-        try {
-          signedUrl = await storage.generatePresignedUrl({ key, expireTime: 86400 });
-        } catch {
-          // Fallback: no signed URL available
-        }
+        // Fallback: no signed URL available
       }
+    }
 
+    // If this is for GrsAI or BrandKit, return the key and a signed URL only
+    if (forGrsai || uploadType === "brandkit") {
       return NextResponse.json({
         key: key,
+        imageKey: key,  // 兼容两种字段名
         url: signedUrl,
         type: file.type,
       });
@@ -116,17 +119,7 @@ export async function POST(request: NextRequest) {
       console.error("Supabase insert error:", dbError);
     }
 
-    // Get signed URL
-    let signedUrl = "";
-    try {
-      signedUrl = await getSignedUrl(key);
-    } catch {
-      try {
-        signedUrl = await storage.generatePresignedUrl({ key, expireTime: 2592000 });
-      } catch {
-        signedUrl = key;
-      }
-    }
+    // Reuse signedUrl from earlier (already computed)
 
     return NextResponse.json({
       id: imageId,
