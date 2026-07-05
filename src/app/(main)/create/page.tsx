@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon, Package } from "lucide-react";
+import { BrandKitPicker } from "@/components/BrandKitPicker";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -214,6 +215,10 @@ function CreatePageInner() {
   const [refImageEnabled, setRefImageEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Brand Kit 状态
+  const [showBrandKitPicker, setShowBrandKitPicker] = useState(false);
+  const [brandKitPickerMode, setBrandKitPickerMode] = useState<'image' | 'all'>('image');
 
   // Handle initial refImageUrl from URL params
   useEffect(() => {
@@ -1141,7 +1146,21 @@ function CreatePageInner() {
                         </div>
                       ))}
                       
-                      {/* Add more button */}
+                      {/* Add from Brand Kit button */}
+                      {refImages.length < 4 && (
+                        <div
+                          className="rounded-xl overflow-hidden border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
+                          onClick={() => {
+                            setBrandKitPickerMode('image');
+                            setShowBrandKitPicker(true);
+                          }}
+                        >
+                          <Package className="w-5 h-5 text-primary" />
+                          <span className="text-[10px] text-muted-foreground mt-1">Brand Kit</span>
+                        </div>
+                      )}
+                      
+                      {/* Add more button - upload */}
                       {refImages.length < 4 && (
                         <div
                           className="rounded-xl overflow-hidden border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors aspect-square"
@@ -1151,8 +1170,8 @@ function CreatePageInner() {
                             <Loader2 className="w-6 h-6 text-primary animate-spin" />
                           ) : (
                             <>
-                              <Plus className="w-6 h-6 text-muted-foreground" />
-                              <span className="text-[10px] text-muted-foreground mt-1">添加</span>
+                              <Upload className="w-5 h-5 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground mt-1">上传</span>
                             </>
                           )}
                         </div>
@@ -2263,6 +2282,43 @@ function CreatePageInner() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Brand Kit Picker Dialog */}
+        <BrandKitPicker
+          open={showBrandKitPicker}
+          onOpenChange={(open) => setShowBrandKitPicker(open)}
+          mode={brandKitPickerMode === 'image' ? 'image' : 'all'}
+          maxSelect={brandKitPickerMode === 'image' ? 4 - refImages.length : 1}
+          onSelect={(selectedItems) => {
+            selectedItems.forEach((item) => {
+              if (item.type === 'image' && item.imageUrl && refImages.length < 4) {
+                const imageUrl = item.imageUrl;
+                setRefImages((prev) => [...prev, { url: imageUrl, preview: imageUrl }]);
+                toast.success(`已添加 ${item.name} 到参考图`);
+              } else if (item.type === 'text' && item.content) {
+                // Insert text content into prompt at cursor position
+                const textarea = promptTextareaRef.current;
+                const itemContent = item.content;
+                if (textarea) {
+                  const start = textarea.selectionStart;
+                  const end = textarea.selectionEnd;
+                  const newPrompt = prompt.substring(0, start) + itemContent + prompt.substring(end);
+                  setPrompt(newPrompt);
+                  promptRef.current = newPrompt;
+                  // Move cursor after inserted text
+                  setTimeout(() => {
+                    textarea.selectionStart = textarea.selectionEnd = start + itemContent.length;
+                    textarea.focus();
+                  }, 0);
+                } else {
+                  setPrompt((prev) => prev + itemContent);
+                  promptRef.current = promptRef.current + itemContent;
+                }
+                toast.success(`已插入 ${item.name}`);
+              }
+            });
+          }}
+        />
       </main>
     </div>
   );
