@@ -3,9 +3,9 @@
     {
       "type": "html",
       "options": {
-        "path": ".cozeproj/prototype/web/home.html"
+        "path": ".cozeproj/prototype/web/my-works.html"
       },
-      "title": "海报广场",
+      "title": "我的作品",
       "size": "web"
     },
     {

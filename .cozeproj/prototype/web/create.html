@@ -5,7 +5,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link href="https://lf-code-agent.coze.cn/obj/x-ai-cn/fonts/google/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- 字体：使用 Google Fonts -->
+  <link href="https://fonts.googleapis.cn/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
   <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
   <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
@@ -13,40 +14,88 @@
 
   <style type="text/tailwindcss">
     @theme {
-      /* === 品牌色 === */
-      --color-primary:              #22C55E;
-      --color-primary-container:    #22C55E;
-      --color-on-primary:           #050f09;
-      /* === 背景 / 表面 === */
-      --color-background:                 #09090b;
-      --color-surface-container-lowest:   #111113;
-      --color-surface:                    #09090b;
-      --color-surface-container:          #1c1c1f;
-      --color-surface-container-high:     #27272a;
-      --color-surface-container-highest:  #303033;
+      /* === 品牌色（电光紫科技感） === */
+      --color-primary:              #A855F7;
+      --color-primary-container:    #1E1B4B;
+      --color-on-primary:           #ffffff;
+      --color-accent:               #6366F1;
+      /* === 背景 / 表面（暗色模式） === */
+      --color-background:                 #0F172A;
+      --color-surface-container-lowest:   #020617;
+      --color-surface:                    #1E293B;
+      --color-surface-container:          #334155;
+      --color-surface-container-high:     #475569;
+      --color-surface-container-highest:  #64748B;
       /* === 文字 === */
-      --color-on-surface:           #fafafa;
-      --color-on-surface-variant:   #a1a1aa;
+      --color-on-surface:           #F8FAFC;
+      --color-on-surface-variant:   #CBD5E1;
       /* === 功能色 === */
       --color-success:  #22c55e;
       --color-error:    #ef4444;
       --color-warning:  #f59e0b;
       /* === 边框 === */
-      --color-outline:          #27272a;
-      --color-outline-variant:  #3f3f46;
+      --color-outline:          #475569;
+      --color-outline-variant:  #334155;
       /* === 圆角 === */
-      --radius-sm:   0.375rem;
+      --radius-sm:   0.25rem;
       --radius-md:   0.5rem;
       --radius-lg:   0.75rem;
       --radius-xl:   1rem;
       --radius-2xl:  1.5rem;
       --radius-full: 9999px;
-      /* === 阴影 === */
-      --shadow-card:   0 2px 8px rgba(0,0,0,0.12);
-      --shadow-float:  0 10px 25px rgba(0,0,0,0.25);
-      --shadow-dialog: 0 25px 50px rgba(0,0,0,0.4);
+      /* === 阴影（暗色背景，opacity 较高） === */
+      --shadow-card:   0 2px 8px rgba(0,0,0,0.4);
+      --shadow-float:  0 10px 25px rgba(0,0,0,0.5);
+      --shadow-dialog: 0 25px 50px rgba(0,0,0,0.6);
+      /* === 紫色发光阴影（用于 hover 效果） === */
+      --shadow-glow-purple: 0 0 20px rgba(168, 85, 247, 0.3);
       /* === 字体 === */
-      --font-sans: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+      --font-sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
+    }
+    
+    /* 自定义样式：渐变文字、金属按钮效果等 */
+    .gradient-text {
+      background: linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .btn-metallic {
+      background: linear-gradient(135deg, #94A3B8 0%, #CBD5E1 50%, #94A3B8 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .btn-metallic:hover {
+      background: linear-gradient(135deg, #CBD5E1 0%, #F8FAFC 50%, #CBD5E1 100%);
+    }
+    
+    .card-glow:hover {
+      box-shadow: var(--shadow-glow-purple);
+      border-color: var(--color-primary);
+    }
+    
+    /* 背景网格纹理 */
+    .grid-bg {
+      background-image: 
+        linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    
+    /* Textarea 自动高度 */
+    .textarea-auto {
+      min-height: 200px;
+      resize: none;
+    }
+    
+    /* @mention 弹出层样式 */
+    .mention-panel {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      right: 0;
+      margin-bottom: 8px;
     }
   </style>
 
@@ -69,446 +118,629 @@
   </script>
 </head>
 
-<body class="bg-background text-on-surface font-sans">
+<body class="bg-background text-on-surface font-sans grid-bg min-h-screen">
+
+  <!-- @nav:start 导航组件 -->
+  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-primary/20">
+    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i data-lucide="sparkles" class="w-6 h-6 text-primary"></i>
+        <span class="font-bold text-lg gradient-text">SparkAI</span>
+      </div>
+      <nav class="flex items-center gap-1">
+        <a href="home.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">首页</a>
+        <a href="create.html" class="px-3 py-1.5 text-sm font-medium bg-primary/10 text-primary rounded-md transition-colors" aria-current="page">创作中心</a>
+        <a href="my-works.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">我的作品</a>
+        <a href="stats.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">数据统计</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-medium text-sm">初</div>
+      </div>
+    </div>
+  </header>
+  <!-- @nav:end 导航组件 -->
 
   <!-- @main-content:start -->
-  <main class="min-h-screen flex flex-col">
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <!-- 页面标题 -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-on-surface">创作中心</h1>
+      <p class="text-sm text-on-surface-variant mt-1">输入提示词，选择参考图，一键生成精美海报</p>
+    </div>
 
-    <!-- 顶部粘性导航栏 -->
-    <header class="bg-background/80 backdrop-blur-md sticky top-0 z-50 w-full border-b border-outline-variant/20">
-      <div class="max-w-[1800px] mx-auto flex h-14 items-center px-4 md:px-6">
-        <!-- 左侧：返回按钮 + 分隔线 + 标题 -->
-        <div class="flex items-center gap-3">
-          <a href="home.html" id="btn-back" class="inline-flex items-center gap-1.5 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
-            <i data-lucide="undo-2" class="w-4 h-4"></i>
-            <span>返回广场</span>
-          </a>
-          <div class="w-px h-5 bg-outline-variant/30"></div>
-          <h1 class="text-base font-semibold text-on-surface">创作中心</h1>
+    <!-- 主内容区：左右布局 -->
+    <div class="flex gap-6" style="height: calc(100vh - 180px);">
+      
+      <!-- 左侧：提示词输入区域 -->
+      <div class="flex-1 flex flex-col gap-4">
+        <div class="bg-surface rounded-xl shadow-card p-5 flex-1 flex flex-col relative">
+          <label class="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+            <i data-lucide="pen-tool" class="w-4 h-4 text-primary"></i>
+            提示词
+            <span class="text-xs font-normal text-on-surface-variant">输入 @ 唤起 Brand Kit 素材</span>
+          </label>
+          
+          <!-- 提示词输入框 -->
+          <div class="relative flex-1">
+            <textarea 
+              id="prompt-input"
+              class="w-full h-full bg-surface-container border-none rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 textarea-auto"
+              placeholder="描述你想要生成的海报内容，例如：一张科技感的蓝色渐变背景海报，中间有发光的星球图案...
+
+输入 @ 可快速插入品牌素材"></textarea>
+            
+            <!-- @mention 选择面板 -->
+            <div id="mention-panel" class="mention-panel bg-surface rounded-xl shadow-float border border-primary/30 overflow-hidden hidden">
+              <!-- 搜索框 -->
+              <div class="p-3 border-b border-outline-variant/30">
+                <div class="relative">
+                  <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant"></i>
+                  <input 
+                    id="mention-search"
+                    type="text" 
+                    class="w-full bg-surface-container border-none rounded-lg pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="搜索品牌素材..."
+                  />
+                </div>
+              </div>
+              
+              <!-- 素材列表 -->
+              <div id="mention-list" class="max-h-64 overflow-y-auto p-2">
+                <!-- 素材项1：图片类型 -->
+                <div class="mention-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container cursor-pointer transition-colors" data-type="image" data-name="公司LOGO" data-id="asset-1">
+                  <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <i data-lucide="image" class="w-5 h-5 text-primary"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-on-surface">公司LOGO</div>
+                    <div class="text-xs text-on-surface-variant">图片素材</div>
+                  </div>
+                  <i data-lucide="plus-circle" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                
+                <!-- 素材项2：图片类型 -->
+                <div class="mention-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container cursor-pointer transition-colors" data-type="image" data-name="品牌图标" data-id="asset-2">
+                  <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <i data-lucide="image" class="w-5 h-5 text-primary"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-on-surface">品牌图标</div>
+                    <div class="text-xs text-on-surface-variant">图片素材</div>
+                  </div>
+                  <i data-lucide="plus-circle" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                
+                <!-- 素材项3：文字类型 -->
+                <div class="mention-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container cursor-pointer transition-colors" data-type="text" data-name="品牌名称" data-value="SparkAI" data-id="asset-3">
+                  <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                    <i data-lucide="type" class="w-5 h-5 text-accent"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-on-surface">品牌名称</div>
+                    <div class="text-xs text-on-surface-variant">SparkAI</div>
+                  </div>
+                  <i data-lucide="plus-circle" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                
+                <!-- 素材项4：文字类型 -->
+                <div class="mention-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container cursor-pointer transition-colors" data-type="text" data-name="公司全称" data-value="火花智能科技有限公司" data-id="asset-4">
+                  <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                    <i data-lucide="type" class="w-5 h-5 text-accent"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-on-surface">公司全称</div>
+                    <div class="text-xs text-on-surface-variant">火花智能科技有限公司</div>
+                  </div>
+                  <i data-lucide="plus-circle" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+                
+                <!-- 素材项5：文字类型 -->
+                <div class="mention-item flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container cursor-pointer transition-colors" data-type="text" data-name="联系电话" data-value="400-888-9999" data-id="asset-5">
+                  <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                    <i data-lucide="type" class="w-5 h-5 text-accent"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-on-surface">联系电话</div>
+                    <div class="text-xs text-on-surface-variant">400-888-9999</div>
+                  </div>
+                  <i data-lucide="plus-circle" class="w-4 h-4 text-on-surface-variant"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 已引用素材标签 -->
+          <div id="referenced-assets" class="mt-3 flex flex-wrap gap-2 empty:hidden">
+            <!-- 引用素材标签会动态添加到这里 -->
+          </div>
         </div>
-        <!-- 右侧：当前日期 -->
-        <div class="ml-auto text-xs text-on-surface-variant" id="current-date"></div>
       </div>
-    </header>
 
-    <!-- 主内容区：左右两栏 -->
-    <div class="flex-1 max-w-[1800px] mx-auto w-full p-4 md:p-6">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-
-        <!-- ========== 左侧 - 输入面板 ========== -->
-        <div class="space-y-5">
-
-          <!-- a) 模式切换器 -->
-          <div class="bg-surface-container rounded-xl p-1.5 inline-flex gap-1">
-            <button id="tab-text2img" class="mode-tab inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all bg-primary/15 text-primary ring-1 ring-primary/30" data-mode="text2img">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
-              文字生图
+      <!-- 右侧：参考图上传区域 -->
+      <div class="w-96 flex flex-col gap-4">
+        <div class="bg-surface rounded-xl shadow-card p-5 flex-1 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-sm font-semibold text-on-surface flex items-center gap-2">
+              <i data-lucide="image-plus" class="w-4 h-4 text-primary"></i>
+              参考图
+            </label>
+            <span class="text-xs text-on-surface-variant">最多添加 4 张</span>
+          </div>
+          
+          <!-- 上传按钮区域 -->
+          <div class="flex gap-2 mb-3">
+            <button 
+              id="btn-upload"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container border-none rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-high transition-colors">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              上传图片
             </button>
-            <button id="tab-ref2img" class="mode-tab inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high" data-mode="ref2img">
-              <i data-lucide="image-plus" class="w-4 h-4"></i>
-              参考图生图
+            <button 
+              id="btn-brandkit"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 border-none rounded-lg text-sm font-medium text-primary hover:bg-primary/20 transition-colors">
+              <i data-lucide="folder-open" class="w-4 h-4"></i>
+              从 Brand Kit 添加
             </button>
           </div>
-
-          <!-- b) 参考图上传区域（默认隐藏） -->
-          <div id="ref-upload-section" class="hidden">
-            <label class="text-sm font-medium text-on-surface mb-2 block">参考图片</label>
-            <!-- 无图片时的上传区域 -->
-            <div id="ref-upload-area" class="border-2 border-dashed border-outline-variant/40 rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all min-h-[160px]">
-              <div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center">
-                <i data-lucide="upload" class="w-5 h-5 text-on-surface-variant"></i>
-              </div>
-              <div class="text-center">
-                <p class="text-sm text-on-surface-variant">拖拽图片到此处，或<span class="text-primary font-medium">点击上传</span></p>
-                <p class="text-xs text-on-surface-variant/60 mt-1">支持 JPG、PNG、WebP，最大 10MB</p>
-              </div>
+          
+          <!-- 参考图预览区 -->
+          <div id="ref-images-grid" class="grid grid-cols-2 gap-3 flex-1 overflow-y-auto">
+            <!-- 参考图1 -->
+            <div class="ref-image-item relative aspect-square bg-surface-container rounded-lg overflow-hidden group">
+              <img 
+                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop" 
+                alt="渐变背景" 
+                data-category="艺术"
+                class="w-full h-full object-cover"
+              />
+              <button class="btn-remove-ref absolute top-2 right-2 w-6 h-6 bg-error/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-id="ref-1">
+                <i data-lucide="x" class="w-3.5 h-3.5 text-white"></i>
+              </button>
             </div>
-            <!-- 已上传图片预览 -->
-            <div id="ref-preview-area" class="hidden">
-              <div class="relative inline-block">
-                <img id="ref-preview-img" src="" alt="参考图预览" data-category="其他" class="w-full max-h-[200px] object-contain rounded-xl bg-surface-container">
-                <button id="btn-remove-ref" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/15 transition-all">
-                  <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-              </div>
+            
+            <!-- 参考图2 -->
+            <div class="ref-image-item relative aspect-square bg-surface-container rounded-lg overflow-hidden group">
+              <img 
+                src="https://images.unsplash.com/photo-1634017839464-5c339bbe3c35?w=400&h=400&fit=crop" 
+                alt="科技图案" 
+                data-category="商业科技"
+                class="w-full h-full object-cover"
+              />
+              <button class="btn-remove-ref absolute top-2 right-2 w-6 h-6 bg-error/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-id="ref-2">
+                <i data-lucide="x" class="w-3.5 h-3.5 text-white"></i>
+              </button>
             </div>
-          </div>
-
-          <!-- c) 海报描述输入框 -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-sm font-medium text-on-surface">海报描述</label>
-              <button id="btn-clear-prompt" class="text-xs text-on-surface-variant hover:text-error transition-colors">清空</button>
+            
+            <!-- 参考图3 -->
+            <div class="ref-image-item relative aspect-square bg-surface-container rounded-lg overflow-hidden group">
+              <img 
+                src="https://images.unsplash.com/photo-1557683316-973673baf926?w=400&h=400&fit=crop" 
+                alt="紫色渐变" 
+                data-category="艺术"
+                class="w-full h-full object-cover"
+              />
+              <button class="btn-remove-ref absolute top-2 right-2 w-6 h-6 bg-error/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-id="ref-3">
+                <i data-lucide="x" class="w-3.5 h-3.5 text-white"></i>
+              </button>
             </div>
-            <textarea id="prompt-input" class="w-full bg-surface-container border-none rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none min-h-[120px]" placeholder="请描述你想要生成的海报内容，例如：一张科技风格的AI峰会海报，深蓝色背景，霓虹光效，未来感十足..."></textarea>
-            <!-- 快捷模板按钮 -->
-            <div class="flex flex-wrap gap-2 mt-3">
-              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="2025全球科技峰会，深蓝色渐变背景，霓虹光效线条，未来感城市剪影，AI芯片元素，专业大气">科技峰会</button>
-              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="双十一电商促销，红色喜庆背景，金色装饰元素，折扣标签，购物车图标，热闹喜庆氛围">电商促销</button>
-              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="夏日音乐节，紫色渐变背景，音符和声波元素，舞台灯光效果，活力四射的派对氛围">音乐节</button>
-              <button class="template-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-container-high text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all" data-prompt="美食推广海报，暖色调背景，精致美食特写，蒸汽和香气效果，诱人的视觉呈现">美食推广</button>
-            </div>
-          </div>
-
-          <!-- d) 生成选项区域 -->
-          <div class="space-y-5">
-
-            <!-- 图片比例选择 -->
-            <div>
-              <label class="text-sm font-medium text-on-surface mb-3 block">图片比例</label>
-              <div class="grid grid-cols-4 gap-2">
-                <!-- 比例按钮-1:1方形 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="1:1">
-                  <div class="w-6 h-6 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  1:1 方形
-                </button>
-                <!-- 比例按钮-3:4竖版 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="3:4">
-                  <div class="w-5 h-6.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  3:4 竖版
-                </button>
-                <!-- 比例按钮-4:3横版 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="4:3">
-                  <div class="w-6.5 h-5 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  4:3 横版
-                </button>
-                <!-- 比例按钮-9:16手机（默认选中） -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-primary/15 text-primary ring-1 ring-primary/30" data-ratio="9:16">
-                  <div class="w-4 h-7 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  9:16 手机
-                </button>
-                <!-- 比例按钮-16:9宽屏 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="16:9">
-                  <div class="w-7 h-4 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  16:9 宽屏
-                </button>
-                <!-- 比例按钮-2:3人像 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="2:3">
-                  <div class="w-4 h-6 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  2:3 人像
-                </button>
-                <!-- 比例按钮-21:9全景 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="21:9">
-                  <div class="w-8 h-3.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  21:9 全景
-                </button>
-                <!-- 比例按钮-A4海报 -->
-                <button class="ratio-btn px-3 py-2.5 rounded-lg text-xs font-medium transition-all bg-surface-container text-on-surface-variant hover:bg-surface-container-high" data-ratio="A4">
-                  <div class="w-4.5 h-6.5 border-2 border-current rounded-sm mx-auto mb-1"></div>
-                  A4 海报
-                </button>
-              </div>
-            </div>
-
-            <!-- 生成模型选择 -->
-            <div>
-              <label class="text-sm font-medium text-on-surface mb-3 block">生成模型</label>
-              <div class="space-y-2">
-                <!-- 模型选项-Image2 VIP -->
-                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-primary/10 ring-1 ring-primary/30" data-model="image2-vip">
-                  <div class="mt-0.5">
-                    <div class="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                      <i data-lucide="check" class="w-3 h-3 text-primary model-check"></i>
-                    </div>
-                  </div>
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-semibold text-on-surface">Image2 VIP</span>
-                      <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary">推荐</span>
-                    </div>
-                    <p class="text-xs text-on-surface-variant mt-0.5">最高画质，适合专业设计需求</p>
-                  </div>
-                </label>
-                <!-- 模型选项-Image2 -->
-                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-surface-container hover:bg-surface-container-high" data-model="image2">
-                  <div class="mt-0.5">
-                    <div class="w-5 h-5 rounded-full border-2 border-outline-variant flex items-center justify-center">
-                      <i data-lucide="check" class="w-3 h-3 text-primary model-check hidden"></i>
-                    </div>
-                  </div>
-                  <div class="flex-1">
-                    <span class="text-sm font-semibold text-on-surface">Image2</span>
-                    <p class="text-xs text-on-surface-variant mt-0.5">高画质性价比之选，日常创作首选</p>
-                  </div>
-                </label>
-                <!-- 模型选项-Nano Banana Fast -->
-                <label class="model-option flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all bg-surface-container hover:bg-surface-container-high" data-model="nano-banana">
-                  <div class="mt-0.5">
-                    <div class="w-5 h-5 rounded-full border-2 border-outline-variant flex items-center justify-center">
-                      <i data-lucide="check" class="w-3 h-3 text-primary model-check hidden"></i>
-                    </div>
-                  </div>
-                  <div class="flex-1">
-                    <span class="text-sm font-semibold text-on-surface">Nano Banana Fast</span>
-                    <p class="text-xs text-on-surface-variant mt-0.5">极速生成，适合快速预览效果</p>
-                  </div>
-                </label>
-              </div>
+            
+            <!-- 添加占位符 -->
+            <div id="add-ref-placeholder" class="aspect-square bg-surface-container/50 border-2 border-dashed border-outline-variant/30 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-surface-container/80 transition-colors">
+              <i data-lucide="plus" class="w-6 h-6 text-on-surface-variant"></i>
+              <span class="text-xs text-on-surface-variant">添加图片</span>
             </div>
           </div>
-
-          <!-- e) 生成按钮 -->
-          <button id="btn-generate" class="w-full bg-primary text-on-primary font-bold rounded-2xl py-6 text-lg inline-flex items-center justify-center gap-2.5 hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(34,197,94,0.2)] hover:shadow-[0_0_40px_rgba(34,197,94,0.35)]">
-            <i data-lucide="wand-2" class="w-5 h-5"></i>
-            立即生成
-          </button>
-
-          <!-- f) 进度条（默认隐藏） -->
-          <div id="progress-section" class="hidden space-y-2">
-            <div class="flex items-center justify-between text-sm">
-              <span id="progress-status" class="text-on-surface-variant">正在生成中...</span>
-              <span id="progress-percent" class="text-primary font-semibold">0%</span>
-            </div>
-            <div class="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-              <div id="progress-bar" class="h-full bg-primary rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-          </div>
-
         </div>
-
-        <!-- ========== 右侧 - 预览面板 ========== -->
-        <div class="space-y-5">
-
-          <!-- a) 预览卡片 -->
-          <div class="bg-surface-container rounded-2xl p-5 shadow-card">
-            <label class="text-sm font-medium text-on-surface mb-3 block">预览</label>
-            <!-- 占位状态 -->
-            <div id="preview-placeholder" class="aspect-[9/16] w-full bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-3">
-              <div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center">
-                <i data-lucide="image" class="w-7 h-7 text-on-surface-variant/50"></i>
-              </div>
-              <p class="text-sm text-on-surface-variant/60">生成的海报将在这里显示</p>
-            </div>
-            <!-- 生成结果（默认隐藏） -->
-            <div id="preview-result" class="hidden">
-              <div class="aspect-[9/16] w-full rounded-xl overflow-hidden bg-surface-container-high">
-                <img id="result-image" src="https://images.unsplash.com/photo-1620712943543-bcc4688e7485" alt="AI生成的科技峰会海报" data-category="商业科技" class="w-full h-full object-cover">
-              </div>
-              <!-- 操作按钮 -->
-              <div class="flex items-center gap-3 mt-4">
-                <button id="btn-download" class="flex-1 inline-flex items-center justify-center gap-2 bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-surface-container-highest transition-all">
-                  <i data-lucide="download" class="w-4 h-4"></i>
-                  下载
-                </button>
-                <button id="btn-copy-link" class="flex-1 inline-flex items-center justify-center gap-2 bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-surface-container-highest transition-all">
-                  <i data-lucide="link" class="w-4 h-4"></i>
-                  复制链接
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- c) 创作小贴士卡片 -->
-          <div class="bg-surface-container rounded-2xl p-5 shadow-card">
-            <div class="flex items-center gap-2 mb-4">
-              <div class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-                <i data-lucide="zap" class="w-4 h-4 text-primary"></i>
-              </div>
-              <span class="text-sm font-semibold text-on-surface">创作小贴士</span>
-            </div>
-            <ul class="space-y-3">
-              <!-- 提示1 -->
-              <li class="flex items-start gap-2.5">
-                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span class="text-[10px] font-bold text-primary">1</span>
-                </div>
-                <p class="text-sm text-on-surface-variant leading-relaxed">描述越具体越好，包含场景、风格、色调等关键词</p>
-              </li>
-              <!-- 提示2 -->
-              <li class="flex items-start gap-2.5">
-                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span class="text-[10px] font-bold text-primary">2</span>
-                </div>
-                <p class="text-sm text-on-surface-variant leading-relaxed">可以指定风格、颜色、布局，如"极简风格、黑白配色、居中排版"</p>
-              </li>
-              <!-- 提示3 -->
-              <li class="flex items-start gap-2.5">
-                <div class="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span class="text-[10px] font-bold text-primary">3</span>
-                </div>
-                <p class="text-sm text-on-surface-variant leading-relaxed">使用参考图可以保持风格一致性，适合系列海报创作</p>
-              </li>
-            </ul>
-          </div>
-
-        </div>
-
       </div>
     </div>
 
+    <!-- 底部：生成按钮和配置选项 -->
+    <div class="mt-6 bg-surface rounded-xl shadow-card p-5">
+      <div class="flex items-center justify-between">
+        <!-- 左侧：模型和比例选择 -->
+        <div class="flex items-center gap-6">
+          <!-- 模型选择 -->
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-on-surface-variant">模型</label>
+            <div class="relative">
+              <select id="model-select" class="appearance-none bg-surface-container border-none rounded-lg px-4 py-2.5 pr-10 text-sm text-on-surface font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer">
+                <option value="flux-pro">Flux Pro</option>
+                <option value="flux-dev">Flux Dev</option>
+                <option value="midjourney">Midjourney V6</option>
+                <option value="dall-e-3">DALL·E 3</option>
+              </select>
+              <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant pointer-events-none"></i>
+            </div>
+          </div>
+          
+          <!-- 比例选择 -->
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-medium text-on-surface-variant">比例</label>
+            <div class="flex gap-1.5">
+              <button class="ratio-btn px-3 py-1.5 bg-surface-container rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" data-ratio="1:1">1:1</button>
+              <button class="ratio-btn px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium" data-ratio="4:3" aria-pressed="true">4:3</button>
+              <button class="ratio-btn px-3 py-1.5 bg-surface-container rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" data-ratio="16:9">16:9</button>
+              <button class="ratio-btn px-3 py-1.5 bg-surface-container rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high transition-colors" data-ratio="9:16">9:16</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右侧：生成按钮 -->
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-on-surface-variant">预计消耗 <span class="text-primary font-semibold">10</span> 积分</span>
+          <button 
+            id="btn-generate"
+            class="flex items-center gap-2 px-6 py-2.5 bg-primary text-on-primary rounded-lg text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-glow-purple">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            生成海报
+          </button>
+        </div>
+      </div>
+    </div>
   </main>
   <!-- @main-content:end -->
+
+  <!-- Brand Kit 图片选择弹窗 -->
+  <div id="brandkit-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-surface rounded-2xl shadow-dialog max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+      <!-- 弹窗头部 -->
+      <div class="flex items-center justify-between p-5 border-b border-outline-variant/30">
+        <h3 class="text-lg font-semibold text-on-surface">选择 Brand Kit 图片</h3>
+        <button id="btn-close-brandkit" class="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center transition-colors">
+          <i data-lucide="x" class="w-5 h-5 text-on-surface-variant"></i>
+        </button>
+      </div>
+      
+      <!-- 搜索框 -->
+      <div class="p-4 border-b border-outline-variant/30">
+        <div class="relative">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant"></i>
+          <input 
+            id="brandkit-search"
+            type="text" 
+            class="w-full bg-surface-container border-none rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="搜索图片素材..."
+          />
+        </div>
+      </div>
+      
+      <!-- 图片网格 -->
+      <div class="flex-1 overflow-y-auto p-4">
+        <div id="brandkit-grid" class="grid grid-cols-4 gap-3">
+          <!-- Brand Kit 图片1 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-1" data-name="公司LOGO" data-url="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop" 
+              alt="公司LOGO" 
+              data-category="商业科技"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">公司LOGO</span>
+            </div>
+          </div>
+          
+          <!-- Brand Kit 图片2 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-2" data-name="品牌图标" data-url="https://images.unsplash.com/photo-1634017839464-5c339bbe3c35?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1634017839464-5c339bbe3c35?w=400&h=400&fit=crop" 
+              alt="品牌图标" 
+              data-category="商业科技"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">品牌图标</span>
+            </div>
+          </div>
+          
+          <!-- Brand Kit 图片3 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-3" data-name="产品主图" data-url="https://images.unsplash.com/photo-1557683316-973673baf926?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1557683316-973673baf926?w=400&h=400&fit=crop" 
+              alt="产品主图" 
+              data-category="商业科技"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">产品主图</span>
+            </div>
+          </div>
+          
+          <!-- Brand Kit 图片4 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-4" data-name="活动海报背景" data-url="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=400&fit=crop" 
+              alt="活动海报背景" 
+              data-category="艺术"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">活动海报背景</span>
+            </div>
+          </div>
+          
+          <!-- Brand Kit 图片5 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-5" data-name="社交媒体头像" data-url="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=400&h=400&fit=crop" 
+              alt="社交媒体头像" 
+              data-category="商业科技"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">社交媒体头像</span>
+            </div>
+          </div>
+          
+          <!-- Brand Kit 图片6 -->
+          <div class="brandkit-image relative aspect-square bg-surface-container rounded-lg overflow-hidden cursor-pointer group" data-id="bk-6" data-name="宣传横幅" data-url="https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=400&h=400&fit=crop">
+            <img 
+              src="https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=400&h=400&fit=crop" 
+              alt="宣传横幅" 
+              data-category="艺术"
+              class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i data-lucide="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <span class="text-xs text-white font-medium truncate">宣传横幅</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 生成中状态遮罩 -->
+  <div id="generating-overlay" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+    <div class="bg-surface rounded-2xl shadow-dialog p-8 flex flex-col items-center gap-4">
+      <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+        <i data-lucide="loader-2" class="w-8 h-8 text-primary animate-spin"></i>
+      </div>
+      <div class="text-center">
+        <h4 class="text-lg font-semibold text-on-surface">正在生成海报...</h4>
+        <p class="text-sm text-on-surface-variant mt-1">AI 正在创作中，请稍候</p>
+      </div>
+    </div>
+  </div>
 
   <script>
     $(function() {
       // 初始化 Lucide 图标
       lucide.createIcons();
-
-      // 显示当前日期
-      const now = new Date();
-      const dateStr = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
-      $('#current-date').text(dateStr);
-
-      // URL参数：预填描述文字
-      const urlParams = new URLSearchParams(window.location.search);
-      const promptParam = urlParams.get('prompt');
-      if (promptParam) {
-        $('#prompt-input').val(promptParam);
+      
+      // ==================== @mention 功能 ====================
+      const $promptInput = $('#prompt-input');
+      const $mentionPanel = $('#mention-panel');
+      const $mentionSearch = $('#mention-search');
+      const $mentionList = $('#mention-list');
+      const $referencedAssets = $('#referenced-assets');
+      
+      // 监听输入，检测 @ 符号
+      $promptInput.on('input', function() {
+        const value = $(this).val();
+        const cursorPos = this.selectionStart;
+        
+        // 查找当前光标前最近的 @ 符号
+        const textBeforeCursor = value.substring(0, cursorPos);
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+        
+        if (lastAtIndex !== -1) {
+          // 检查 @ 后面是否有空格或换行（如果有则不显示面板）
+          const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+          if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+            $mentionPanel.removeClass('hidden');
+            $mentionSearch.val(textAfterAt).trigger('input');
+            lucide.createIcons();
+            return;
+          }
+        }
+        
+        $mentionPanel.addClass('hidden');
+      });
+      
+      // 搜索过滤素材
+      $mentionSearch.on('input', function() {
+        const keyword = $(this).val().toLowerCase();
+        $mentionList.find('.mention-item').each(function() {
+          const name = $(this).data('name').toString().toLowerCase();
+          const value = ($(this).data('value') || '').toString().toLowerCase();
+          const isMatch = name.includes(keyword) || value.includes(keyword);
+          $(this).toggle(isMatch);
+        });
+      });
+      
+      // 点击素材项
+      $mentionList.on('click', '.mention-item', function() {
+        const type = $(this).data('type');
+        const name = $(this).data('name');
+        const id = $(this).data('id');
+        const value = $(this).data('value') || '';
+        
+        if (type === 'text') {
+          // 文字素材：插入到提示词
+          const currentValue = $promptInput.val();
+          const cursorPos = $promptInput[0].selectionStart;
+          const textBeforeCursor = currentValue.substring(0, cursorPos);
+          const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+          
+          const newText = currentValue.substring(0, lastAtIndex) + value + currentValue.substring(cursorPos);
+          $promptInput.val(newText);
+          
+          // 添加引用标签
+          addReferencedTag(name, value, 'text');
+        } else if (type === 'image') {
+          // 图片素材：添加到参考图区域
+          addRefImage($(this).data('name'), 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop');
+        }
+        
+        $mentionPanel.addClass('hidden');
+      });
+      
+      // 添加已引用素材标签
+      function addReferencedTag(name, value, type) {
+        const tagHtml = `
+          <span class="inline-flex items-center gap-1 px-2 py-1 bg-${type === 'text' ? 'accent' : 'primary'}/10 text-${type === 'text' ? 'accent' : 'primary'} rounded-md text-xs">
+            <i data-lucide="${type === 'text' ? 'type' : 'image'}" class="w-3 h-3"></i>
+            ${name}
+            <button class="btn-remove-tag ml-1 hover:opacity-70" data-type="${type}" data-name="${name}">×</button>
+          </span>
+        `;
+        $referencedAssets.append(tagHtml);
+        lucide.createIcons();
       }
-
-      // ========== a) 模式切换器 ==========
-      $('#tab-text2img').on('click', function() {
-        $(this).addClass('bg-primary/15 text-primary ring-1 ring-primary/30').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
-        $('#tab-ref2img').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
-        $('#ref-upload-section').addClass('hidden');
+      
+      // 移除引用标签
+      $referencedAssets.on('click', '.btn-remove-tag', function() {
+        $(this).parent().remove();
       });
-
-      $('#tab-ref2img').on('click', function() {
-        $(this).addClass('bg-primary/15 text-primary ring-1 ring-primary/30').removeClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
-        $('#tab-text2img').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high');
-        $('#ref-upload-section').removeClass('hidden');
+      
+      // 点击其他区域关闭面板
+      $(document).on('click', function(e) {
+        if (!$(e.target).closest('#prompt-input, #mention-panel').length) {
+          $mentionPanel.addClass('hidden');
+        }
       });
-
-      // ========== b) 参考图上传 ==========
-      // 上传区域点击 - 应实现文件选择对话框
-      // 完整行为：1. 点击触发隐藏的 file input
-      // 2. 用户选择文件后，读取文件为 Data URL
-      // 3. 将 Data URL 设置为预览图片的 src
-      // 4. 隐藏上传区域，显示预览区域
-      // 5. 支持拖拽文件到上传区域，同样触发上述流程
-      $('#ref-upload-area').on('click', function() {
-        console.log('需要实现文件选择功能：创建隐藏 input[type=file]，accept="image/*"，监听 change 事件读取文件');
-        // 模拟上传成功：显示预览
-        $('#ref-upload-area').addClass('hidden');
-        $('#ref-preview-area').removeClass('hidden');
-        $('#ref-preview-img').attr('src', 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe');
+      
+      // ==================== Brand Kit 弹窗 ====================
+      const $brandkitModal = $('#brandkit-modal');
+      const $brandkitSearch = $('#brandkit-search');
+      const $brandkitGrid = $('#brandkit-grid');
+      
+      // 打开 Brand Kit 弹窗
+      $('#btn-brandkit, #add-ref-placeholder').on('click', function() {
+        $brandkitModal.removeClass('hidden');
         lucide.createIcons();
       });
-
-      // 移除参考图
-      $('#btn-remove-ref').on('click', function() {
-        $('#ref-preview-area').addClass('hidden');
-        $('#ref-upload-area').removeClass('hidden');
-        $('#ref-preview-img').attr('src', '');
+      
+      // 关闭 Brand Kit 弹窗
+      $('#btn-close-brandkit').on('click', function() {
+        $brandkitModal.addClass('hidden');
       });
-
-      // ========== c) 清空描述 ==========
-      $('#btn-clear-prompt').on('click', function() {
-        $('#prompt-input').val('').focus();
+      
+      // 点击遮罩关闭
+      $brandkitModal.on('click', function(e) {
+        if ($(e.target).is('#brandkit-modal')) {
+          $(this).addClass('hidden');
+        }
       });
-
-      // 快捷模板
-      $('.template-btn').on('click', function() {
-        const prompt = $(this).data('prompt');
-        $('#prompt-input').val(prompt);
+      
+      // 搜索过滤 Brand Kit 图片
+      $brandkitSearch.on('input', function() {
+        const keyword = $(this).val().toLowerCase();
+        $brandkitGrid.find('.brandkit-image').each(function() {
+          const name = $(this).data('name').toString().toLowerCase();
+          $(this).toggle(name.includes(keyword));
+        });
       });
-
-      // ========== d) 图片比例选择 ==========
-      $('.ratio-btn').on('click', function() {
-        $('.ratio-btn').removeClass('bg-primary/15 text-primary ring-1 ring-primary/30').addClass('bg-surface-container text-on-surface-variant hover:bg-surface-container-high');
-        $(this).removeClass('bg-surface-container text-on-surface-variant hover:bg-surface-container-high').addClass('bg-primary/15 text-primary ring-1 ring-primary/30');
+      
+      // 选择 Brand Kit 图片
+      $brandkitGrid.on('click', '.brandkit-image', function() {
+        const name = $(this).data('name');
+        const url = $(this).data('url');
+        addRefImage(name, url);
+        $brandkitModal.addClass('hidden');
       });
-
-      // ========== d) 生成模型选择 ==========
-      $('.model-option').on('click', function() {
-        // 重置所有模型选项样式
-        $('.model-option').removeClass('bg-primary/10 ring-1 ring-primary/30').addClass('bg-surface-container hover:bg-surface-container-high');
-        // 隐藏所有 check 图标
-        $('.model-check').addClass('hidden');
-        // 所有 radio 边框恢复
-        $('.model-option .w-5.h-5').removeClass('border-primary').addClass('border-outline-variant');
-        // 设置当前选中样式
-        $(this).removeClass('bg-surface-container hover:bg-surface-container-high').addClass('bg-primary/10 ring-1 ring-primary/30');
-        $(this).find('.model-check').removeClass('hidden');
-        $(this).find('.w-5.h-5').removeClass('border-outline-variant').addClass('border-primary');
-      });
-
-      // ========== e) 生成按钮 & f) 进度条 ==========
-      let isGenerating = false;
-
-      $('#btn-generate').on('click', function() {
-        if (isGenerating) return;
-        isGenerating = true;
-
-        const promptVal = $('#prompt-input').val().trim();
-        if (!promptVal) {
-          $('#prompt-input').focus().attr('placeholder', '请先输入海报描述再生成');
-          isGenerating = false;
+      
+      // ==================== 参考图管理 ====================
+      let refImageCount = 3;
+      
+      // 添加参考图
+      function addRefImage(name, url) {
+        if (refImageCount >= 4) {
+          alert('最多只能添加 4 张参考图');
           return;
         }
-
-        // 显示进度条，隐藏预览结果
-        $('#progress-section').removeClass('hidden');
-        $('#preview-placeholder').addClass('hidden');
-        $('#preview-result').addClass('hidden');
-
-        // 按钮进入加载状态
-        $('#btn-generate').html('<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>正在生成中...');
-        $('#btn-generate').addClass('opacity-80 pointer-events-none');
+        
+        const imageId = 'ref-' + Date.now();
+        const imageHtml = `
+          <div class="ref-image-item relative aspect-square bg-surface-container rounded-lg overflow-hidden group">
+            <img src="${url}" alt="${name}" data-category="商业科技" class="w-full h-full object-cover" />
+            <button class="btn-remove-ref absolute top-2 right-2 w-6 h-6 bg-error/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-id="${imageId}">
+              <i data-lucide="x" class="w-3.5 h-3.5 text-white"></i>
+            </button>
+          </div>
+        `;
+        
+        $('#add-ref-placeholder').before(imageHtml);
+        refImageCount++;
         lucide.createIcons();
-
-        // 模拟进度动画
-        const statusTexts = [
-          { percent: 15, text: '正在分析描述...' },
-          { percent: 35, text: '正在构建画面...' },
-          { percent: 60, text: '正在渲染细节...' },
-          { percent: 85, text: '正在优化画质...' },
-          { percent: 100, text: '生成完成！' }
-        ];
-
-        let step = 0;
-        const progressInterval = setInterval(function() {
-          if (step < statusTexts.length) {
-            $('#progress-bar').css('width', statusTexts[step].percent + '%');
-            $('#progress-percent').text(statusTexts[step].percent + '%');
-            $('#progress-status').text(statusTexts[step].text);
-            step++;
-          } else {
-            clearInterval(progressInterval);
-            // 显示生成结果
-            $('#preview-result').removeClass('hidden');
-            $('#progress-section').addClass('hidden');
-
-            // 恢复按钮状态
-            $('#btn-generate').html('<i data-lucide="wand-2" class="w-5 h-5"></i>立即生成');
-            $('#btn-generate').removeClass('opacity-80 pointer-events-none');
-            lucide.createIcons();
-
-            isGenerating = false;
-          }
-        }, 800);
+        
+        if (refImageCount >= 4) {
+          $('#add-ref-placeholder').hide();
+        }
+      }
+      
+      // 删除参考图
+      $('#ref-images-grid').on('click', '.btn-remove-ref', function(e) {
+        e.stopPropagation();
+        $(this).closest('.ref-image-item').remove();
+        refImageCount--;
+        $('#add-ref-placeholder').show();
       });
-
-      // ========== 预览操作按钮 ==========
-      // 下载按钮 - 应实现图片下载
-      // 完整行为：1. 获取当前预览图片的 src
-      // 2. 创建 <a> 标签，href 为图片 URL，download 属性设置文件名
-      // 3. 触发 click 事件下载
-      $('#btn-download').on('click', function() {
-        console.log('需要实现图片下载功能：获取 result-image 的 src，创建 a[download] 触发下载');
+      
+      // ==================== 上传按钮 ====================
+      $('#btn-upload').on('click', function() {
+        console.log('需要调用文件上传接口实现图片上传功能');
+        // 上传成功后调用 addRefImage(name, url)
       });
-
-      // 复制链接按钮 - 应实现复制到剪贴板
-      // 完整行为：1. 构造分享链接（包含生成参数）
-      // 2. 使用 navigator.clipboard.writeText() 写入剪贴板
-      // 3. 按钮文字临时变为"已复制"反馈
-      $('#btn-copy-link').on('click', function() {
-        console.log('需要实现复制链接功能：构造分享链接并写入剪贴板');
-        // 简单反馈
-        const $btn = $(this);
-        const originalHtml = $btn.html();
-        $btn.html('<i data-lucide="check" class="w-4 h-4"></i>已复制');
+      
+      // ==================== 比例选择 ====================
+      $('.ratio-btn').on('click', function() {
+        $('.ratio-btn').removeClass('bg-primary/10 text-primary font-medium').addClass('bg-surface-container text-on-surface-variant');
+        $(this).removeClass('bg-surface-container text-on-surface-variant').addClass('bg-primary/10 text-primary font-medium');
+        $(this).attr('aria-pressed', 'true').siblings().attr('aria-pressed', 'false');
+      });
+      
+      // ==================== 生成按钮 ====================
+      $('#btn-generate').on('click', function() {
+        const prompt = $promptInput.val().trim();
+        if (!prompt) {
+          alert('请输入提示词');
+          return;
+        }
+        
+        // 显示生成中状态
+        $('#generating-overlay').removeClass('hidden');
         lucide.createIcons();
-        setTimeout(function() {
-          $btn.html(originalHtml);
-          lucide.createIcons();
-        }, 1500);
+        
+        // 模拟生成完成
+        // 实际项目中应调用 AI 生成接口，生成完成后：
+        // 1. 隐藏遮罩：$('#generating-overlay').addClass('hidden');
+        // 2. 跳转到作品详情页或显示生成结果
+        // 3. 扣除积分
+        
+        // 生成按钮点击后应实现：
+        // 1. 收集提示词内容
+        // 2. 收集参考图列表
+        // 3. 收集选择的模型和比例
+        // 4. 调用 AI 图像生成 API
+        // 5. 显示生成进度/结果
+        // 6. 生成完成后跳转或展示结果
+        console.log('生成参数:', {
+          prompt: prompt,
+          model: $('#model-select').val(),
+          ratio: $('.ratio-btn[aria-pressed="true"]').data('ratio'),
+          refImages: refImageCount
+        });
       });
-
     });
   </script>
-
-  <script>lucide.createIcons();</script>
 </body>
-
 </html>

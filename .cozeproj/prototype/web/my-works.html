@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- 字体：使用 Google Fonts -->
+  <link href="https://fonts.googleapis.cn/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/jquery/jquery-3.7.1.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/lucide/lucide-1.11.0.min.js"></script>
+  <script src="https://lf-code-agent.coze.cn/obj/x-ai-cn/cdn/tailwindcss/tailwindcss-browser-4.2.4.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      /* === 品牌色（电光紫科技感） === */
+      --color-primary:              #A855F7;
+      --color-primary-container:    #1E1B4B;
+      --color-on-primary:           #ffffff;
+      --color-accent:               #6366F1;
+      /* === 背景 / 表面（暗色模式） === */
+      --color-background:                 #0F172A;
+      --color-surface-container-lowest:   #020617;
+      --color-surface:                    #1E293B;
+      --color-surface-container:          #334155;
+      --color-surface-container-high:     #475569;
+      --color-surface-container-highest:  #64748B;
+      /* === 文字 === */
+      --color-on-surface:           #F8FAFC;
+      --color-on-surface-variant:   #CBD5E1;
+      /* === 功能色 === */
+      --color-success:  #22c55e;
+      --color-error:    #ef4444;
+      --color-warning:  #f59e0b;
+      /* === 边框 === */
+      --color-outline:          #475569;
+      --color-outline-variant:  #334155;
+      /* === 圆角 === */
+      --radius-sm:   0.25rem;
+      --radius-md:   0.5rem;
+      --radius-lg:   0.75rem;
+      --radius-xl:   1rem;
+      --radius-2xl:  1.5rem;
+      --radius-full: 9999px;
+      /* === 阴影（暗色背景，opacity 较高） === */
+      --shadow-card:   0 2px 8px rgba(0,0,0,0.4);
+      --shadow-float:  0 10px 25px rgba(0,0,0,0.5);
+      --shadow-dialog: 0 25px 50px rgba(0,0,0,0.6);
+      /* === 紫色发光阴影（用于 hover 效果） === */
+      --shadow-glow-purple: 0 0 20px rgba(168, 85, 247, 0.3);
+      /* === 字体 === */
+      --font-sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
+    }
+    
+    /* 自定义样式：渐变文字、金属按钮效果等 */
+    .gradient-text {
+      background: linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .btn-metallic {
+      background: linear-gradient(135deg, #94A3B8 0%, #CBD5E1 50%, #94A3B8 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .btn-metallic:hover {
+      background: linear-gradient(135deg, #CBD5E1 0%, #F8FAFC 50%, #CBD5E1 100%);
+    }
+    
+    .card-glow:hover {
+      box-shadow: var(--shadow-glow-purple);
+      border-color: var(--color-primary);
+    }
+    
+    /* 背景网格纹理 */
+    .grid-bg {
+      background-image: 
+        linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+  </style>
+
+  <!-- 图片兜底 -->
+  <script>
+    document.addEventListener('error', function (e) {
+      const img = e.target;
+      if (img.tagName !== 'IMG' || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cat = img.getAttribute('data-category') || '其他';
+      const alt = img.getAttribute('alt') || '';
+      const label = esc(alt.length > 8 ? alt.slice(0, 8) + '…' : alt);
+      const icons = { '人物': '👤', '自然风景': '🏞', '动物': '🐾', '建筑城市': '🏙', '运动体育': '⚽', '交通工具': '🚗', '食物': '🍽', '服饰时尚': '👗', '商业科技': '💼', '游戏娱乐': '🎮', '艺术': '🎨', '其他': '🖼' };
+      const icon = icons[cat] || '🖼';
+      const w = img.width || 400, h = img.height || 300;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="45%" text-anchor="middle" font-size="${Math.min(w, h) * 0.18}" dominant-baseline="central">${icon}</text><text x="50%" y="68%" text-anchor="middle" font-size="${Math.min(w, h) * 0.07}" fill="%239ca3af" font-family="system-ui,sans-serif" dominant-baseline="central">${label}</text></svg>`;
+      img.src = 'data:image/svg+xml,' + svg;
+    }, true);
+  </script>
+</head>
+
+<body class="bg-background text-on-surface font-sans grid-bg min-h-screen">
+
+  <!-- @nav:start 导航组件 -->
+  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-primary/20">
+    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i data-lucide="sparkles" class="w-6 h-6 text-primary"></i>
+        <span class="font-bold text-lg gradient-text">SparkAI</span>
+      </div>
+      <nav class="flex items-center gap-1">
+        <a href="home.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">首页</a>
+        <a href="create.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">创作中心</a>
+        <a href="my-works.html" class="px-3 py-1.5 text-sm font-medium bg-primary/10 text-primary rounded-md transition-colors" aria-current="page">我的作品</a>
+        <a href="stats.html" class="px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-md transition-colors">数据统计</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-medium text-sm">初</div>
+      </div>
+    </div>
+  </header>
+  <!-- @nav:end 导航组件 -->
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <!-- @main-content:start -->
+    
+    <!-- 页面标题区 -->
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary font-semibold text-lg">初</div>
+        <div>
+          <h1 class="text-2xl font-bold text-on-surface">我的作品</h1>
+          <p class="text-sm text-on-surface-variant mt-0.5">管理你的创作素材和作品</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-on-surface-variant">共 <span class="font-semibold text-on-surface">24</span> 个作品</span>
+      </div>
+    </div>
+
+    <!-- Tab 导航栏 -->
+    <div class="flex items-center gap-2 mb-6">
+      <!-- Tab-我的作品 -->
+      <button id="tab-works" class="tab-btn px-4 py-2 text-sm font-medium rounded-full transition-all bg-primary/10 text-primary" data-tab="works">
+        <i data-lucide="image" class="w-4 h-4 inline-block mr-1.5"></i>我的作品
+      </button>
+      <!-- Tab-灵感库收藏 -->
+      <button id="tab-favorites" class="tab-btn px-4 py-2 text-sm font-medium rounded-full transition-all text-on-surface-variant hover:bg-surface-container" data-tab="favorites">
+        <i data-lucide="heart" class="w-4 h-4 inline-block mr-1.5"></i>灵感库收藏
+      </button>
+      <!-- Tab-已隐藏作品 -->
+      <button id="tab-hidden" class="tab-btn px-4 py-2 text-sm font-medium rounded-full transition-all text-on-surface-variant hover:bg-surface-container" data-tab="hidden">
+        <i data-lucide="eye-off" class="w-4 h-4 inline-block mr-1.5"></i>已隐藏作品
+      </button>
+      <!-- Tab-Brand Kit -->
+      <button id="tab-brandkit" class="tab-btn px-4 py-2 text-sm font-medium rounded-full transition-all text-on-surface-variant hover:bg-surface-container" data-tab="brandkit">
+        <i data-lucide="palette" class="w-4 h-4 inline-block mr-1.5"></i>Brand Kit
+      </button>
+    </div>
+
+    <!-- 内容区域 -->
+    <div id="content-area">
+      
+      <!-- 我的作品 Tab 内容 -->
+      <div id="content-works" class="tab-content">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- 作品卡片1 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=533&fit=crop" alt="科幻城市海报" data-category="商业科技" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">科幻城市海报</h3>
+              <p class="text-xs text-on-surface-variant mt-1">2024/01/15</p>
+            </div>
+          </div>
+          <!-- 作品卡片2 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&h=533&fit=crop" alt="渐变背景设计" data-category="艺术" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">渐变背景设计</h3>
+              <p class="text-xs text-on-surface-variant mt-1">2024/01/14</p>
+            </div>
+          </div>
+          <!-- 作品卡片3 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=533&fit=crop" alt="抽象艺术作品" data-category="艺术" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">抽象艺术作品</h3>
+              <p class="text-xs text-on-surface-variant mt-1">2024/01/13</p>
+            </div>
+          </div>
+          <!-- 作品卡片4 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=400&h=533&fit=crop" alt="品牌视觉设计" data-category="商业科技" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">品牌视觉设计</h3>
+              <p class="text-xs text-on-surface-variant mt-1">2024/01/12</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 灵感库收藏 Tab 内容 -->
+      <div id="content-favorites" class="tab-content hidden">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- 收藏卡片1 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=533&fit=crop" alt="山峦风景" data-category="自然风景" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">山峦风景</h3>
+              <p class="text-xs text-on-surface-variant mt-1">收藏于 2024/01/10</p>
+            </div>
+          </div>
+          <!-- 收藏卡片2 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=533&fit=crop" alt="音乐会海报" data-category="艺术" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">音乐会海报</h3>
+              <p class="text-xs text-on-surface-variant mt-1">收藏于 2024/01/08</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已隐藏作品 Tab 内容 -->
+      <div id="content-hidden" class="tab-content hidden">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- 隐藏卡片1 -->
+          <div class="bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group cursor-pointer opacity-60">
+            <div class="aspect-[3/4] bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=533&fit=crop" alt="实验性设计" data-category="艺术" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              <div class="absolute top-2 right-2 bg-surface-container/80 backdrop-blur-sm rounded-full p-1.5">
+                <i data-lucide="eye-off" class="w-3.5 h-3.5 text-on-surface-variant"></i>
+              </div>
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-medium text-on-surface truncate">实验性设计</h3>
+              <p class="text-xs text-on-surface-variant mt-1">隐藏于 2024/01/05</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Brand Kit Tab 内容 -->
+      <div id="content-brandkit" class="tab-content hidden">
+        
+        <!-- 新增素材按钮 -->
+        <div class="flex justify-end mb-6">
+          <button id="btn-add-asset" class="bg-primary text-on-primary px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all inline-flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i>新增素材
+          </button>
+        </div>
+
+        <!-- 素材分类标题 -->
+        <div class="mb-4">
+          <h2 class="text-base font-semibold text-on-surface flex items-center gap-2">
+            <i data-lucide="image" class="w-5 h-5 text-primary"></i>图片素材
+          </h2>
+          <p class="text-sm text-on-surface-variant mt-1">LOGO、图标、品牌图形等</p>
+        </div>
+
+        <!-- 图片素材网格 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+          <!-- 图片素材卡片1 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group" data-id="img-1" data-type="image">
+            <div class="aspect-square bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop" alt="公司LOGO" data-category="商业科技" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button class="btn-edit-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors" title="编辑">
+                  <i data-lucide="pencil" class="w-4 h-4 text-white"></i>
+                </button>
+                <button class="btn-delete-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-error/50 transition-colors" title="删除">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-white"></i>
+                </button>
+              </div>
+            </div>
+            <div class="p-2.5">
+              <h3 class="text-sm font-medium text-on-surface truncate">公司LOGO</h3>
+              <p class="text-xs text-on-surface-variant mt-0.5">PNG · 120KB</p>
+            </div>
+          </div>
+
+          <!-- 图片素材卡片2 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group" data-id="img-2" data-type="image">
+            <div class="aspect-square bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=200&h=200&fit=crop" alt="品牌图标" data-category="商业科技" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button class="btn-edit-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors" title="编辑">
+                  <i data-lucide="pencil" class="w-4 h-4 text-white"></i>
+                </button>
+                <button class="btn-delete-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-error/50 transition-colors" title="删除">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-white"></i>
+                </button>
+              </div>
+            </div>
+            <div class="p-2.5">
+              <h3 class="text-sm font-medium text-on-surface truncate">品牌图标</h3>
+              <p class="text-xs text-on-surface-variant mt-0.5">SVG · 8KB</p>
+            </div>
+          </div>
+
+          <!-- 图片素材卡片3 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group" data-id="img-3" data-type="image">
+            <div class="aspect-square bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=200&h=200&fit=crop" alt="产品照片" data-category="商业科技" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button class="btn-edit-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors" title="编辑">
+                  <i data-lucide="pencil" class="w-4 h-4 text-white"></i>
+                </button>
+                <button class="btn-delete-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-error/50 transition-colors" title="删除">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-white"></i>
+                </button>
+              </div>
+            </div>
+            <div class="p-2.5">
+              <h3 class="text-sm font-medium text-on-surface truncate">产品照片</h3>
+              <p class="text-xs text-on-surface-variant mt-0.5">JPG · 2.1MB</p>
+            </div>
+          </div>
+
+          <!-- 图片素材卡片4 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card overflow-hidden card-glow border border-transparent transition-all group" data-id="img-4" data-type="image">
+            <div class="aspect-square bg-surface-container relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=200&h=200&fit=crop" alt="社交媒体图标" data-category="商业科技" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button class="btn-edit-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors" title="编辑">
+                  <i data-lucide="pencil" class="w-4 h-4 text-white"></i>
+                </button>
+                <button class="btn-delete-asset w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-error/50 transition-colors" title="删除">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-white"></i>
+                </button>
+              </div>
+            </div>
+            <div class="p-2.5">
+              <h3 class="text-sm font-medium text-on-surface truncate">社交媒体图标</h3>
+              <p class="text-xs text-on-surface-variant mt-0.5">PNG · 45KB</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文字素材分类标题 -->
+        <div class="mb-4">
+          <h2 class="text-base font-semibold text-on-surface flex items-center gap-2">
+            <i data-lucide="type" class="w-5 h-5 text-primary"></i>文字素材
+          </h2>
+          <p class="text-sm text-on-surface-variant mt-1">品牌名、公司名、联系方式等</p>
+        </div>
+
+        <!-- 文字素材列表 -->
+        <div class="space-y-3">
+          <!-- 文字素材卡片1 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card p-4 card-glow border border-transparent transition-all group flex items-center justify-between" data-id="txt-1" data-type="text">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <i data-lucide="building-2" class="w-5 h-5 text-primary"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-on-surface">公司名称</h3>
+                  <span class="px-2 py-0.5 rounded text-xs bg-surface-container text-on-surface-variant">公司名</span>
+                </div>
+                <p class="text-sm text-on-surface-variant mt-0.5 truncate">SparkAI 创意科技有限公司</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-edit-asset w-8 h-8 rounded-md bg-surface-container hover:bg-surface-container-high flex items-center justify-center transition-colors" title="编辑">
+                <i data-lucide="pencil" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+              <button class="btn-delete-asset w-8 h-8 rounded-md bg-surface-container hover:bg-error/20 flex items-center justify-center transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 文字素材卡片2 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card p-4 card-glow border border-transparent transition-all group flex items-center justify-between" data-id="txt-2" data-type="text">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+                <i data-lucide="phone" class="w-5 h-5 text-success"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-on-surface">客服电话</h3>
+                  <span class="px-2 py-0.5 rounded text-xs bg-surface-container text-on-surface-variant">手机号</span>
+                </div>
+                <p class="text-sm text-on-surface-variant mt-0.5">400-888-9999</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-edit-asset w-8 h-8 rounded-md bg-surface-container hover:bg-surface-container-high flex items-center justify-center transition-colors" title="编辑">
+                <i data-lucide="pencil" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+              <button class="btn-delete-asset w-8 h-8 rounded-md bg-surface-container hover:bg-error/20 flex items-center justify-center transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 文字素材卡片3 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card p-4 card-glow border border-transparent transition-all group flex items-center justify-between" data-id="txt-3" data-type="text">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <i data-lucide="mail" class="w-5 h-5 text-accent"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-on-surface">联系邮箱</h3>
+                  <span class="px-2 py-0.5 rounded text-xs bg-surface-container text-on-surface-variant">邮箱</span>
+                </div>
+                <p class="text-sm text-on-surface-variant mt-0.5 truncate">contact@sparkai.com</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-edit-asset w-8 h-8 rounded-md bg-surface-container hover:bg-surface-container-high flex items-center justify-center transition-colors" title="编辑">
+                <i data-lucide="pencil" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+              <button class="btn-delete-asset w-8 h-8 rounded-md bg-surface-container hover:bg-error/20 flex items-center justify-center transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 文字素材卡片4 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card p-4 card-glow border border-transparent transition-all group flex items-center justify-between" data-id="txt-4" data-type="text">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                <i data-lucide="map-pin" class="w-5 h-5 text-warning"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-on-surface">公司地址</h3>
+                  <span class="px-2 py-0.5 rounded text-xs bg-surface-container text-on-surface-variant">地址</span>
+                </div>
+                <p class="text-sm text-on-surface-variant mt-0.5 truncate">北京市朝阳区建国路88号创新大厦A座2001</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-edit-asset w-8 h-8 rounded-md bg-surface-container hover:bg-surface-container-high flex items-center justify-center transition-colors" title="编辑">
+                <i data-lucide="pencil" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+              <button class="btn-delete-asset w-8 h-8 rounded-md bg-surface-container hover:bg-error/20 flex items-center justify-center transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 文字素材卡片5 -->
+          <div class="asset-card bg-surface rounded-xl shadow-card p-4 card-glow border border-transparent transition-all group flex items-center justify-between" data-id="txt-5" data-type="text">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center shrink-0">
+                <i data-lucide="hash" class="w-5 h-5 text-error"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-medium text-on-surface">品牌口号</h3>
+                  <span class="px-2 py-0.5 rounded text-xs bg-surface-container text-on-surface-variant">其他</span>
+                </div>
+                <p class="text-sm text-on-surface-variant mt-0.5 truncate">让创意触手可及</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="btn-edit-asset w-8 h-8 rounded-md bg-surface-container hover:bg-surface-container-high flex items-center justify-center transition-colors" title="编辑">
+                <i data-lucide="pencil" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+              <button class="btn-delete-asset w-8 h-8 rounded-md bg-surface-container hover:bg-error/20 flex items-center justify-center transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 text-on-surface-variant"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加素材弹窗 -->
+    <div id="modal-add-asset" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-surface rounded-xl shadow-dialog max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <!-- 弹窗头部 -->
+        <div class="flex items-center justify-between p-5 border-b border-outline-variant/30">
+          <h2 class="text-lg font-semibold text-on-surface">添加素材</h2>
+          <button id="btn-close-add-modal" class="w-8 h-8 rounded-md hover:bg-surface-container flex items-center justify-center transition-colors">
+            <i data-lucide="x" class="w-5 h-5 text-on-surface-variant"></i>
+          </button>
+        </div>
+
+        <!-- 类型切换 -->
+        <div class="p-5">
+          <div class="flex gap-2 mb-5">
+            <button id="btn-type-image" class="asset-type-btn flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-primary bg-primary/10 text-primary transition-all" data-type="image">
+              <i data-lucide="image" class="w-4 h-4 inline-block mr-1.5"></i>上传图片
+            </button>
+            <button id="btn-type-text" class="asset-type-btn flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container transition-all" data-type="text">
+              <i data-lucide="type" class="w-4 h-4 inline-block mr-1.5"></i>添加文字
+            </button>
+          </div>
+
+          <!-- 图片上传区域 -->
+          <div id="form-image" class="asset-form">
+            <div id="upload-area" class="border-2 border-dashed border-outline-variant/30 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+              <i data-lucide="cloud-upload" class="w-12 h-12 text-on-surface-variant/50 mx-auto mb-3"></i>
+              <p class="text-sm text-on-surface-variant mb-1">拖拽图片到此处，或点击上传</p>
+              <p class="text-xs text-on-surface-variant/50">支持 PNG、JPG、SVG，最大 5MB</p>
+              <input type="file" id="input-file" accept="image/*" class="hidden">
+            </div>
+            <div id="preview-area" class="hidden mt-4">
+              <div class="flex items-start gap-4">
+                <div class="w-24 h-24 rounded-lg bg-surface-container overflow-hidden shrink-0">
+                  <img id="preview-image" src="" alt="预览图" data-category="商业科技" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-1">
+                  <label class="block text-sm font-medium text-on-surface mb-1.5">素材名称</label>
+                  <input id="input-image-name" type="text" placeholder="如：公司LOGO" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 文字表单 -->
+          <div id="form-text" class="asset-form hidden">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">素材分类</label>
+                <select id="input-category" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+                  <option value="brand">品牌名</option>
+                  <option value="company">公司名</option>
+                  <option value="phone">手机号</option>
+                  <option value="address">地址</option>
+                  <option value="email">邮箱</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">素材名称</label>
+                <input id="input-text-name" type="text" placeholder="如：客服电话" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">内容</label>
+                <textarea id="input-text-content" rows="3" placeholder="输入文字内容" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 弹窗底部 -->
+        <div class="flex justify-end gap-3 p-5 border-t border-outline-variant/30">
+          <button id="btn-cancel-add" class="bg-surface-container text-on-surface px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all">取消</button>
+          <button id="btn-save-asset" class="bg-primary text-on-primary px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑素材弹窗 -->
+    <div id="modal-edit-asset" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-surface rounded-xl shadow-dialog max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <!-- 弹窗头部 -->
+        <div class="flex items-center justify-between p-5 border-b border-outline-variant/30">
+          <h2 class="text-lg font-semibold text-on-surface">编辑素材</h2>
+          <button id="btn-close-edit-modal" class="w-8 h-8 rounded-md hover:bg-surface-container flex items-center justify-center transition-colors">
+            <i data-lucide="x" class="w-5 h-5 text-on-surface-variant"></i>
+          </button>
+        </div>
+
+        <!-- 编辑表单 -->
+        <div class="p-5">
+          <div id="edit-form-image" class="hidden">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-24 h-24 rounded-lg bg-surface-container overflow-hidden shrink-0">
+                <img id="edit-preview-image" src="" alt="预览图" data-category="商业科技" class="w-full h-full object-cover">
+              </div>
+              <button id="btn-change-image" class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-md transition-colors">更换图片</button>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-on-surface mb-1.5">素材名称</label>
+              <input id="edit-image-name" type="text" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+            </div>
+          </div>
+          <div id="edit-form-text" class="hidden">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">素材分类</label>
+                <select id="edit-category" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+                  <option value="brand">品牌名</option>
+                  <option value="company">公司名</option>
+                  <option value="phone">手机号</option>
+                  <option value="address">地址</option>
+                  <option value="email">邮箱</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">素材名称</label>
+                <input id="edit-text-name" type="text" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-on-surface mb-1.5">内容</label>
+                <textarea id="edit-text-content" rows="3" class="w-full bg-surface-container border-none rounded-md px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 弹窗底部 -->
+        <div class="flex justify-end gap-3 p-5 border-t border-outline-variant/30">
+          <button id="btn-cancel-edit" class="bg-surface-container text-on-surface px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all">取消</button>
+          <button id="btn-save-edit" class="bg-primary text-on-primary px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all">保存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 确认删除弹窗 -->
+    <div id="modal-confirm-delete" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-surface rounded-xl shadow-dialog max-w-sm w-full">
+        <!-- 弹窗头部 -->
+        <div class="p-5">
+          <div class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="trash-2" class="w-6 h-6 text-error"></i>
+          </div>
+          <h2 class="text-lg font-semibold text-on-surface text-center mb-2">确认删除</h2>
+          <p class="text-sm text-on-surface-variant text-center">确定要删除素材「<span id="delete-asset-name" class="font-medium text-on-surface"></span>」吗？此操作无法撤销。</p>
+        </div>
+
+        <!-- 弹窗底部 -->
+        <div class="flex gap-3 p-5 border-t border-outline-variant/30">
+          <button id="btn-cancel-delete" class="flex-1 bg-surface-container text-on-surface px-4 py-2 rounded-md text-sm font-medium hover:bg-surface-container-high active:scale-[0.98] transition-all">取消</button>
+          <button id="btn-confirm-delete" class="flex-1 bg-error text-on-primary px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-all">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- @main-content:end -->
+  </main>
+
+  <script>
+    $(function() {
+      // 初始化 Lucide 图标
+      lucide.createIcons();
+
+      // Tab 切换逻辑
+      $('.tab-btn').on('click', function() {
+        const tab = $(this).data('tab');
+        
+        // 更新 Tab 按钮状态
+        $('.tab-btn').removeClass('bg-primary/10 text-primary').addClass('text-on-surface-variant hover:bg-surface-container');
+        $(this).removeClass('text-on-surface-variant hover:bg-surface-container').addClass('bg-primary/10 text-primary');
+        
+        // 切换内容区域
+        $('.tab-content').addClass('hidden');
+        $(`#content-${tab}`).removeClass('hidden');
+        
+        // 重新初始化图标
+        lucide.createIcons();
+      });
+
+      // 添加素材弹窗
+      let currentAssetType = 'image';
+      
+      $('#btn-add-asset').on('click', function() {
+        $('#modal-add-asset').removeClass('hidden');
+        lucide.createIcons();
+      });
+
+      $('#btn-close-add-modal, #btn-cancel-add').on('click', function() {
+        $('#modal-add-asset').addClass('hidden');
+        resetAddForm();
+      });
+
+      // 素材类型切换
+      $('.asset-type-btn').on('click', function() {
+        currentAssetType = $(this).data('type');
+        
+        // 更新按钮状态
+        $('.asset-type-btn').removeClass('border-primary bg-primary/10 text-primary').addClass('border-outline-variant/30 text-on-surface-variant');
+        $(this).removeClass('border-outline-variant/30 text-on-surface-variant').addClass('border-primary bg-primary/10 text-primary');
+        
+        // 切换表单
+        if (currentAssetType === 'image') {
+          $('#form-image').removeClass('hidden');
+          $('#form-text').addClass('hidden');
+        } else {
+          $('#form-image').addClass('hidden');
+          $('#form-text').removeClass('hidden');
+        }
+      });
+
+      // 图片上传模拟
+      // 后续应实现：
+      // 1. 点击上传区域触发 file input
+      // 2. 选择文件后显示预览
+      // 3. 上传到 S3 并获取 URL
+      // 4. 显示预览和名称输入框
+      $('#upload-area').on('click', function() {
+        $('#input-file').click();
+      });
+
+      $('#input-file').on('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          // 模拟显示预览
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            $('#preview-image').attr('src', e.target.result);
+            $('#upload-area').addClass('hidden');
+            $('#preview-area').removeClass('hidden');
+            $('#input-image-name').val(file.name.split('.')[0]);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // 保存素材
+      $('#btn-save-asset').on('click', function() {
+        // 后续应实现：
+        // 1. 验证表单数据
+        // 2. 调用 API 保存素材
+        // 3. 更新素材列表
+        // 4. 关闭弹窗并重置表单
+        console.log('保存素材，类型:', currentAssetType);
+        
+        if (currentAssetType === 'image') {
+          const name = $('#input-image-name').val();
+          console.log('图片素材名称:', name);
+        } else {
+          const category = $('#input-category').val();
+          const name = $('#input-text-name').val();
+          const content = $('#input-text-content').val();
+          console.log('文字素材:', { category, name, content });
+        }
+        
+        $('#modal-add-asset').addClass('hidden');
+        resetAddForm();
+      });
+
+      function resetAddForm() {
+        $('#upload-area').removeClass('hidden');
+        $('#preview-area').addClass('hidden');
+        $('#input-image-name').val('');
+        $('#input-text-name').val('');
+        $('#input-text-content').val('');
+        $('#input-category').val('brand');
+        $('#input-file').val('');
+        currentAssetType = 'image';
+        $('.asset-type-btn').removeClass('border-primary bg-primary/10 text-primary').addClass('border-outline-variant/30 text-on-surface-variant');
+        $('#btn-type-image').removeClass('border-outline-variant/30 text-on-surface-variant').addClass('border-primary bg-primary/10 text-primary');
+        $('#form-image').removeClass('hidden');
+        $('#form-text').addClass('hidden');
+      }
+
+      // 编辑素材弹窗
+      $('#content-brandkit').on('click', '.btn-edit-asset', function(e) {
+        e.stopPropagation();
+        const $card = $(this).closest('.asset-card');
+        const assetId = $card.data('id');
+        const assetType = $card.data('type');
+        
+        // 后续应实现：
+        // 1. 根据 assetId 从后端获取素材详情
+        // 2. 填充表单数据
+        // 3. 根据类型显示对应表单
+        console.log('编辑素材:', assetId, assetType);
+        
+        if (assetType === 'image') {
+          $('#edit-form-image').removeClass('hidden');
+          $('#edit-form-text').addClass('hidden');
+          // 模拟填充数据
+          const name = $card.find('h3').text();
+          const imgSrc = $card.find('img').attr('src');
+          $('#edit-image-name').val(name);
+          $('#edit-preview-image').attr('src', imgSrc);
+        } else {
+          $('#edit-form-image').addClass('hidden');
+          $('#edit-form-text').removeClass('hidden');
+          // 模拟填充数据
+          const name = $card.find('h3').text();
+          const content = $card.find('.text-on-surface-variant.truncate, .text-on-surface-variant.mt-0\\.5').text();
+          $('#edit-text-name').val(name);
+          $('#edit-text-content').val(content);
+        }
+        
+        $('#modal-edit-asset').removeClass('hidden');
+        lucide.createIcons();
+      });
+
+      $('#btn-close-edit-modal, #btn-cancel-edit').on('click', function() {
+        $('#modal-edit-asset').addClass('hidden');
+      });
+
+      $('#btn-save-edit').on('click', function() {
+        // 后续应实现：
+        // 1. 验证表单数据
+        // 2. 调用 API 更新素材
+        // 3. 更新素材列表显示
+        // 4. 关闭弹窗
+        console.log('保存编辑');
+        $('#modal-edit-asset').addClass('hidden');
+      });
+
+      // 删除素材
+      let deleteTargetId = null;
+      
+      $('#content-brandkit').on('click', '.btn-delete-asset', function(e) {
+        e.stopPropagation();
+        const $card = $(this).closest('.asset-card');
+        deleteTargetId = $card.data('id');
+        const name = $card.find('h3').text();
+        
+        $('#delete-asset-name').text(name);
+        $('#modal-confirm-delete').removeClass('hidden');
+        lucide.createIcons();
+      });
+
+      $('#btn-cancel-delete').on('click', function() {
+        $('#modal-confirm-delete').addClass('hidden');
+        deleteTargetId = null;
+      });
+
+      $('#btn-confirm-delete').on('click', function() {
+        // 后续应实现：
+        // 1. 调用 API 删除素材
+        // 2. 从列表中移除素材卡片
+        // 3. 关闭弹窗
+        console.log('删除素材:', deleteTargetId);
+        
+        // 模拟删除
+        $(`.asset-card[data-id="${deleteTargetId}"]`).fadeOut(300, function() {
+          $(this).remove();
+        });
+        
+        $('#modal-confirm-delete').addClass('hidden');
+        deleteTargetId = null;
+      });
+
+      // 点击弹窗背景关闭
+      $('#modal-add-asset, #modal-edit-asset, #modal-confirm-delete').on('click', function(e) {
+        if (e.target === this) {
+          $(this).addClass('hidden');
+          if ($(this).attr('id') === 'modal-add-asset') {
+            resetAddForm();
+          }
+        }
+      });
+    });
+  </script>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>
