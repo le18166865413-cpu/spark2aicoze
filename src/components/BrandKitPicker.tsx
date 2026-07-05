@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Package, Search, Image as ImageIcon, Type, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -39,15 +39,7 @@ export function BrandKitPicker({
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
-    if (open) {
-      fetchItems();
-      setSelectedIds(new Set());
-      setSearch('');
-    }
-  }, [open]);
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const res = await authFetch(`/api/brand-kit${mode === 'image' ? '?type=image' : ''}`);
@@ -60,7 +52,15 @@ export function BrandKitPicker({
     } finally {
       setLoading(false);
     }
-  };
+  }, [mode]);
+
+  useEffect(() => {
+    if (open) {
+      fetchItems();
+      setSelectedIds(new Set());
+      setSearch('');
+    }
+  }, [open, fetchItems]);
 
   const filteredItems = items.filter((item) => {
     if (!search) return true;

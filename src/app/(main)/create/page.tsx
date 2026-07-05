@@ -8,16 +8,25 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon, Package } from "lucide-react";
+import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon, Package, Type } from "lucide-react";
 import { BrandKitPicker } from "@/components/BrandKitPicker";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
 import BatchGeneratePanel, { PageData } from "@/components/BatchGeneratePanel";
 import { useAutoResize } from "@/hooks/use-auto-resize";
 import { Switch } from "@/components/ui/switch";
 
+// BrandKitItem type
+interface BrandKitItem {
+  id: string;
+  name: string;
+  type: 'image' | 'text';
+  content?: string;
+  imageUrl?: string;
+}
 
 // Default fallback values (used before config loads)
 const defaultTemplates = [
@@ -220,6 +229,12 @@ function CreatePageInner() {
   const [showBrandKitPicker, setShowBrandKitPicker] = useState(false);
   const [brandKitPickerMode, setBrandKitPickerMode] = useState<'image' | 'all'>('image');
 
+  // @ Mention 状态
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionItems, setMentionItems] = useState<BrandKitItem[]>([]);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
+
   // Handle initial refImageUrl from URL params
   useEffect(() => {
     if (initialRefImageUrl && initialMode === "img2img") {
@@ -324,6 +339,51 @@ function CreatePageInner() {
   const toggleTag = useCallback((list: string[], setList: (v: string[]) => void, value: string) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   }, []);
+
+  // Fetch Brand Kit items for @mention
+  const fetchMentionItems = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/brand-kit');
+      if (res.ok) {
+        const data = await res.json();
+        setMentionItems(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch mention items:', e);
+    }
+  }, []);
+
+  // Filter mention items based on search
+  const filteredMentionItems = mentionItems.filter((item) => {
+    if (!mentionSearch) return true;
+    const searchLower = mentionSearch.toLowerCase();
+    return (
+      item.name.toLowerCase().includes(searchLower) ||
+      (item.content && item.content.toLowerCase().includes(searchLower))
+    );
+  });
+
+  // Handle @ mention select
+  const handleMentionSelect = (item: BrandKitItem) => {
+    const insertText = item.type === 'text' ? item.content : '';
+    if (insertText) {
+      const before = prompt.slice(0, cursorPosition);
+      const after = prompt.slice(cursorPosition);
+      const newPrompt = before + insertText + after;
+      setPrompt(newPrompt);
+    }
+    setShowMentionPicker(false);
+    setMentionSearch('');
+  };
+
+  // Handle keydown for @ mention
+  const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === '@') {
+      setCursorPosition(e.currentTarget.selectionStart);
+      fetchMentionItems();
+      setShowMentionPicker(true);
+    }
+  };
 
   // Build enhanced prompt with scene/usage/style/color
   const buildEnhancedPrompt = useCallback((basePrompt: string) => {
@@ -1058,9 +1118,9 @@ function CreatePageInner() {
               </div>
             ))}
             {pendingTasks.some(t => t.status === "completed") && (
-              <a href="/" className="block text-center text-xs text-primary hover:underline mt-1">
+              <Link href="/" className="block text-center text-xs text-primary hover:underline mt-1">
                 查看广场 →
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -1277,7 +1337,8 @@ function CreatePageInner() {
                     setPrompt(e.target.value);
                     promptRef.current = e.target.value;
                   }}
-                  placeholder="输入你想要的文案/内容/联系方式/地址等主体内容..."
+                  onKeyDown={handlePromptKeyDown}
+                  placeholder="输入你想要的文案/内容/联系方式/地址等主体内容... (输入 @ 可引用 Brand Kit 素材)"
                   className="min-h-[120px] resize-none border-input focus:ring-2 focus:ring-ring"
                 />
 
@@ -2319,6 +2380,64 @@ function CreatePageInner() {
             });
           }}
         />
+
+        {/* @ Mention Picker Dialog */}
+        <Dialog open={showMentionPicker} onOpenChange={setShowMentionPicker}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                选择 Brand Kit 素材
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                placeholder="搜索素材..."
+                value={mentionSearch}
+                onChange={(e) => setMentionSearch(e.target.value)}
+              />
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {filteredMentionItems.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">暂无素材</p>
+                ) : (
+                  filteredMentionItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent cursor-pointer"
+                      onClick={() => handleMentionSelect(item)}
+                    >
+                      {item.type === 'image' ? (
+                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+                          <Type className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {item.type === 'text' ? item.content : '图片素材'}
+                        </p>
+                      </div>
+                      {item.type === 'text' && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">插入文字</span>
+                      )}
+                      {item.type === 'image' && (
+                        <span className="text-xs bg-secondary px-2 py-1 rounded">参考图</span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
