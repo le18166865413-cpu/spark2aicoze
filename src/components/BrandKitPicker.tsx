@@ -148,11 +148,17 @@ export function BrandKitPicker({
                 >
                   {item.type === 'image' ? (
                     <>
-                      <img
-                        src={item.imageUrl || ''}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-muted flex items-center justify-center">
+                          <Package className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         {selectedIds.has(item.id) && (
                           <Check className="w-6 h-6 text-primary" />

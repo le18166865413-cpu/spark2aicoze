@@ -578,11 +578,17 @@ export default function MyWorksPage() {
                           className="group relative bg-card rounded-xl overflow-hidden border border-border hover:border-primary/30 transition-all"
                         >
                           <div className="aspect-square">
-                            <img
-                              src={item.imageUrl || ''}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <Package className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                            )}
                           </div>
                           <div className="p-2">
                             <p className="text-sm font-medium truncate">{item.name}</p>
@@ -871,11 +877,17 @@ export default function MyWorksPage() {
                 <label className="text-sm font-medium">图片</label>
                 <div className="relative">
                   <div className="relative aspect-square rounded-xl overflow-hidden border border-border">
-                    <img
-                      src={addImagePreview || editItem?.imageUrl || ''}
-                      alt="预览"
-                      className="w-full h-full object-cover"
-                    />
+                    {addImagePreview || editItem?.imageUrl ? (
+                      <img
+                        src={addImagePreview || editItem?.imageUrl}
+                        alt="预览"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <Package className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
                     {addImagePreview && (
                       <button
                         onClick={() => {
