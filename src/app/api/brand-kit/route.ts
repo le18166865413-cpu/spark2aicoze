@@ -111,14 +111,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "获取素材列表失败" }, { status: 500 });
     }
 
-    // 为图片素材生成签名URL
+    // 为图片素材生成签名URL并转换字段名
     const processedData = await Promise.all(
       (data || []).map(async (item: Record<string, unknown>) => {
+        let imageUrl = item.image_url as string | undefined;
         if (item.type === "image" && item.image_key) {
-          const signedUrl = await getSignedUrl(item.image_key as string);
-          return { ...item, image_url: signedUrl };
+          imageUrl = await getSignedUrl(item.image_key as string);
         }
-        return item;
+        return {
+          id: item.id,
+          userId: item.user_id,
+          name: item.name,
+          type: item.type,
+          content: item.content,
+          imageKey: item.image_key,
+          imageUrl: imageUrl,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+        };
       })
     );
 
