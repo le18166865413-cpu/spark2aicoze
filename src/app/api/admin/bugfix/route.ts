@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     // Action 3: 一键导出 S3 存储内所有图片（含完整数据库字段）
     if (action === "exportS3Images") {
-      const { batchSize = 1000, batchIndex = 0 } = body;
+      const { batchSize = 1000, batchIndex = 0, includeImages = true } = body;
 
       // 先获取总数
       const { count: totalCount, error: countError } = await supabase
@@ -193,31 +193,34 @@ export async function POST(request: NextRequest) {
       for (const img of dbImages || []) {
         const record: Record<string, unknown> = { ...img };
 
-        // 生成主图签名链接
-        if (img.image_key) {
-          try {
-            record.signed_url = await storage.generatePresignedUrl({ key: img.image_key, expireTime: 10 * 365 * 24 * 60 * 60 });
-          } catch {
-            record.signed_url = "";
-          }
-        }
-
-        // 生成参考图签名链接
-        if (img.reference_image_key) {
-          try {
-            const refKeys = img.reference_image_key.split(",").filter(Boolean);
-            const refUrls: string[] = [];
-            for (const refKey of refKeys) {
-              try {
-                const refUrl = await storage.generatePresignedUrl({ key: refKey.trim(), expireTime: 10 * 365 * 24 * 60 * 60 });
-                refUrls.push(refUrl);
-              } catch {
-                // skip
-              }
+        // 只在需要时生成签名链接
+        if (includeImages) {
+          // 生成主图签名链接
+          if (img.image_key) {
+            try {
+              record.signed_url = await storage.generatePresignedUrl({ key: img.image_key, expireTime: 10 * 365 * 24 * 60 * 60 });
+            } catch {
+              record.signed_url = "";
             }
-            record.reference_image_urls = refUrls;
-          } catch {
-            record.reference_image_urls = [];
+          }
+
+          // 生成参考图签名链接
+          if (img.reference_image_key) {
+            try {
+              const refKeys = img.reference_image_key.split(",").filter(Boolean);
+              const refUrls: string[] = [];
+              for (const refKey of refKeys) {
+                try {
+                  const refUrl = await storage.generatePresignedUrl({ key: refKey.trim(), expireTime: 10 * 365 * 24 * 60 * 60 });
+                  refUrls.push(refUrl);
+                } catch {
+                  // skip
+                }
+              }
+              record.reference_image_urls = refUrls;
+            } catch {
+              record.reference_image_urls = [];
+            }
           }
         }
 

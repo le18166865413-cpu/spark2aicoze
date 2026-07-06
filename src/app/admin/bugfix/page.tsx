@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload } from "lucide-react";
+import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BugfixPage() {
@@ -78,23 +78,24 @@ export default function BugfixPage() {
     }
   };
 
-  const handleExportS3Images = async () => {
-    console.log("[Export] 开始分批导出...");
-    setLoading("export");
+  const handleExportS3Images = async (includeImages: boolean) => {
+    const exportType = includeImages ? "完整数据" : "元数据";
+    console.log(`[Export] 开始导出${exportType}...`);
+    setLoading(includeImages ? "export-full" : "export-meta");
     setResult(null);
-    const BATCH_SIZE = 500; // 减小批次大小，避免单批次过大
+    const BATCH_SIZE = includeImages ? 500 : 5000; // 元数据导出可以更大批次
     let batchIndex = 0;
     let totalBatches = 0;
     let totalRecords = 0;
 
     try {
       // 先获取第一批，确定总批次
-      console.log("[Export] 获取第 1 批...");
+      console.log(`[Export] 获取第 1 批 (${exportType})...`);
       const res = await fetch("/api/admin/bugfix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex: 0 }),
+        body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex: 0, includeImages }),
       });
       console.log("[Export] 收到响应:", res.status);
       if (!res.ok) {
@@ -122,12 +123,13 @@ export default function BugfixPage() {
 
       // 下载第一批
       const dateStr = new Date().toISOString().slice(0, 10);
-      downloadJson(data.records || [], `sparkai-images-export-${dateStr}-part1.json`);
+      const suffix = includeImages ? "full" : "meta";
+      downloadJson(data.records || [], `sparkai-export-${suffix}-${dateStr}-part1.json`);
 
       // 如果只有一批，直接完成
       if (totalBatches === 1) {
-        setResult({ type: "success", message: `成功导出 ${totalRecords} 条图片记录` });
-        toast.success(`成功导出 ${totalRecords} 条图片记录`);
+        setResult({ type: "success", message: `成功导出 ${totalRecords} 条记录 (${exportType})` });
+        toast.success(`成功导出 ${totalRecords} 条记录 (${exportType})`);
         setLoading(null);
         return;
       }
@@ -143,7 +145,7 @@ export default function BugfixPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex }),
+          body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex, includeImages }),
         });
 
         if (!batchRes.ok) {
@@ -157,16 +159,16 @@ export default function BugfixPage() {
         }
 
         // 每批单独下载为一个文件
-        downloadJson(batchData.records || [], `sparkai-images-export-${dateStr}-part${batchIndex + 1}.json`);
+        downloadJson(batchData.records || [], `sparkai-export-${suffix}-${dateStr}-part${batchIndex + 1}.json`);
 
         // 添加小延迟，避免浏览器同时下载太多文件
         if (batchIndex < totalBatches - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
 
-      setResult({ type: "success", message: `成功导出 ${totalRecords} 条图片记录，共 ${totalBatches} 个文件` });
-      toast.success(`成功导出 ${totalRecords} 条图片记录，共 ${totalBatches} 个文件`);
+      setResult({ type: "success", message: `成功导出 ${totalRecords} 条记录，共 ${totalBatches} 个文件 (${exportType})` });
+      toast.success(`成功导出 ${totalRecords} 条记录，共 ${totalBatches} 个文件 (${exportType})`);
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -350,22 +352,40 @@ export default function BugfixPage() {
             导出图片数据
           </CardTitle>
           <CardDescription>
-            导出所有图片记录，包含提示词、作者、模型、比例、参考图、签名下载链接等完整信息，生成 JSON 文件。
+            导出所有图片记录。可选择导出完整数据（含签名下载链接，文件较大较慢）或仅导出元数据（提示词、作者等，文件较小较快）。
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button
-            onClick={handleExportS3Images}
-            disabled={loading === "export"}
-            className="w-full sm:w-auto"
-          >
-            {loading === "export" ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            一键导出图片数据
-          </Button>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => handleExportS3Images(true)}
+              disabled={loading === "export-full" || loading === "export-meta"}
+              className="w-full sm:w-auto"
+            >
+              {loading === "export-full" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              导出完整数据（含图片链接）
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleExportS3Images(false)}
+              disabled={loading === "export-full" || loading === "export-meta"}
+              className="w-full sm:w-auto"
+            >
+              {loading === "export-meta" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              仅导出元数据（更快）
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            提示：数据量大时建议使用"仅导出元数据"，速度更快，文件更小。元数据包含提示词、作者、模型、比例、浏览/下载数等信息。
+          </p>
         </CardContent>
       </Card>
 
