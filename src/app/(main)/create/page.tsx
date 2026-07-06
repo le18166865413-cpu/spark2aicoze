@@ -379,10 +379,12 @@ function CreatePageInner() {
   // Handle keydown for @ mention
   const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === '@') {
+      e.preventDefault();
       setCursorPosition(e.currentTarget.selectionStart);
-      setMentionSearch('');
       fetchMentionItems();
       setShowMentionPicker(true);
+      // Delay clearing search to ensure it happens after dialog opens
+      setTimeout(() => setMentionSearch(''), 50);
     }
   };
 
