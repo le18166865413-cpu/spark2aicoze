@@ -152,11 +152,37 @@ export async function POST(request: NextRequest) {
 
     // Action 3: 一键导出 S3 存储内所有图片（含完整数据库字段）
     if (action === "exportS3Images") {
-      // 查询数据库所有图片记录
+      const { batchSize = 1000, batchIndex = 0 } = body;
+
+      // 先获取总数
+      const { count: totalCount, error: countError } = await supabase
+        .from("gallery_images")
+        .select("*", { count: "exact", head: true });
+
+      if (countError) {
+        return NextResponse.json({ error: countError.message }, { status: 500 });
+      }
+
+      if (!totalCount || totalCount === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "数据库中没有图片记录",
+          records: [],
+          count: 0,
+          total: 0,
+          batchIndex: 0,
+          totalBatches: 0,
+        });
+      }
+
+      const totalBatches = Math.ceil(totalCount / batchSize);
+
+      // 分批查询
       const { data: dbImages, error: queryError } = await supabase
         .from("gallery_images")
         .select("id, prompt, url, image_key, width, height, views, downloads, model, ratio, task_id, created_at, liked, user_id, creator_name, deleted_at, is_hidden, likes, reference_count, is_pinned, reference_image_key")
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        .range(batchIndex * batchSize, (batchIndex + 1) * batchSize - 1);
 
       if (queryError) {
         return NextResponse.json({ error: queryError.message }, { status: 500 });
@@ -200,9 +226,12 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `成功导出 ${records.length} 条图片记录`,
+        message: `成功导出第 ${batchIndex + 1}/${totalBatches} 批，共 ${records.length} 条图片记录`,
         records,
         count: records.length,
+        total: totalCount,
+        batchIndex,
+        totalBatches,
       });
     }
 

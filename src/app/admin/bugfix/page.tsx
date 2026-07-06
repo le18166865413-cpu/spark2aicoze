@@ -79,16 +79,22 @@ export default function BugfixPage() {
   };
 
   const handleExportS3Images = async () => {
-    console.log("[Export] 开始导出...");
+    console.log("[Export] 开始分批导出...");
     setLoading("export");
     setResult(null);
+    const BATCH_SIZE = 500; // 减小批次大小，避免单批次过大
+    let batchIndex = 0;
+    let totalBatches = 0;
+    let totalRecords = 0;
+
     try {
-      console.log("[Export] 发送请求...");
+      // 先获取第一批，确定总批次
+      console.log("[Export] 获取第 1 批...");
       const res = await fetch("/api/admin/bugfix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ action: "exportS3Images" }),
+        body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex: 0 }),
       });
       console.log("[Export] 收到响应:", res.status);
       if (!res.ok) {
@@ -98,32 +104,70 @@ export default function BugfixPage() {
       }
       const data = await res.json();
       console.log("[Export] 解析数据:", data);
-      if (data.success) {
-        setResult({ type: "success", message: data.message });
-        toast.success(data.message);
-
-        // Export as JSON
-        if (data.records && data.records.length > 0) {
-          console.log("[Export] 开始下载文件，记录数:", data.records.length);
-          const jsonContent = JSON.stringify(data.records, null, 2);
-          const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `sparkai-images-export-${new Date().toISOString().slice(0, 10)}.json`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          console.log("[Export] 下载完成");
-        } else {
-          console.log("[Export] 没有记录需要导出");
-          toast.info("数据库中没有图片记录");
-        }
-      } else {
+      if (!data.success) {
         setResult({ type: "error", message: data.error || "导出失败" });
         toast.error(data.error || "导出失败");
+        setLoading(null);
+        return;
       }
+
+      totalBatches = data.totalBatches;
+      totalRecords = data.total;
+
+      if (totalRecords === 0) {
+        toast.info("数据库中没有图片记录");
+        setLoading(null);
+        return;
+      }
+
+      // 下载第一批
+      const dateStr = new Date().toISOString().slice(0, 10);
+      downloadJson(data.records || [], `sparkai-images-export-${dateStr}-part1.json`);
+
+      // 如果只有一批，直接完成
+      if (totalBatches === 1) {
+        setResult({ type: "success", message: `成功导出 ${totalRecords} 条图片记录` });
+        toast.success(`成功导出 ${totalRecords} 条图片记录`);
+        setLoading(null);
+        return;
+      }
+
+      // 多批次，逐批获取并单独下载
+      toast.info(`共 ${totalRecords} 条记录，分 ${totalBatches} 个文件导出...`);
+
+      for (batchIndex = 1; batchIndex < totalBatches; batchIndex++) {
+        console.log(`[Export] 获取第 ${batchIndex + 1}/${totalBatches} 批...`);
+        toast.info(`正在导出第 ${batchIndex + 1}/${totalBatches} 批...`);
+
+        const batchRes = await fetch("/api/admin/bugfix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "exportS3Images", batchSize: BATCH_SIZE, batchIndex }),
+        });
+
+        if (!batchRes.ok) {
+          const text = await batchRes.text();
+          throw new Error(`第 ${batchIndex + 1} 批请求失败: ${batchRes.status} - ${text.slice(0, 100)}`);
+        }
+
+        const batchData = await batchRes.json();
+        if (!batchData.success) {
+          throw new Error(`第 ${batchIndex + 1} 批导出失败: ${batchData.error}`);
+        }
+
+        // 每批单独下载为一个文件
+        downloadJson(batchData.records || [], `sparkai-images-export-${dateStr}-part${batchIndex + 1}.json`);
+
+        // 添加小延迟，避免浏览器同时下载太多文件
+        if (batchIndex < totalBatches - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      setResult({ type: "success", message: `成功导出 ${totalRecords} 条图片记录，共 ${totalBatches} 个文件` });
+      toast.success(`成功导出 ${totalRecords} 条图片记录，共 ${totalBatches} 个文件`);
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setResult({ type: "error", message: msg });
@@ -131,6 +175,21 @@ export default function BugfixPage() {
     } finally {
       setLoading(null);
     }
+  };
+
+  const downloadJson = (records: unknown[], filename: string) => {
+    console.log("[Export] 开始下载文件:", filename, "记录数:", records.length);
+    const jsonContent = JSON.stringify(records, null, 2);
+    const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    console.log("[Export] 下载完成:", filename);
   };
 
   const handleImportImages = async () => {
