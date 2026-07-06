@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
-import { Sparkles, House, Palette, User as UserIcon, LogOut, BarChart3 } from 'lucide-react';
+import { Sparkles, House, Palette, User as UserIcon, LogOut, BarChart3, Package } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
@@ -168,6 +168,13 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors"
                     >
                       <UserIcon className="w-4 h-4" />个人资料
+                    </Link>
+                    <Link
+                      href="/my-works?tab=brandkit"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors"
+                    >
+                      <Package className="w-4 h-4" />Brand Kit
                     </Link>
                     <Link
                       href="/stats"
