@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         // 生成主图签名链接
         if (img.image_key) {
           try {
-            record.signed_url = await storage.generatePresignedUrl({ key: img.image_key, expireTime: 0 });
+            record.signed_url = await storage.generatePresignedUrl({ key: img.image_key, expireTime: 10 * 365 * 24 * 60 * 60 });
           } catch {
             record.signed_url = "";
           }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
             const refUrls: string[] = [];
             for (const refKey of refKeys) {
               try {
-                const refUrl = await storage.generatePresignedUrl({ key: refKey.trim(), expireTime: 0 });
+                const refUrl = await storage.generatePresignedUrl({ key: refKey.trim(), expireTime: 10 * 365 * 24 * 60 * 60 });
                 refUrls.push(refUrl);
               } catch {
                 // skip
