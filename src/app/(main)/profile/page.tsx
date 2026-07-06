@@ -90,8 +90,8 @@ export default function ProfilePage() {
     try {
       const res = await authFetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.key) {
-        setAvatar(data.url || data.key);
+      if (data.key || data.imageKey) {
+        setAvatar(data.url || data.key || data.imageKey);
       }
     } catch {
       setMessage({ type: 'error', text: '头像上传失败' });
