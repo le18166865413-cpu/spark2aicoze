@@ -110,7 +110,7 @@ export default function StatsPage() {
   const trendMax = Math.max(...trendEntries.map(([, v]) => v), 1);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="w-full py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold">使用统计</h1>
