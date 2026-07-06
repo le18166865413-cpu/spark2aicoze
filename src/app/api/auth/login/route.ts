@@ -13,9 +13,196 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { username, password, email, code } = body;
+    const { username, password, email, code, phone, phoneCode } = body;
 
     const sb = getSupabaseClient();
+
+    // ===== 手机号验证码登录 =====
+    if (phone && phoneCode) {
+      // 验证手机号格式
+      const phoneRegex = /^1[3-9]\d{9}$/;
+      if (!phoneRegex.test(phone)) {
+        return NextResponse.json({ error: '手机号格式不正确' }, { status: 400 });
+      }
+
+      // 检查是否是默认管理员手机号（无需验证码验证）
+      const isAdminPhone = ADMIN_PHONES.includes(phone);
+
+      if (!isAdminPhone) {
+        // 普通手机号需要验证验证码
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: codeRecords, error: codeError } = await sb
+          .from('email_verification_codes')
+          .select('id, code, used, attempts, expires_at, created_at')
+          .eq('email', phone)
+          .eq('used', false)
+          .gte('created_at', fiveMinAgo)
+          .order('created_at', { ascending: false });
+
+        if (codeError || !codeRecords || codeRecords.length === 0) {
+          return NextResponse.json({ error: '验证码已失效，请重新获取' }, { status: 401 });
+        }
+
+        // 找到匹配且未过期的验证码
+        const matchedRecord = codeRecords.find(r => {
+          return new Date(r.expires_at) >= new Date() && r.code === phoneCode && r.attempts < 5;
+        });
+
+        if (!matchedRecord) {
+          const hasExpired = codeRecords.some(r => new Date(r.expires_at) < new Date());
+          const hasMaxAttempts = codeRecords.some(r => r.attempts >= 5);
+
+          if (hasExpired) {
+            return NextResponse.json({ error: '验证码已过期，请重新获取' }, { status: 401 });
+          }
+          if (hasMaxAttempts) {
+            const exhausted = codeRecords.filter(r => r.attempts >= 5);
+            for (const r of exhausted) {
+              await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
+            }
+            return NextResponse.json({ error: '验证码错误次数过多，请重新获取' }, { status: 401 });
+          }
+
+          // 验证码不匹配，增加所有未过期验证码的尝试次数
+          for (const r of codeRecords) {
+            if (new Date(r.expires_at) >= new Date() && r.attempts < 5) {
+              await sb
+                .from('email_verification_codes')
+                .update({ attempts: r.attempts + 1 })
+                .eq('id', r.id);
+            }
+          }
+          return NextResponse.json({ error: '验证码错误' }, { status: 401 });
+        }
+
+        // 验证码正确，标记为已使用
+        await sb
+          .from('email_verification_codes')
+          .update({ used: true })
+          .eq('id', matchedRecord.id);
+      }
+
+      // 查找用户（通过手机号的 email 字段）
+      let { data: user } = await sb
+        .from('users')
+        .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+        .eq('email', phone)
+        .single();
+
+      // 如果用户不存在，自动注册
+      if (!user) {
+        const autoUsername = 'user_' + crypto.randomUUID().substring(0, 8);
+
+        const { data: newUser, error: createError } = await sb
+          .from('users')
+          .insert({
+            username: autoUsername,
+            email: phone,
+            nickname: null,
+            role: isAdminPhone ? 'admin' : 'user',
+            status: isAdminPhone ? 'approved' : 'pending',
+          })
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+          .single();
+
+        if (createError || !newUser) {
+          console.error('[Login] Auto-register error:', createError);
+          return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
+        }
+
+        user = newUser;
+      } else if (isAdminPhone && user.role !== 'admin') {
+        // 如果已存在但不是 admin，更新为 admin
+        const { data: updatedUser } = await sb
+          .from('users')
+          .update({ role: 'admin', status: 'approved' })
+          .eq('id', user.id)
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+          .single();
+
+        if (updatedUser) {
+          user = updatedUser;
+        }
+      } else if (isAdminPhone && user.status !== 'approved') {
+        // 如果是 admin 但状态不是 approved，更新状态
+        const { data: updatedUser } = await sb
+          .from('users')
+          .update({ status: 'approved' })
+          .eq('id', user.id)
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+          .single();
+
+        if (updatedUser) {
+          user = updatedUser;
+        }
+      }
+
+      if (user.status === 'rejected') {
+        return NextResponse.json({ error: '账号已被拒绝，请联系管理员' }, { status: 403 });
+      }
+
+      // 限制同账号最多 2 个活跃 session
+      const MAX_SESSIONS = 2;
+      const { data: activeSessions } = await sb
+        .from('user_sessions')
+        .select('id, created_at')
+        .eq('user_id', user.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: true });
+
+      if (activeSessions && activeSessions.length >= MAX_SESSIONS) {
+        const toDelete = activeSessions.slice(0, activeSessions.length - MAX_SESSIONS + 1);
+        if (toDelete.length > 0) {
+          await sb
+            .from('user_sessions')
+            .delete()
+            .in('id', toDelete.map(s => s.id));
+        }
+      }
+
+      // 创建 session
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const { error: sessionError } = await sb
+        .from('user_sessions')
+        .insert({
+          id: token,
+          user_id: user.id,
+          expires_at: expiresAt.toISOString(),
+          last_active_at: new Date().toISOString(),
+        });
+
+      if (sessionError) {
+        console.error('[Login] Create session error:', sessionError);
+        return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
+      }
+
+      const response = NextResponse.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          nickname: user.nickname,
+          role: user.role,
+          status: user.status,
+          email: user.email,
+          wechat: user.wechat,
+          avatar: user.avatar,
+          canGenerate: user.can_generate,
+        },
+      });
+
+      response.cookies.set('user_session', token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+
+      console.log(`[Login] Phone login: ${phone} user=${user.username} role=${user.role}`);
+      return response;
+    }
 
     // ===== 邮箱验证码登录 =====
     if (email && code) {
