@@ -202,7 +202,7 @@ export default function MainLayout({
       <Navbar />
       <PendingStatusBanner />
       <RejectedStatusBanner />
-      <main className="bg-gradient-page min-h-screen px-4 md:px-6">{children}</main>
+      <main className="bg-gradient-page min-h-screen max-w-[1800px] mx-auto w-full px-4 md:px-6">{children}</main>
     </>
   );
 }

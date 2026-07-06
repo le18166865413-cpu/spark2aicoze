@@ -306,7 +306,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="pt-6 pb-8 w-full">
+    <div className="pt-6 pb-8 w-full max-w-[1800px] mx-auto">
       {/* Hero Section */}
       <div className="text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">

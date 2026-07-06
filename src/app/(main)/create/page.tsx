@@ -1128,7 +1128,7 @@ function CreatePageInner() {
           </div>
         </div>
       )}
-      <main className="w-full py-6">
+      <main className="max-w-[1800px] mx-auto w-full py-6">
         <div className="grid lg:grid-cols-[55fr_45fr] gap-8">
           {/* Left: Input Panel */}
           <div className="space-y-6">

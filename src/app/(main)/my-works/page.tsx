@@ -486,7 +486,7 @@ export default function MyWorksPage() {
   if (!user) return null;
 
   return (
-    <div className="w-full py-8">
+    <div className="max-w-[1800px] mx-auto w-full py-8">
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">我的作品</h1>
         <p className="text-muted-foreground mt-2">
