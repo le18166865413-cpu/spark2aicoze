@@ -194,8 +194,8 @@ export async function POST(request: Request) {
 
       response.cookies.set('user_session', token, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60,
       });
@@ -398,8 +398,8 @@ export async function POST(request: Request) {
 
       response.cookies.set('user_session', token, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         path: '/',
         maxAge: 7 * 24 * 60 * 60,
       });
@@ -496,8 +496,8 @@ export async function POST(request: Request) {
 
     response.cookies.set('user_session', token, {
       httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       path: '/',
       maxAge: 7 * 24 * 60 * 60,
     });
