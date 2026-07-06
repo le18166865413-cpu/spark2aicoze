@@ -2396,6 +2396,10 @@ function CreatePageInner() {
                 placeholder="搜索素材..."
                 value={mentionSearch}
                 onChange={(e) => setMentionSearch(e.target.value)}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
               />
               <div className="max-h-[300px] overflow-y-auto space-y-2">
                 {filteredMentionItems.length === 0 ? (
