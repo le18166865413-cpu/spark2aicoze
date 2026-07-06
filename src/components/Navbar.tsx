@@ -158,7 +158,7 @@ export default function Navbar() {
                     <Link
                       href="/my-works"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors sm:hidden"
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-secondary/60 transition-colors"
                     >
                       <Palette className="w-4 h-4" />我的作品
                     </Link>
