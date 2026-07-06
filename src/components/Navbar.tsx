@@ -140,11 +140,7 @@ export default function Navbar() {
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className={`flex items-center gap-2 rounded-full px-2 py-1 transition-all ${
-                  pathname?.startsWith('/my-works') || pathname?.startsWith('/profile') || pathname?.startsWith('/stats')
-                    ? 'bg-primary/15 ring-1 ring-primary/30'
-                    : 'hover:bg-secondary/60'
-                }`}
+                className="flex items-center gap-2 rounded-full px-2 py-1 bg-primary/15 ring-1 ring-primary/30 transition-all"
               >
                 <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm">
                   {(user.nickname || user.email || user.username || "U").charAt(0).toUpperCase()}
