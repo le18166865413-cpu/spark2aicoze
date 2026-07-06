@@ -142,7 +142,7 @@ export default function Navbar() {
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-secondary/60 transition-all"
               >
-                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm ring-1 ring-primary/30">
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold text-sm">
                   {(user.nickname || user.email || user.username || "U").charAt(0).toUpperCase()}
                 </div>
                 <span className="hidden md:inline text-sm font-medium">{user.nickname || user.email || user.username || "用户"}</span>
