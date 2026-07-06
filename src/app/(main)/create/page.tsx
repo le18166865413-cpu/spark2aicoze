@@ -5,7 +5,7 @@ import { authFetch } from "@/utils/auth-fetch";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Loader2, Download, Sparkles, Image as ImageIcon, Wand2, Zap, Palette, ImagePlus, Upload, X, Plus, Minus, AlertTriangle, Layers, Check, Trash2, Pencil, Square, ImageIcon as RefImageIcon, Package, Type } from "lucide-react";
@@ -2392,6 +2392,7 @@ function CreatePageInner() {
                 <Package className="w-5 h-5" />
                 选择 Brand Kit 素材
               </DialogTitle>
+              <DialogDescription>选择要插入到提示词中的素材</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Input
