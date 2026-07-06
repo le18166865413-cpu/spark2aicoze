@@ -79,22 +79,32 @@ export default function BugfixPage() {
   };
 
   const handleExportS3Images = async () => {
+    console.log("[Export] 开始导出...");
     setLoading("export");
     setResult(null);
     try {
+      console.log("[Export] 发送请求...");
       const res = await fetch("/api/admin/bugfix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ action: "exportS3Images" }),
       });
+      console.log("[Export] 收到响应:", res.status);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("[Export] 响应错误:", res.status, text);
+        throw new Error(`请求失败: ${res.status} - ${text.slice(0, 100)}`);
+      }
       const data = await res.json();
+      console.log("[Export] 解析数据:", data);
       if (data.success) {
         setResult({ type: "success", message: data.message });
         toast.success(data.message);
 
         // Export as JSON
         if (data.records && data.records.length > 0) {
+          console.log("[Export] 开始下载文件，记录数:", data.records.length);
           const jsonContent = JSON.stringify(data.records, null, 2);
           const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8;" });
           const url = URL.createObjectURL(blob);
@@ -105,6 +115,10 @@ export default function BugfixPage() {
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
+          console.log("[Export] 下载完成");
+        } else {
+          console.log("[Export] 没有记录需要导出");
+          toast.info("数据库中没有图片记录");
         }
       } else {
         setResult({ type: "error", message: data.error || "导出失败" });
