@@ -380,6 +380,7 @@ function CreatePageInner() {
   const handlePromptKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === '@') {
       setCursorPosition(e.currentTarget.selectionStart);
+      setMentionSearch('');
       fetchMentionItems();
       setShowMentionPicker(true);
     }
