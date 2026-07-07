@@ -110,15 +110,18 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       if (!supabase) { setError('系统初始化中，请稍后'); return; }
-      const { error: sendError } = await supabase.auth.signInWithOtp({
+      console.log('[Login] Sending OTP to:', email);
+      const { error: sendError, data } = await supabase.auth.signInWithOtp({
         email,
       });
+      console.log('[Login] OTP response:', { error: sendError?.message, data });
       if (sendError) {
         setError(sendError.message || '发送验证码失败');
         return;
       }
       startEmailCountdown();
-    } catch {
+    } catch (e) {
+      console.error('[Login] Send OTP error:', e);
       setError('发送验证码失败，请稍后重试');
     } finally {
       setIsLoading(false);
