@@ -1,3 +1,20 @@
+/**
+ * ⚠️ 重要说明 - Supabase Auth 与 public.users 数据同步
+ * 
+ * 本文件负责将 Supabase Auth (auth.users) 的用户同步到业务表 (public.users)
+ * 
+ * 数据流程：
+ * 1. 用户通过 Supabase Auth 登录（手机号/邮箱 OTP）
+ * 2. Supabase Auth 在 auth.users 表创建/更新记录
+ * 3. 前端调用 /api/auth/me 获取用户信息
+ * 4. 本接口在 public.users 表同步创建/更新业务数据（昵称、角色、状态等）
+ * 
+ * 禁止删除或大幅修改此同步逻辑，否则会导致：
+ * - 用户无法在业务系统中使用（public.users 无记录）
+ * - 作品无法关联到用户
+ * - 后台管理无法正常工作
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/storage/database/supabase-client';

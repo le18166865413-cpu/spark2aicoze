@@ -1,5 +1,17 @@
 'use client';
 
+/**
+ * ⚠️ 重要说明 - 手机登录方式固定使用 Supabase Auth，禁止改动
+ * 
+ * 手机号登录必须使用 Supabase Auth 内置短信服务 (signInWithOtp + verifyOtp)
+ * 这样用户能收到【扣子】发送的短信验证码
+ * 
+ * 不要改用自定义的 /api/auth/send-phone-code 等接口，否则短信无法发送
+ * 
+ * 数据同步：Supabase Auth (auth.users) → public.users (业务表)
+ * 同步代码位置：/api/auth/me/route.ts
+ */
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
