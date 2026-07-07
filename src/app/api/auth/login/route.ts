@@ -13,7 +13,8 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { username, password, email, code, phone, phoneCode } = body;
+    const { username, password, email, code, emailCode, phone, phoneCode } = body;
+    const verificationCode = code || emailCode; // 支持 code 或 emailCode 参数
 
     const sb = getSupabaseClient();
 
@@ -114,30 +115,6 @@ export async function POST(request: Request) {
 
         console.log(`[Login] Auto-registered user: id=${newUser.id}, status=${newUser.status}`);
         user = newUser;
-      } else if (isAdminPhone && user.role !== 'admin') {
-        // 如果已存在但不是 admin，更新为 admin
-        const { data: updatedUser } = await sb
-          .from('users')
-          .update({ role: 'admin', status: 'approved' })
-          .eq('id', user.id)
-          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
-          .single();
-
-        if (updatedUser) {
-          user = updatedUser;
-        }
-      } else if (isAdminPhone && user.status !== 'approved') {
-        // 如果是 admin 但状态不是 approved，更新状态
-        const { data: updatedUser } = await sb
-          .from('users')
-          .update({ status: 'approved' })
-          .eq('id', user.id)
-          .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
-          .single();
-
-        if (updatedUser) {
-          user = updatedUser;
-        }
       }
 
       if (user.status === 'rejected') {
@@ -208,7 +185,7 @@ export async function POST(request: Request) {
     }
 
     // ===== 邮箱验证码登录 =====
-    if (email && code) {
+    if (email && verificationCode) {
       if (!email || !code) {
         return NextResponse.json({ error: '请输入邮箱和验证码' }, { status: 400 });
       }
@@ -219,11 +196,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '邮箱格式不正确' }, { status: 400 });
       }
 
-      // 检查是否是默认管理员手机号（无需验证码验证）
-      const isAdminPhone = ADMIN_PHONES.includes(email);
-
-      if (!isAdminPhone) {
-        // 查找5分钟内所有未使用的验证码（允许多个验证码同时有效）
+      // 邮箱登录总是需要验证码（管理员手机号特权只适用于手机号登录）
+      // 查找5分钟内所有未使用的验证码（允许多个验证码同时有效）
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         const { data: codeRecords, error: codeError } = await sb
           .from('email_verification_codes')
@@ -279,7 +253,6 @@ export async function POST(request: Request) {
 
       // 记录从验证码获取的用户ID（用于后续自动注册关联）
       const userIdFromCode = matchedRecord.id;
-    }
 
       // 查找用户（通过 email）
     
@@ -293,9 +266,6 @@ export async function POST(request: Request) {
       if (!user) {
         const autoUsername = 'user_' + crypto.randomUUID().substring(0, 8);
 
-        // 默认管理员手机号自动设为 admin 角色和 approved 状态
-        const isAdminPhone = ADMIN_PHONES.includes(email);
-
         // 生成昵称：邮箱前缀前4位
         const autoNickname = email.split('@')[0].slice(0, 4);
 
@@ -305,8 +275,8 @@ export async function POST(request: Request) {
             username: autoUsername,
             email,
             nickname: autoNickname,
-            role: isAdminPhone ? 'admin' : 'user',
-            status: isAdminPhone ? 'approved' : 'pending',
+            role: 'user',
+            status: 'pending',
           })
           .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
           .single();
@@ -317,7 +287,7 @@ export async function POST(request: Request) {
         }
 
         user = newUser;
-      } else if (isAdminPhone && user.role !== 'admin') {
+      } else if (ADMIN_PHONES.includes(email) && user.role !== 'admin') {
         // 如果已存在但不是 admin，更新为 admin
         const { data: updatedUser } = await sb
           .from('users')
@@ -329,7 +299,7 @@ export async function POST(request: Request) {
         if (updatedUser) {
           user = updatedUser;
         }
-      } else if (isAdminPhone && user.status !== 'approved') {
+      } else if (ADMIN_PHONES.includes(email) && user.status !== 'approved') {
         // 如果是 admin 但状态不是 approved，更新状态
         const { data: updatedUser } = await sb
           .from('users')

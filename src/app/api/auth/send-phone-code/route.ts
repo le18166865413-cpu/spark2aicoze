@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
+import { sendVerificationEmail } from '@/utils/email';
 
 // 管理员手机号 - 这些号码的验证码可以随便填
 const ADMIN_PHONES = ['18166865413', '17390005820'];
@@ -11,10 +12,72 @@ function generateCode(): string {
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const { phone, email } = await request.json();
 
+    // 优先处理邮箱
+    if (email) {
+      // 验证邮箱格式
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json({ error: '邮箱格式不正确' }, { status: 400 });
+      }
+
+      const sb = getSupabaseClient();
+
+      // 频率限制：同一邮箱 60 秒内只能发 1 次
+      const sixtySecondsAgo = new Date(Date.now() - 60 * 1000).toISOString();
+      const { data: recentCodes } = await sb
+        .from('email_verification_codes')
+        .select('created_at')
+        .eq('email', email)
+        .gte('created_at', sixtySecondsAgo)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentCodes && recentCodes.length > 0) {
+        const elapsed = Date.now() - new Date(recentCodes[0].created_at).getTime();
+        const remaining = Math.ceil((60 - elapsed / 1000));
+        return NextResponse.json(
+          { error: `发送太频繁，请 ${remaining} 秒后重试` },
+          { status: 429 }
+        );
+      }
+
+      // 生成验证码
+      const code = generateCode();
+
+      // 保存验证码到数据库
+      const { error: insertError } = await sb
+        .from('email_verification_codes')
+        .insert({
+          email: email,
+          code: code,
+          used: false,
+          attempts: 0,
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 分钟有效
+        });
+
+      if (insertError) {
+        console.error('保存验证码失败:', insertError);
+        return NextResponse.json({ error: '验证码保存失败' }, { status: 500 });
+      }
+
+      // 发送邮件
+      try {
+        const sent = await sendVerificationEmail(email, code);
+        if (!sent) {
+          return NextResponse.json({ error: '邮件发送失败，请检查 SMTP 配置' }, { status: 500 });
+        }
+        return NextResponse.json({ message: '验证码已发送到邮箱' });
+      } catch (emailError) {
+        console.error('发送邮件失败:', emailError);
+        return NextResponse.json({ error: '邮件服务未配置，请联系管理员' }, { status: 500 });
+      }
+    }
+
+    // 处理手机号
     if (!phone) {
-      return NextResponse.json({ error: '请输入手机号' }, { status: 400 });
+      return NextResponse.json({ error: '请输入手机号或邮箱' }, { status: 400 });
     }
 
     // 验证手机号格式（中国大陆）
@@ -76,7 +139,6 @@ export async function POST(request: Request) {
     }
 
     // TODO: 调用实际短信服务发送验证码
-    // 目前由于 Supabase Auth 的短信服务可能未配置，这里仅做演示
     console.log(`向手机号 ${phone} 发送验证码: ${code}`);
 
     return NextResponse.json({ message: '验证码发送成功' });

@@ -109,19 +109,21 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      if (!supabase) { setError('系统初始化中，请稍后'); return; }
-      console.log('[Login] Sending OTP to:', email);
-      const { error: sendError, data } = await supabase.auth.signInWithOtp({
-        email,
+      console.log('[Login] Sending email code via custom SMTP to:', email);
+      const res = await fetch('/api/auth/send-phone-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      console.log('[Login] OTP response:', { error: sendError?.message, data });
-      if (sendError) {
-        setError(sendError.message || '发送验证码失败');
+      const data = await res.json();
+      console.log('[Login] Email code response:', data);
+      if (!res.ok) {
+        setError(data.error || '发送验证码失败');
         return;
       }
       startEmailCountdown();
     } catch (e) {
-      console.error('[Login] Send OTP error:', e);
+      console.error('[Login] Send email code error:', e);
       setError('发送验证码失败，请稍后重试');
     } finally {
       setIsLoading(false);
@@ -163,17 +165,18 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      if (!supabase) { setError('系统初始化中，请稍后'); return; }
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: emailOtp,
-        type: 'email',
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, emailCode: emailOtp }),
       });
-      if (verifyError) {
-        setError('验证码错误或已过期，请重试或重新获取');
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '登录失败，请稍后重试');
         return;
       }
-      router.push('/');
+      // 登录成功，刷新页面以让 AuthProvider 获取用户信息
+      window.location.href = '/';
     } catch {
       setError('登录失败，请稍后重试');
     } finally {
