@@ -139,9 +139,13 @@ export async function POST(request: Request) {
     }
 
     // TODO: 调用实际短信服务发送验证码
-    console.log(`向手机号 ${phone} 发送验证码: ${code}`);
+    // 开发环境：在日志和控制台显示验证码
+    console.log(`[DEBUG] 向手机号 ${phone} 发送验证码: ${code}`);
 
-    return NextResponse.json({ message: '验证码发送成功' });
+    return NextResponse.json({
+      message: '验证码发送成功',
+      debug: { phone, code }  // 开发环境返回验证码，生产环境删除此行
+    });
   } catch (error) {
     console.error('发送验证码失败:', error);
     return NextResponse.json({ error: '发送失败，请稍后重试' }, { status: 500 });
