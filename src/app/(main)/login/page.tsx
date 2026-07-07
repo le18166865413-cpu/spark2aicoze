@@ -83,18 +83,20 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/send-phone-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
+      console.log('[Login] Sending SMS OTP to:', phone);
+      // 使用 Supabase Auth 发送短信验证码
+      const { error: sendError } = await supabase.auth.signInWithOtp({
+        phone: '+86' + phone,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || '发送验证码失败');
+      console.log('[Login] SMS OTP response:', { error: sendError?.message });
+      if (sendError) {
+        setError(sendError.message || '发送验证码失败');
         return;
       }
       startPhoneCountdown();
-    } catch {
+    } catch (e) {
+      console.error('[Login] Send SMS OTP error:', e);
       setError('发送验证码失败，请稍后重试');
     } finally {
       setIsLoading(false);
@@ -138,19 +140,27 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, phoneCode: phoneOtp }),
+      if (!supabase) { setError('系统初始化中，请稍后'); return; }
+      console.log('[Login] Verifying phone OTP:', phone, phoneOtp);
+      // 使用 Supabase Auth 验证短信验证码
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        phone: '+86' + phone,
+        token: phoneOtp,
+        type: 'sms',
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || '登录失败，请稍后重试');
+      console.log('[Login] Phone OTP verify response:', { 
+        user: data?.user?.id, 
+        session: data?.session?.access_token ? 'yes' : 'no',
+        error: verifyError?.message 
+      });
+      if (verifyError) {
+        setError(verifyError.message || '验证码错误或已过期');
         return;
       }
       // 登录成功，刷新页面以让 AuthProvider 获取用户信息
       window.location.href = '/';
-    } catch {
+    } catch (e) {
+      console.error('[Login] Phone login error:', e);
       setError('登录失败，请稍后重试');
     } finally {
       setIsLoading(false);
