@@ -405,6 +405,150 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Action: 合并重复用户（相同手机号或邮箱）
+    // 重要：auth.users 和 public.users 是两个独立的表
+    // - auth.users: Supabase Auth 内置表，用于认证（登录）
+    // - public.users: 业务表，用于存储用户数据（昵称、角色、状态等）
+    // 合并逻辑：
+    // 1. 找出 public.users 中相同手机号/邮箱的重复记录
+    // 2. 保留最早创建的记录（主记录）
+    // 3. 将其他重复记录的作品（gallery_images）迁移到主记录
+    // 4. 删除重复记录
+    if (action === "mergeDuplicateUsers") {
+      const sb = getSupabaseClient();
+      let mergedCount = 0;
+      let errors: string[] = [];
+
+      // 1. 查找手机号重复的用户
+      const { data: phoneDuplicates } = await sb
+        .from("users")
+        .select("id, phone, username, created_at")
+        .not("phone", "is", null)
+        .neq("phone", "")
+        .order("created_at", { ascending: true });
+
+      if (phoneDuplicates && phoneDuplicates.length > 0) {
+        // 按 phone 分组
+        const phoneGroups: Record<string, typeof phoneDuplicates> = {};
+        for (const user of phoneDuplicates) {
+          if (!phoneGroups[user.phone]) {
+            phoneGroups[user.phone] = [];
+          }
+          phoneGroups[user.phone].push(user);
+        }
+
+        // 处理每组重复
+        for (const [phone, users] of Object.entries(phoneGroups)) {
+          if (users.length > 1) {
+            // 保留最早创建的（第一个）
+            const mainUser = users[0];
+            const duplicateUsers = users.slice(1);
+
+            for (const dupUser of duplicateUsers) {
+              // 迁移作品到主用户
+              const { error: migrateError } = await sb
+                .from("gallery_images")
+                .update({ user_id: mainUser.id, creator_name: mainUser.username || `用户${mainUser.id.slice(0, 8)}` })
+                .eq("user_id", dupUser.id);
+
+              if (migrateError) {
+                errors.push(`迁移作品失败: ${dupUser.id} -> ${mainUser.id}: ${migrateError.message}`);
+                continue;
+              }
+
+              // 迁移 Brand Kit
+              await sb
+                .from("brand_kit")
+                .update({ user_id: mainUser.id })
+                .eq("user_id", dupUser.id);
+
+              // 删除重复用户
+              const { error: deleteError } = await sb
+                .from("users")
+                .delete()
+                .eq("id", dupUser.id);
+
+              if (deleteError) {
+                errors.push(`删除重复用户失败: ${dupUser.id}: ${deleteError.message}`);
+              } else {
+                mergedCount++;
+                console.log(`合并用户: ${dupUser.id} -> ${mainUser.id} (手机号: ${phone})`);
+              }
+            }
+          }
+        }
+      }
+
+      // 2. 查找邮箱重复的用户
+      const { data: emailDuplicates } = await sb
+        .from("users")
+        .select("id, email, username, created_at")
+        .not("email", "is", null)
+        .neq("email", "")
+        .order("created_at", { ascending: true });
+
+      if (emailDuplicates && emailDuplicates.length > 0) {
+        // 按 email 分组
+        const emailGroups: Record<string, typeof emailDuplicates> = {};
+        for (const user of emailDuplicates) {
+          if (!emailGroups[user.email]) {
+            emailGroups[user.email] = [];
+          }
+          emailGroups[user.email].push(user);
+        }
+
+        // 处理每组重复
+        for (const [email, users] of Object.entries(emailGroups)) {
+          if (users.length > 1) {
+            // 保留最早创建的（第一个）
+            const mainUser = users[0];
+            const duplicateUsers = users.slice(1);
+
+            for (const dupUser of duplicateUsers) {
+              // 迁移作品到主用户
+              const { error: migrateError } = await sb
+                .from("gallery_images")
+                .update({ user_id: mainUser.id, creator_name: mainUser.username || `用户${mainUser.id.slice(0, 8)}` })
+                .eq("user_id", dupUser.id);
+
+              if (migrateError) {
+                errors.push(`迁移作品失败: ${dupUser.id} -> ${mainUser.id}: ${migrateError.message}`);
+                continue;
+              }
+
+              // 迁移 Brand Kit
+              await sb
+                .from("brand_kit")
+                .update({ user_id: mainUser.id })
+                .eq("user_id", dupUser.id);
+
+              // 删除重复用户
+              const { error: deleteError } = await sb
+                .from("users")
+                .delete()
+                .eq("id", dupUser.id);
+
+              if (deleteError) {
+                errors.push(`删除重复用户失败: ${dupUser.id}: ${deleteError.message}`);
+              } else {
+                mergedCount++;
+                console.log(`合并用户: ${dupUser.id} -> ${mainUser.id} (邮箱: ${email})`);
+              }
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: mergedCount > 0 
+          ? `合并完成：处理了 ${mergedCount} 个重复用户`
+          : "没有发现重复用户",
+        merged: mergedCount,
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+      });
+    }
+
     return NextResponse.json({ error: "未知的 action" }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "操作失败";

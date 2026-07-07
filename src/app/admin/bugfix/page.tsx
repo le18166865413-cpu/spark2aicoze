@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload, FileText, Phone } from "lucide-react";
+import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload, FileText, Phone, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BugfixPage() {
@@ -283,6 +283,39 @@ export default function BugfixPage() {
     }
   };
 
+  // 合并重复用户（相同手机号或邮箱）
+  const handleMergeDuplicateUsers = async () => {
+    const confirmed = window.confirm(
+      "确定要合并重复用户吗？\n\n这将：\n1. 找出相同手机号或邮箱的重复用户\n2. 保留最早创建的用户（主用户）\n3. 将重复用户的作品迁移到主用户\n4. 删除重复用户记录"
+    );
+    if (!confirmed) return;
+
+    setLoading("mergeDuplicateUsers");
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/bugfix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "mergeDuplicateUsers" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ type: "success", message: data.message });
+        toast.success(data.message);
+      } else {
+        setResult({ type: "error", message: data.error || "合并失败" });
+        toast.error(data.error || "合并失败");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult({ type: "error", message: msg });
+      toast.error(msg);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -318,6 +351,32 @@ export default function BugfixPage() {
               <Phone className="w-4 h-4 mr-2" />
             )}
             一键修复手机号/邮箱
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            合并重复用户
+          </CardTitle>
+          <CardDescription>
+            检查相同手机号或邮箱的重复用户，自动合并为一个账户。保留最早创建的用户，迁移作品后删除重复记录。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={handleMergeDuplicateUsers}
+            disabled={loading === "mergeDuplicateUsers"}
+            className="w-full sm:w-auto"
+          >
+            {loading === "mergeDuplicateUsers" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Users className="w-4 h-4 mr-2" />
+            )}
+            一键合并重复用户
           </Button>
         </CardContent>
       </Card>
