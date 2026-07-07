@@ -171,6 +171,13 @@ export async function GET(request: NextRequest) {
         ? supabaseEmail.split('@')[0]
         : (supabasePhone ? 'm_' + supabasePhone.slice(-8) : 'u_' + supabaseUserId.slice(0, 8));
 
+      // 自动生成昵称：手机号后4位或邮箱前4位
+      const autoNickname = supabasePhone 
+        ? supabasePhone.slice(-4)
+        : supabaseEmail 
+          ? supabaseEmail.split('@')[0].slice(0, 4)
+          : null;
+
       const { data: newUser, error: createErr } = await db
         .from('users')
         .insert({
@@ -178,7 +185,7 @@ export async function GET(request: NextRequest) {
           username,
           email: supabaseEmail || null,
           phone: supabasePhone || null,
-          nickname: supabaseName || (supabasePhone ? '用户' + supabasePhone.slice(-4) : null),
+          nickname: autoNickname,
           avatar: null,
           wechat: null,
           password: '',
@@ -199,7 +206,7 @@ export async function GET(request: NextRequest) {
             username,
             email: supabaseEmail || null,
             phone: supabasePhone || null,
-            nickname: supabaseName || (supabasePhone ? '用户' + supabasePhone.slice(-4) : null),
+            nickname: autoNickname,
             avatar: null,
             wechat: null,
             role: 'user',

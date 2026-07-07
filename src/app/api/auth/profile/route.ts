@@ -195,10 +195,18 @@ export async function PUT(request: NextRequest) {
       // Create user record (or re-insert if id was just migrated)
       const { data: checkAgain } = await sb.from('users').select('id').eq('id', userId).maybeSingle();
       if (!checkAgain) {
+        // 生成自动昵称：手机号后4位或邮箱前4位
+        const autoNickname = phone 
+          ? phone.replace(/^\+?86/, '').replace(/\D/g, '').slice(-4)
+          : email 
+            ? email.split('@')[0].slice(0, 4)
+            : null;
+
         const insertData: Record<string, unknown> = {
           id: userId,
           username: migratedUsername,
           password: '',
+          nickname: updates.nickname !== undefined ? updates.nickname : autoNickname,
           role: migratedRole,
           status: migratedStatus,
           can_generate: migratedStatus === 'approved',
@@ -208,7 +216,6 @@ export async function PUT(request: NextRequest) {
         if (email) insertData.email = email;
         // Normalize phone: strip +86/86 prefix
         if (phone) insertData.phone = phone.replace(/^\+?86/, '').replace(/\D/g, '');
-        if (updates.nickname !== undefined) insertData.nickname = updates.nickname;
         if (updates.wechat !== undefined) insertData.wechat = updates.wechat;
         if (updates.avatar !== undefined) insertData.avatar = updates.avatar;
 

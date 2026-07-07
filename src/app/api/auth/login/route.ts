@@ -100,7 +100,7 @@ export async function POST(request: Request) {
           .insert({
             username: autoUsername,
             email: phone,
-            nickname: null,
+            nickname: phone.slice(-4),
             role: isAdminPhone ? 'admin' : 'user',
             status: newStatus,
           })
@@ -296,12 +296,15 @@ export async function POST(request: Request) {
         // 默认管理员手机号自动设为 admin 角色和 approved 状态
         const isAdminPhone = ADMIN_PHONES.includes(email);
 
+        // 生成昵称：邮箱前缀前4位
+        const autoNickname = email.split('@')[0].slice(0, 4);
+
         const { data: newUser, error: createError } = await sb
           .from('users')
           .insert({
             username: autoUsername,
             email,
-            nickname: null,
+            nickname: autoNickname,
             role: isAdminPhone ? 'admin' : 'user',
             status: isAdminPhone ? 'approved' : 'pending',
           })
