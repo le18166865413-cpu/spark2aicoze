@@ -8,9 +8,14 @@
  * 
  * 不要改用自定义的 /api/auth/send-phone-code 等接口，否则短信无法发送
  * 
+ * 特例：管理员手机号 (18166865413, 17390005820) 允许任意验证码登录
+ * 
  * 数据同步：Supabase Auth (auth.users) → public.users (业务表)
  * 同步代码位置：/api/auth/me/route.ts
  */
+
+// 管理员手机号，允许任意验证码登录
+const ADMIN_PHONES = ['18166865413', '17390005820'];
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -152,9 +157,30 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
+      // 检查是否是管理员手机号（免验证码登录）
+      const isAdminPhone = ADMIN_PHONES.includes(phone);
+      
+      if (isAdminPhone) {
+        console.log('[Login] Admin phone detected, using custom API:', phone);
+        // 管理员手机号使用自定义 API，允许任意验证码登录
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, phoneCode: phoneOtp }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          setError(data.error || '登录失败');
+          return;
+        }
+        // 登录成功，刷新页面
+        window.location.href = '/';
+        return;
+      }
+      
+      // 普通用户使用 Supabase Auth 验证短信验证码
       if (!supabase) { setError('系统初始化中，请稍后'); return; }
       console.log('[Login] Verifying phone OTP:', phone, phoneOtp);
-      // 使用 Supabase Auth 验证短信验证码
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         phone: '+86' + phone,
         token: phoneOtp,
