@@ -186,7 +186,7 @@ export async function POST(request: Request) {
 
     // ===== 邮箱验证码登录 =====
     if (email && verificationCode) {
-      if (!email || !code) {
+      if (!email || !verificationCode) {
         return NextResponse.json({ error: '请输入邮箱和验证码' }, { status: 400 });
       }
 
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
 
         // 找到匹配且未过期的验证码
         const matchedRecord = codeRecords.find(r => {
-          return new Date(r.expires_at) >= new Date() && r.code === code && r.attempts < 5;
+          return new Date(r.expires_at) >= new Date() && r.code === verificationCode && r.attempts < 5;
         });
 
         if (!matchedRecord) {
