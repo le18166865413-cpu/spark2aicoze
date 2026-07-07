@@ -20,6 +20,9 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const pendingCount = data?.filter(u => u.status === 'pending').length || 0;
+    console.log(`[Admin Users] Total: ${data?.length || 0}, Pending: ${pendingCount}`);
+
     // Fetch work counts for all users in one go
     const { data: images } = await getSupabaseClient()
       .from('gallery_images')

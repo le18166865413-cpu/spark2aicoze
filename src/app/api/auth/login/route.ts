@@ -92,6 +92,8 @@ export async function POST(request: Request) {
       // 如果用户不存在，自动注册
       if (!user) {
         const autoUsername = 'user_' + crypto.randomUUID().substring(0, 8);
+        const newStatus = isAdminPhone ? 'approved' : 'pending';
+        console.log(`[Login] Auto-registering phone=${phone}, isAdmin=${isAdminPhone}, status=${newStatus}`);
 
         const { data: newUser, error: createError } = await sb
           .from('users')
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
             email: phone,
             nickname: null,
             role: isAdminPhone ? 'admin' : 'user',
-            status: isAdminPhone ? 'approved' : 'pending',
+            status: newStatus,
           })
           .select('id, username, nickname, role, status, email, wechat, avatar, can_generate')
           .single();
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 });
         }
 
+        console.log(`[Login] Auto-registered user: id=${newUser.id}, status=${newUser.status}`);
         user = newUser;
       } else if (isAdminPhone && user.role !== 'admin') {
         // 如果已存在但不是 admin，更新为 admin
