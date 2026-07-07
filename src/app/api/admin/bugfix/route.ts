@@ -322,6 +322,89 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 修复用户手机号/邮箱字段错乱
+    if (action === "fixPhoneEmail") {
+      // 查找 email 字段是手机号格式（11位纯数字）且 phone 为空的记录
+      const { data: usersToFix, error: queryError } = await supabase
+        .from("users")
+        .select("id, email, phone")
+        .not("email", "is", null)
+        .is("phone", null);
+
+      if (queryError) {
+        return NextResponse.json({ error: queryError.message }, { status: 500 });
+      }
+
+      // 筛选出 email 是手机号格式的记录
+      const phoneRegex = /^1[3-9]\d{9}$/;
+      const usersWithPhoneInEmail = (usersToFix || []).filter(
+        (u) => u.email && phoneRegex.test(u.email)
+      );
+
+      if (usersWithPhoneInEmail.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "没有需要修复的记录",
+          fixed: 0,
+          total: 0,
+        });
+      }
+
+      let fixed = 0;
+      const errors: string[] = [];
+
+      for (const user of usersWithPhoneInEmail) {
+        try {
+          // 检查是否有冲突（phone 已存在）
+          const { data: existingUser } = await supabase
+            .from("users")
+            .select("id")
+            .eq("phone", user.email)
+            .maybeSingle();
+
+          if (existingUser && existingUser.id !== user.id) {
+            // 有冲突，删除当前用户（保留 phone 正确的那个）
+            const { error: deleteError } = await supabase
+              .from("users")
+              .delete()
+              .eq("id", user.id);
+
+            if (deleteError) {
+              errors.push(`删除重复用户 ${user.id} 失败: ${deleteError.message}`);
+            } else {
+              fixed++;
+            }
+          } else {
+            // 无冲突，迁移 email -> phone，清空 email
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({
+                phone: user.email,
+                email: null,
+              })
+              .eq("id", user.id);
+
+            if (updateError) {
+              errors.push(`更新用户 ${user.id} 失败: ${updateError.message}`);
+            } else {
+              fixed++;
+            }
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`处理用户 ${user.id} 失败: ${msg}`);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `修复完成：成功处理 ${fixed}/${usersWithPhoneInEmail.length} 条记录`,
+        fixed,
+        total: usersWithPhoneInEmail.length,
+        errors: errors.length > 0 ? errors.slice(0, 20) : undefined,
+      });
+    }
+
     return NextResponse.json({ error: "未知的 action" }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "操作失败";

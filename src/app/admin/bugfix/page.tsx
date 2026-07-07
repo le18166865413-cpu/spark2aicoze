@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload, FileText } from "lucide-react";
+import { Bug, UserX, Trash2, AlertTriangle, Loader2, Download, Upload, FileText, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BugfixPage() {
@@ -251,6 +251,38 @@ export default function BugfixPage() {
     }
   };
 
+  const handleFixPhoneEmail = async () => {
+    const confirmed = window.confirm(
+      "确定要修复用户手机号/邮箱字段吗？\n\n这将：\n1. 将 email 字段中的手机号（11位纯数字）迁移到 phone 字段\n2. 清空这些用户的 email 字段\n3. 如有重复用户则自动合并"
+    );
+    if (!confirmed) return;
+
+    setLoading("fixPhoneEmail");
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/bugfix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "fixPhoneEmail" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ type: "success", message: data.message });
+        toast.success(data.message);
+      } else {
+        setResult({ type: "error", message: data.error || "修复失败" });
+        toast.error(data.error || "修复失败");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult({ type: "error", message: msg });
+      toast.error(msg);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -263,6 +295,32 @@ export default function BugfixPage() {
           <AlertDescription className="whitespace-pre-wrap">{result.message}</AlertDescription>
         </Alert>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Phone className="w-5 h-5" />
+            修复手机号/邮箱字段
+          </CardTitle>
+          <CardDescription>
+            将错误存储在 email 字段中的手机号迁移到 phone 字段。适用于早期版本手机号登录时数据存储错误的修复。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={handleFixPhoneEmail}
+            disabled={loading === "fixPhoneEmail"}
+            className="w-full sm:w-auto"
+          >
+            {loading === "fixPhoneEmail" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Phone className="w-4 h-4 mr-2" />
+            )}
+            一键修复手机号/邮箱
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
